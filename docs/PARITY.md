@@ -43,10 +43,18 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 - ⬜ Priority, comment, download password, variable-insertion menu, Add Container
 
 ## Settings
-- ✅ Page rail + pages: General, Connection, Reconnect, LinkGrabber, Appearance, Accounts, About
+- ✅ Page rail + pages: General, Connection, Reconnect, LinkGrabber, Appearance, Accounts,
+  Backup, About
 - ✅ Live-bound controls (folder, sliders, toggles, combos)
+- ✅ My.JDownloader credentials (email + password fields)
+- ✅ Full settings export/import incl. secrets — AES-256-GCM encrypted `.jdmbackup`
+  (upstream: File → Backup create/restore)
 - ⬜ Account Manager (real accounts), Plugins, Captcha, Filters, Packagizer, Advanced (searchable)
 - ⬜ Extension manager
+
+## Tooling
+- ✅ Zero-setup build & run scripts (`run.cmd` / `run.sh`): auto-provision JDK via Adoptium,
+  Maven via the bundled wrapper
 
 ## Engine
 - ✅ `DownloadEngine` interface (control, model, stats, settings)

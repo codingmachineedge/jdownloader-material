@@ -8,6 +8,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
@@ -23,6 +24,7 @@ import org.jdownloader.material.engine.Settings;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
+import org.jdownloader.material.ui.dialog.BackupPanels;
 
 /** Material preferences screen: a page rail on the left, setting rows on the right. */
 public final class SettingsView extends BorderPane {
@@ -45,6 +47,7 @@ public final class SettingsView extends BorderPane {
         addTab(rail, "LinkGrabber", "link", linkgrabberPage(), false);
         addTab(rail, "Appearance", "palette", appearancePage(), false);
         addTab(rail, "Accounts", "account", accountsPage(), false);
+        addTab(rail, "Backup", "shield", backupPage(), false);
         addTab(rail, "About", "info", aboutPage(), false);
 
         var header = new HBox(Mat.label("Settings", "headline"));
@@ -164,7 +167,37 @@ public final class SettingsView extends BorderPane {
                 addBtn);
         card.getStyleClass().add("md-card-flat");
         card.setMaxWidth(560);
-        return page(sectionTitle("Account Manager"), card);
+
+        TextField email = new TextField();
+        email.setPromptText("email@example.com");
+        email.textProperty().bindBidirectional(s.myjdEmailProperty());
+        email.setPrefWidth(280);
+        PasswordField password = new PasswordField();
+        password.setPromptText("••••••••");
+        password.textProperty().bindBidirectional(s.myjdPasswordProperty());
+        password.setPrefWidth(280);
+
+        return page(sectionTitle("Account Manager"), card,
+                sectionTitle("My.JDownloader"),
+                row("Email", "Remote-control account", email),
+                row("Password", "Stored in memory; exported only encrypted", password));
+    }
+
+    private Node backupPage() {
+        var exportBtn = Mat.filled("Export settings…", "download");
+        exportBtn.setOnAction(e -> BackupPanels.openExport(notifier, s));
+        var importBtn = Mat.outlined("Import settings…", "folder");
+        importBtn.setOnAction(e -> BackupPanels.openImport(notifier, s));
+        var card = new VBox(12,
+                Mat.label("Settings backup", "title"),
+                Mat.label("Exports every setting — including secrets like the My.JDownloader "
+                        + "password — to a single file encrypted with AES-256-GCM under a "
+                        + "passphrase you choose. Import restores the full configuration on "
+                        + "any machine.", "row-desc"),
+                new HBox(8, exportBtn, importBtn));
+        card.getStyleClass().add("md-card-flat");
+        card.setMaxWidth(560);
+        return page(sectionTitle("Export / Import"), card);
     }
 
     private Node aboutPage() {

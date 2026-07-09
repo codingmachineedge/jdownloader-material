@@ -12,7 +12,7 @@ clean [engine boundary](docs/ENGINE_API.md), rather than reimplementing the down
 ![Downloads — light](docs/screenshots/downloads-light.png)
 ![Downloads — dark](docs/screenshots/downloads-dark.png)
 
-- **Language:** Java 21+ (built and tested on Temurin 25)
+- **Language:** Java 25 (Temurin), JavaFX 25
 - **UI:** JavaFX 25, MaterialFX components, hand-authored Material 3 stylesheet
 - **Themes:** Material light + dark, switchable at runtime from the app bar
 - **Engine:** a swappable [`DownloadEngine`](src/main/java/org/jdownloader/material/engine/DownloadEngine.java)
@@ -48,7 +48,20 @@ Implemented so far:
 
 ## Building & running
 
-Requires a JDK 21+ and Maven 3.9+.
+**Zero-setup (recommended)** — no Java, no Maven required; the script provisions everything:
+
+```sh
+run.cmd        # Windows
+./run.sh       # Linux / macOS
+```
+
+The script finds a JDK 25+ (`JAVA_HOME`, `PATH`, or a previously provisioned `.jdk/`); if none
+exists it downloads Eclipse Temurin 25 from the Adoptium API for your OS/architecture into a
+project-local `.jdk/` folder (no admin rights, no system changes), then builds and launches
+through the bundled Maven Wrapper, which self-downloads Maven the same way. First run needs an
+internet connection; supported platforms are Windows, macOS, and Linux on x64/arm64.
+
+**With your own toolchain** (JDK 25+, Maven 3.9+):
 
 ```sh
 mvn javafx:run       # build and launch
@@ -57,6 +70,14 @@ mvn package          # build a jar
 ```
 
 MaterialFX and JavaFX are resolved from Maven Central automatically.
+
+## Settings backup (encrypted, secrets included)
+
+Settings → **Backup** exports every setting — including secrets such as the My.JDownloader
+password — to a single `.jdmbackup` file, and imports restore the full configuration on any
+machine. The entire file is encrypted with **AES-256-GCM** under a key derived from your
+passphrase (PBKDF2-HmacSHA256, 210k iterations, random salt); nothing is written in plaintext
+and a wrong passphrase or tampered file fails authentication cleanly.
 
 ## Project layout
 

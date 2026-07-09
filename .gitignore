@@ -4,6 +4,9 @@ build/
 out/
 bin/
 
+# Auto-provisioned toolchain (run.cmd / run.sh)
+.jdk/
+
 # IDE
 .idea/
 *.iml

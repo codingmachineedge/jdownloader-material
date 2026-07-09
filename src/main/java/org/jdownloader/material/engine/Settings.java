@@ -50,6 +50,11 @@ public final class Settings {
     private final BooleanProperty darkTheme = new SimpleBooleanProperty(this, "darkTheme", false);
     private final BooleanProperty speedInTitle = new SimpleBooleanProperty(this, "speedInTitle", true);
 
+    // My.JDownloader remote-control credentials (the password is a secret —
+    // see SettingsIO, which only ever writes settings encrypted).
+    private final StringProperty myjdEmail = new SimpleStringProperty(this, "myjdEmail", "");
+    private final StringProperty myjdPassword = new SimpleStringProperty(this, "myjdPassword", "");
+
     public StringProperty downloadFolderProperty() { return downloadFolder; }
     public IntegerProperty maxSimultaneousDownloadsProperty() { return maxSimultaneousDownloads; }
     public IntegerProperty maxChunksPerDownloadProperty() { return maxChunksPerDownload; }
@@ -65,4 +70,6 @@ public final class Settings {
     public StringProperty reconnectMethodProperty() { return reconnectMethod; }
     public BooleanProperty darkThemeProperty() { return darkTheme; }
     public BooleanProperty speedInTitleProperty() { return speedInTitle; }
+    public StringProperty myjdEmailProperty() { return myjdEmail; }
+    public StringProperty myjdPasswordProperty() { return myjdPassword; }
 }
