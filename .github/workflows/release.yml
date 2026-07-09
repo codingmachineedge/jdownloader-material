@@ -1,0 +1,233 @@
+name: Release installers
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  APP_NAME: JDownloader Material
+  APP_VERSION: 0.1.${{ github.run_number }}
+  MAIN_CLASS: org.jdownloader.material.app.Launcher
+
+jobs:
+  build-installer:
+    name: Build ${{ matrix.platform }} installer
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: windows-x64
+            package-type: exe
+            extension: exe
+          - runner: ubuntu-latest
+            platform: linux-x64
+            package-type: deb
+            extension: deb
+          - runner: macos-15
+            platform: macos-arm64
+            package-type: dmg
+            extension: dmg
+          - runner: macos-15-intel
+            platform: macos-x64
+            package-type: dmg
+            extension: dmg
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Build and stage runtime files
+        shell: pwsh
+        run: |
+          $maven = if ($IsWindows) { ".\mvnw.cmd" } else { "./mvnw" }
+          $inputDir = Join-Path $PWD "target/package-input"
+
+          & $maven --batch-mode --no-transfer-progress clean package `
+            org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies `
+            "-DincludeScope=runtime" `
+            "-DoutputDirectory=$inputDir"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Maven build failed with exit code $LASTEXITCODE."
+          }
+
+          $appJars = @(
+            Get-ChildItem -Path (Join-Path $PWD "target") -File -Filter "*.jar" |
+              Where-Object { $_.Name -notmatch "-(sources|javadoc|tests)\.jar$" }
+          )
+          if ($appJars.Count -ne 1) {
+            throw "Expected exactly one application JAR, found $($appJars.Count)."
+          }
+
+          Copy-Item -LiteralPath $appJars[0].FullName -Destination $inputDir
+          "MAIN_JAR=$($appJars[0].Name)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Create native installer
+        shell: pwsh
+        env:
+          PACKAGE_TYPE: ${{ matrix.package-type }}
+          PLATFORM: ${{ matrix.platform }}
+          EXTENSION: ${{ matrix.extension }}
+        run: |
+          $inputDir = Join-Path $PWD "target/package-input"
+          $installerDir = Join-Path $PWD "target/installer"
+          $releaseDir = Join-Path $PWD "target/release"
+          New-Item -ItemType Directory -Force -Path $installerDir, $releaseDir | Out-Null
+
+          $arguments = @(
+            "--type", $env:PACKAGE_TYPE,
+            "--dest", $installerDir,
+            "--input", $inputDir,
+            "--name", $env:APP_NAME,
+            "--app-version", $env:APP_VERSION,
+            "--main-jar", $env:MAIN_JAR,
+            "--main-class", $env:MAIN_CLASS,
+            "--java-options", "-Djdownloader.material.version=$env:APP_VERSION",
+            "--vendor", "codingmachineedge",
+            "--description", "A Material Design front end for JDownloader",
+            "--verbose"
+          )
+
+          switch ($env:RUNNER_OS) {
+            "Windows" {
+              $arguments += @(
+                "--win-per-user-install",
+                "--win-dir-chooser",
+                "--win-menu",
+                "--win-menu-group", $env:APP_NAME,
+                "--win-shortcut",
+                "--win-upgrade-uuid", "a360c34f-9039-402e-9b5f-bb97667c9f27"
+              )
+            }
+            "Linux" {
+              $arguments += @(
+                "--linux-package-name", "jdownloader-material",
+                "--linux-deb-maintainer", "codingmachineedge@users.noreply.github.com",
+                "--linux-menu-group", "Network",
+                "--linux-shortcut"
+              )
+            }
+            "macOS" {
+              $arguments += @(
+                "--mac-package-identifier", "io.github.codingmachineedge.jdownloader-material",
+                "--mac-package-name", "JDMaterial"
+              )
+            }
+            default {
+              throw "Unsupported runner OS: $env:RUNNER_OS"
+            }
+          }
+
+          & jpackage @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "jpackage failed with exit code $LASTEXITCODE."
+          }
+
+          $installers = @(
+            Get-ChildItem -LiteralPath $installerDir -File |
+              Where-Object { $_.Extension -eq ".$env:EXTENSION" }
+          )
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one .$env:EXTENSION installer, found $($installers.Count)."
+          }
+
+          $assetName = "JDownloader-Material-$env:PLATFORM.$env:EXTENSION"
+          $assetPath = Join-Path $releaseDir $assetName
+          Move-Item -LiteralPath $installers[0].FullName -Destination $assetPath
+          if ((Get-Item -LiteralPath $assetPath).Length -lt 1MB) {
+            throw "Installer is unexpectedly small: $assetPath"
+          }
+
+      - name: Upload installer for release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ matrix.platform }}
+          path: target/release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  release:
+    name: Publish GitHub release
+    needs: build-installer
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
+          if [[ ${#assets[@]} -ne 4 ]]; then
+            printf 'Expected 4 installer assets, found %s:\n' "${#assets[@]}" >&2
+            printf '  %s\n' "${assets[@]:-<none>}" >&2
+            exit 1
+          fi
+
+          expected=(
+            "JDownloader-Material-linux-x64.deb"
+            "JDownloader-Material-macos-arm64.dmg"
+            "JDownloader-Material-macos-x64.dmg"
+            "JDownloader-Material-windows-x64.exe"
+          )
+          for asset in "${expected[@]}"; do
+            test -s "release-assets/$asset" || {
+              echo "Missing or empty release asset: $asset" >&2
+              exit 1
+            }
+          done
+
+      - name: Create or update release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${APP_VERSION}"
+          short_sha="${GITHUB_SHA::12}"
+          title="JDownloader Material ${APP_VERSION} (${short_sha})"
+          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
+          cat > release-notes.md <<EOF
+          Automated installer release for commit [\`${short_sha}\`](${commit_url}) on \`main\`.
+
+          The installers are self-contained and include the Java runtime. Windows and macOS
+          packages are currently unsigned, so the operating system may display a security warning.
+          EOF
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+            gh release edit "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --notes-file release-notes.md
+          else
+            gh release create "$tag" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes-file release-notes.md
+          fi

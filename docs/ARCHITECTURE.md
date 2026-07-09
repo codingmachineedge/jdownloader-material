@@ -7,7 +7,7 @@ direction: **UI → engine interface → model**. The UI never depends on a conc
         ┌────────────────────────── ui ──────────────────────────┐
         │  JDMaterialApp → MainWindow                            │
         │    ├─ view/DownloadsView   ├─ view/LinkGrabberView     │
-        │    ├─ view/SettingsView    ├─ dialog/AddLinksDialog    │
+        │    ├─ view/SettingsView    ├─ dialog/AddLinksPanel     │
         │    ├─ component/{Mat, DownloadCells, StatusBar}        │
         │    └─ ThemeManager, Icons                              │
         └───────────────┬───────────────────────────────────────┘

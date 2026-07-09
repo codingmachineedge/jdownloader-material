@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # JDownloader Material — zero-setup build & run (Windows).
 #
-# 1. Locates a JDK 21+ (JAVA_HOME, PATH, or a previously provisioned .jdk/).
+# 1. Locates a JDK 25+ (JAVA_HOME, PATH, or a previously provisioned .jdk/).
 # 2. If none is found, downloads Eclipse Temurin from the Adoptium API for this
 #    machine's architecture and unpacks it into .jdk/ (project-local, no admin,
 #    no system changes).

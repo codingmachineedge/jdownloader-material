@@ -1,5 +1,7 @@
 package org.jdownloader.material.engine;
 
+import java.nio.file.Path;
+
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -25,7 +27,8 @@ public final class Settings {
 
     // General
     private final StringProperty downloadFolder =
-            new SimpleStringProperty(this, "downloadFolder", System.getProperty("user.home") + "\\Downloads");
+            new SimpleStringProperty(this, "downloadFolder",
+                    Path.of(System.getProperty("user.home"), "Downloads").toString());
     private final IntegerProperty maxSimultaneousDownloads = new SimpleIntegerProperty(this, "maxSimultaneousDownloads", 3);
     private final IntegerProperty maxChunksPerDownload = new SimpleIntegerProperty(this, "maxChunksPerDownload", 4);
     private final javafx.beans.property.ObjectProperty<IfExists> ifFileExists =

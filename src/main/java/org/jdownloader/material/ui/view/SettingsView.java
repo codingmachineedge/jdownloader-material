@@ -201,13 +201,14 @@ public final class SettingsView extends BorderPane {
     }
 
     private Node aboutPage() {
+        String version = System.getProperty("jdownloader.material.version", "0.1.0");
         var mark = new StackPane(Icons.of("download", 28, "icon-on-primary"));
         mark.getStyleClass().add("app-mark");
         mark.setMinSize(56, 56);
         mark.setMaxSize(56, 56);
         var about = new VBox(6,
                 Mat.label("JDownloader Material", "display"),
-                Mat.label("Version 0.1.0 — a ground-up Material Design GUI for JDownloader.", "body"),
+                Mat.label("Version " + version + " — a ground-up Material Design GUI for JDownloader.", "body"),
                 Mat.label("JavaFX + MaterialFX front end over the JDownloader core engine.", "row-desc"));
         HBox head = new HBox(20, mark, about);
         head.setAlignment(Pos.CENTER_LEFT);

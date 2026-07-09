@@ -55,6 +55,8 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 ## Tooling
 - ✅ Zero-setup build & run scripts (`run.cmd` / `run.sh`): auto-provision JDK via Adoptium,
   Maven via the bundled wrapper
+- ✅ GitHub Actions release pipeline: self-contained Windows, Linux, and macOS installers on
+  every push to `main`
 
 ## Engine
 - ✅ `DownloadEngine` interface (control, model, stats, settings)

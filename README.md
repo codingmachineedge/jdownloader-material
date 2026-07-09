@@ -46,6 +46,18 @@ Implemented so far:
 - A **simulated engine** that schedules queued links up to the concurrency limit, advances
   downloads live, honors the global speed limit, and simulates availability checks/reconnects.
 
+## Installer releases
+
+Every push to `main` builds and publishes a new GitHub release with self-contained native
+installers for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. The installers
+include a Java 25 runtime, so users do not need to install Java or Maven separately.
+
+- [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
+- [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
+
+The release tag and installer metadata include the generated build version. Windows and macOS
+packages are currently unsigned, so SmartScreen or Gatekeeper may display a security warning.
+
 ## Building & running
 
 **Zero-setup (recommended)** — no Java, no Maven required; the script provisions everything:
