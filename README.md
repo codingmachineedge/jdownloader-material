@@ -55,8 +55,8 @@ include a Java 25 runtime, so users do not need to install Java or Maven separat
 - [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
 - [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
 
-The release tag and installer metadata include the generated build version. Windows and macOS
-packages are currently unsigned, so SmartScreen or Gatekeeper may display a security warning.
+The release tag and About page include the generated build version. Windows and macOS packages
+are currently unsigned, so SmartScreen or Gatekeeper may display a security warning.
 
 ## Building & running
 
