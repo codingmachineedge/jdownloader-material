@@ -79,11 +79,7 @@ public final class LinkGrabberView extends BorderPane {
 
         var remove = Mat.icon("delete", "Remove selected");
         remove.getStyleClass().add("danger");
-        remove.setOnAction(e -> {
-            int n = selectedPackages().size();
-            engine.removeCrawled(selectedPackages());
-            if (n > 0) notifier.snack("Removed " + n + (n == 1 ? " package" : " packages"));
-        });
+        remove.setOnAction(e -> removeSelected());
 
         HBox bar = new HBox(6, addLinks, paste, Mat.vSep(), confirm, addAll, Mat.hSpacer(), remove);
         bar.getStyleClass().add("action-toolbar");
@@ -218,6 +214,9 @@ public final class LinkGrabberView extends BorderPane {
             }
             if (pkgMatch || !pi.getChildren().isEmpty()) root.getChildren().add(pi);
         }
+        // Package rows derive text (online counts, sizes) at render time from
+        // non-observable values; force visible cells to re-render.
+        tree.refresh();
     }
 
     private Set<CrawledPackage> selectedPackages() {
@@ -233,6 +232,29 @@ public final class LinkGrabberView extends BorderPane {
 
     private java.util.Optional<CrawledPackage> parentOf(CrawledLink link) {
         return engine.crawledPackages().stream().filter(p -> p.links().contains(link)).findFirst();
+    }
+
+    /** Immediate remove with additive Undo — no confirm dialog. */
+    private void removeSelected() {
+        Set<CrawledPackage> sel = selectedPackages();
+        if (sel.isEmpty()) {
+            notifier.snack("Nothing selected to remove");
+            return;
+        }
+        var packages = engine.crawledPackages();
+        var indices = new java.util.LinkedHashMap<CrawledPackage, Integer>();
+        for (CrawledPackage p : sel) indices.put(p, packages.indexOf(p));
+
+        engine.removeCrawled(sel);
+
+        int n = sel.size();
+        notifier.snack("Removed " + n + (n == 1 ? " package" : " packages"), "Undo", () -> {
+            for (var entry : indices.entrySet()) {
+                if (!packages.contains(entry.getKey())) {
+                    packages.add(Math.min(entry.getValue(), packages.size()), entry.getKey());
+                }
+            }
+        });
     }
 
     private void confirmSelected() {

@@ -86,11 +86,7 @@ public final class DownloadsView extends BorderPane {
 
         var remove = Mat.icon("delete", "Remove selected");
         remove.getStyleClass().add("danger");
-        remove.setOnAction(e -> {
-            int n = selectedItems().size();
-            engine.removeDownloads(selectedItems());
-            if (n > 0) notifier.snack("Removed " + n + (n == 1 ? " item" : " items"));
-        });
+        remove.setOnAction(e -> removeSelected());
 
         HBox bar = new HBox(6, addLinks, Mat.vSep(), start, pause, stop, Mat.vSep(),
                 top, up, down, bottom, Mat.vSep(), remove);
@@ -160,7 +156,7 @@ public final class DownloadsView extends BorderPane {
         MenuItem expand = new MenuItem("Expand / collapse");
         expand.setOnAction(e -> toggleExpandSelected());
         MenuItem remove = new MenuItem("Remove");
-        remove.setOnAction(e -> engine.removeDownloads(selectedItems()));
+        remove.setOnAction(e -> removeSelected());
         return new ContextMenu(start, force, stop, new SeparatorMenuItem(), expand,
                 new SeparatorMenuItem(), remove);
     }
@@ -208,6 +204,45 @@ public final class DownloadsView extends BorderPane {
         return filter.isEmpty()
                 || l.nameProperty().getValue().toLowerCase().contains(filter)
                 || l.hostProperty().getValue().toLowerCase().contains(filter);
+    }
+
+    // ---------------------------------------------------------------- Remove
+    /**
+     * Removes the selection immediately and offers Undo via snackbar — the
+     * Material pattern replacing a confirm-delete dialog. Undo is additive:
+     * it re-inserts what was removed without disturbing anything added since.
+     */
+    private void removeSelected() {
+        List<DownloadItem> selection = selectedItems();
+        if (selection.isEmpty()) {
+            notifier.snack("Nothing selected to remove");
+            return;
+        }
+        // Snapshot the full structure so Undo can restore packages emptied
+        // (and auto-dropped) as a side effect of removing their last links.
+        var packages = engine.downloadPackages();
+        List<DownloadPackage> pkgOrder = new ArrayList<>(packages);
+        var linkOrder = new java.util.HashMap<DownloadPackage, List<DownloadLink>>();
+        for (DownloadPackage p : pkgOrder) linkOrder.put(p, new ArrayList<>(p.links()));
+
+        int n = selection.size();
+        engine.removeDownloads(selection);
+
+        notifier.snack("Removed " + n + (n == 1 ? " item" : " items"), "Undo", () -> {
+            for (int i = 0; i < pkgOrder.size(); i++) {
+                DownloadPackage p = pkgOrder.get(i);
+                if (!packages.contains(p)) {
+                    packages.add(Math.min(i, packages.size()), p);
+                }
+                List<DownloadLink> wanted = linkOrder.get(p);
+                for (int j = 0; j < wanted.size(); j++) {
+                    DownloadLink l = wanted.get(j);
+                    if (!p.links().contains(l)) {
+                        p.links().add(Math.min(j, p.links().size()), l);
+                    }
+                }
+            }
+        });
     }
 
     // ------------------------------------------------------------- Selection

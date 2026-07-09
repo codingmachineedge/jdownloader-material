@@ -42,7 +42,10 @@ public class JDMaterialApp extends Application {
             return "JDownloader Material";
         }, engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
 
-        stage.setOnCloseRequest(e -> engine.shutdown());
+        stage.setOnCloseRequest(e -> {
+            window.dispose();
+            engine.shutdown();
+        });
         stage.show();
 
         // Optional demo hook. JD_DEMO=panel opens the Add Links panel; JD_DEMO=snack
@@ -56,6 +59,8 @@ public class JDMaterialApp extends Application {
                             new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3), e -> window.demoSnack()));
                     timeline.setCycleCount(6);
                     timeline.play();
+                } else if ("linkgrabber".equalsIgnoreCase(demo)) {
+                    window.showLinkGrabber();
                 } else {
                     window.openAddLinks();
                 }

@@ -13,6 +13,8 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.ui.component.ClipboardMonitor;
+import org.jdownloader.material.ui.component.DownloadNotifications;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.ui.component.StatusBar;
@@ -34,6 +36,10 @@ public final class MainWindow extends StackPane {
     private final StackPane content = new StackPane();
     private final ToggleGroup navGroup = new ToggleGroup();
     private final Runnable openAddLinks;
+    private final Runnable showLinkGrabber;
+    private final ClipboardMonitor clipboardMonitor;
+    @SuppressWarnings("unused") // holds listener registrations for the window's lifetime
+    private final DownloadNotifications transferNotifications;
 
     public MainWindow(DownloadEngine engine, ThemeManager theme) {
         this.engine = engine;
@@ -51,6 +57,7 @@ public final class MainWindow extends StackPane {
         ToggleButton linkgrabberTab = navItem("link", "LinkGrabber", linkgrabber);
         ToggleButton settingsTab = navItem("settings", "Settings", settings);
         navToLinkGrabber[0] = () -> { linkgrabberTab.setSelected(true); content.getChildren().setAll(linkgrabber); };
+        this.showLinkGrabber = navToLinkGrabber[0];
 
         VBox rail = new VBox(6, downloadsTab, linkgrabberTab, Mat.hSpacer(), settingsTab);
         rail.getStyleClass().add("nav-rail");
@@ -66,11 +73,29 @@ public final class MainWindow extends StackPane {
         downloadsTab.setSelected(true);
 
         getChildren().addAll(shell, notifier);
+
+        // Live behaviors surfaced as in-app notifications.
+        clipboardMonitor = new ClipboardMonitor(engine, notifier, () -> navToLinkGrabber[0].run());
+        clipboardMonitor.start();
+        transferNotifications = new DownloadNotifications(engine, notifier);
+        engine.reconnectingProperty().addListener((o, was, is) -> {
+            if (was && !is) notifier.snack("Reconnect complete — new IP assigned");
+        });
+    }
+
+    /** Stops timers owned by the window (called on application shutdown). */
+    public void dispose() {
+        clipboardMonitor.stop();
     }
 
     /** Opens the in-app Add Links panel programmatically (also used for demos/tests). */
     public void openAddLinks() {
         openAddLinks.run();
+    }
+
+    /** Switches to the LinkGrabber view programmatically (also used for demos/tests). */
+    public void showLinkGrabber() {
+        showLinkGrabber.run();
     }
 
     /** Fires a representative snackbar (used by the demo hook and future tests). */
