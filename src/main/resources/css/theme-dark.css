@@ -1,0 +1,66 @@
+/*
+ * JDownloader Material — Dark theme
+ * Material Design 3 baseline dark color roles. Same token names as
+ * theme-light.css; swapping this file is the whole light/dark switch.
+ */
+.root {
+    /* Primary */
+    -md-primary:                 #D0BCFF;
+    -md-on-primary:              #381E72;
+    -md-primary-container:       #4F378B;
+    -md-on-primary-container:    #EADDFF;
+
+    /* Secondary */
+    -md-secondary:               #CCC2DC;
+    -md-on-secondary:            #332D41;
+    -md-secondary-container:     #4A4458;
+    -md-on-secondary-container:  #E8DEF8;
+
+    /* Tertiary */
+    -md-tertiary:                #EFB8C8;
+    -md-tertiary-container:      #633B48;
+
+    /* Error */
+    -md-error:                   #F2B8B5;
+    -md-on-error:                #601410;
+    -md-error-container:         #8C1D18;
+    -md-on-error-container:      #F9DEDC;
+
+    /* Success / warning (extended roles) */
+    -md-success:                 #9CD67D;
+    -md-success-container:       #245100;
+    -md-warning:                 #F5BE48;
+    -md-warning-container:       #5C4300;
+
+    /* Surfaces & background */
+    -md-background:              #141218;
+    -md-on-background:           #E6E0E9;
+    -md-surface:                 #141218;
+    -md-on-surface:              #E6E0E9;
+    -md-surface-variant:         #49454F;
+    -md-on-surface-variant:      #CAC4D0;
+
+    -md-surface-container-lowest:  #0F0D13;
+    -md-surface-container-low:     #1D1B20;
+    -md-surface-container:         #211F26;
+    -md-surface-container-high:    #2B2930;
+    -md-surface-container-highest: #36343B;
+
+    /* Outline */
+    -md-outline:                 #938F99;
+    -md-outline-variant:         #49454F;
+
+    /* Inverse */
+    -md-inverse-surface:         #E6E0E9;
+    -md-inverse-on-surface:      #322F35;
+
+    -md-shadow:                  rgba(0, 0, 0, 0.55);
+
+    -md-hover-overlay:           rgba(230, 224, 233, 0.08);
+    -md-focus-overlay:           rgba(230, 224, 233, 0.12);
+    -md-press-overlay:           rgba(230, 224, 233, 0.12);
+    -md-primary-hover:           derive(-md-primary, -8%);
+    -md-primary-press:           derive(-md-primary, -14%);
+
+    -fx-background-color: -md-background;
+}

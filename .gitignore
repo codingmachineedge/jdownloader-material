@@ -1,0 +1,20 @@
+# Build output
+target/
+build/
+out/
+bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+nbproject/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+*.log
+cp.txt

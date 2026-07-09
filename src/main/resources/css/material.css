@@ -1,0 +1,486 @@
+/*
+ * JDownloader Material — component stylesheet.
+ * Consumes ONLY the -md-* tokens defined by theme-light.css / theme-dark.css.
+ * Loaded after the active theme file so token lookups resolve.
+ */
+
+/* --------------------------------------------------------------- Icons */
+.mat-icon { -fx-background-color: -md-on-surface-variant; }
+.mat-icon.icon-on-surface        { -fx-background-color: -md-on-surface; }
+.mat-icon.icon-primary           { -fx-background-color: -md-primary; }
+.mat-icon.icon-on-primary        { -fx-background-color: -md-on-primary; }
+.mat-icon.icon-on-sec-container  { -fx-background-color: -md-on-secondary-container; }
+.mat-icon.icon-danger            { -fx-background-color: -md-error; }
+.mat-icon.icon-success           { -fx-background-color: -md-success; }
+/* keep icons inside colored buttons in step with the label */
+.filled-button .mat-icon   { -fx-background-color: -md-on-primary; }
+.tonal-button .mat-icon    { -fx-background-color: -md-on-secondary-container; }
+.outlined-button .mat-icon { -fx-background-color: -md-primary; }
+.text-button .mat-icon     { -fx-background-color: -md-primary; }
+.nav-item:selected .nav-glyph .mat-icon { -fx-background-color: -md-on-secondary-container; }
+
+/* ----------------------------------------------------------------- Base */
+.root {
+    -fx-font-family: "Segoe UI", "Roboto", "Noto Sans", sans-serif;
+    -fx-font-size: 14px;
+    -fx-text-fill: -md-on-surface;
+    -fx-focus-color: -md-primary;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Material type scale ------------------------------------------------- */
+.display   { -fx-font-size: 32px; -fx-font-weight: 400; -fx-text-fill: -md-on-surface; }
+.headline  { -fx-font-size: 24px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface; }
+.title     { -fx-font-size: 18px; -fx-font-weight: 600; -fx-text-fill: -md-on-surface; }
+.subtitle  { -fx-font-size: 15px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface; }
+.body      { -fx-font-size: 14px; -fx-font-weight: 400; -fx-text-fill: -md-on-surface; }
+.label-md  { -fx-font-size: 13px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface-variant; }
+.caption   { -fx-font-size: 12px; -fx-font-weight: 400; -fx-text-fill: -md-on-surface-variant; }
+.muted     { -fx-text-fill: -md-on-surface-variant; }
+
+/* ------------------------------------------------------------- Top app bar */
+.top-app-bar {
+    -fx-background-color: -md-surface-container;
+    -fx-padding: 8 12 8 12;
+    -fx-alignment: center-left;
+    -fx-spacing: 8;
+    -fx-min-height: 56;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.top-app-bar .app-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -md-on-surface;
+}
+.top-app-bar .app-mark {
+    -fx-background-color: -md-primary;
+    -fx-background-radius: 10;
+    -fx-min-width: 32; -fx-min-height: 32;
+    -fx-max-width: 32; -fx-max-height: 32;
+    -fx-alignment: center;
+}
+.top-app-bar .app-mark .glyph { -fx-fill: -md-on-primary; -fx-font-weight: 700; }
+
+/* ------------------------------------------------------------ Search field */
+.search-field {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 28;
+    -fx-border-radius: 28;
+    -fx-padding: 6 16 6 16;
+    -fx-prompt-text-fill: -md-on-surface-variant;
+    -fx-text-fill: -md-on-surface;
+    -fx-min-height: 40;
+}
+.search-field:focused {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-border-color: -md-primary;
+    -fx-border-width: 1;
+}
+
+/* --------------------------------------------------------- Navigation rail */
+.nav-rail {
+    -fx-background-color: -md-surface-container-low;
+    -fx-padding: 12 8 12 8;
+    -fx-spacing: 6;
+    -fx-min-width: 92; -fx-pref-width: 92;
+    -fx-alignment: top-center;
+    -fx-border-color: transparent -md-outline-variant transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+.nav-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 18;
+    -fx-padding: 8 6 8 6;
+    -fx-spacing: 4;
+    -fx-alignment: center;
+    -fx-min-width: 72; -fx-max-width: 72;
+    -fx-cursor: hand;
+}
+.nav-item .nav-glyph {
+    -fx-font-size: 22px;
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-background-color: transparent;
+    -fx-background-radius: 16;
+    -fx-padding: 4 18 4 18;
+}
+.nav-item .nav-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: 500;
+    -fx-text-fill: -md-on-surface-variant;
+}
+.nav-item:hover .nav-glyph { -fx-background-color: -md-hover-overlay; }
+.nav-item:selected .nav-glyph {
+    -fx-background-color: -md-secondary-container;
+    -fx-text-fill: -md-on-secondary-container;
+}
+.nav-item:selected .nav-label { -fx-text-fill: -md-on-surface; }
+.nav-item .badge {
+    -fx-background-color: -md-primary;
+    -fx-text-fill: -md-on-primary;
+    -fx-background-radius: 8;
+    -fx-font-size: 10px;
+    -fx-padding: 1 5 1 5;
+}
+
+/* -------------------------------------------------------------- Content area */
+.content-area { -fx-background-color: -md-background; -fx-padding: 0; }
+.view-header {
+    -fx-padding: 16 20 8 20;
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+}
+
+/* --------------------------------------------------------------- Cards */
+.md-card {
+    -fx-background-color: -md-surface-container-low;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 8, 0.0, 0, 2);
+}
+.md-card-flat {
+    -fx-background-color: -md-surface-container-low;
+    -fx-background-radius: 16;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1;
+    -fx-border-radius: 16;
+    -fx-padding: 16;
+}
+
+/* ------------------------------------------------------------- Buttons
+ * Applied on MFXButton via extra style classes. */
+.filled-button {
+    -fx-background-color: -md-primary;
+    -fx-text-fill: -md-on-primary;
+    -mfx-text-fill: -md-on-primary;
+    -fx-background-radius: 20;
+    -fx-padding: 8 20 8 20;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+.filled-button:hover  { -fx-background-color: -md-primary-hover; }
+.filled-button:pressed{ -fx-background-color: -md-primary-press; }
+
+.tonal-button {
+    -fx-background-color: -md-secondary-container;
+    -fx-text-fill: -md-on-secondary-container;
+    -mfx-text-fill: -md-on-secondary-container;
+    -fx-background-radius: 20;
+    -fx-padding: 8 20 8 20;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+.tonal-button:hover { -fx-background-color: derive(-md-secondary-container, -6%); }
+
+.outlined-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -md-primary;
+    -mfx-text-fill: -md-primary;
+    -fx-border-color: -md-outline;
+    -fx-border-width: 1;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+    -fx-padding: 8 20 8 20;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+.outlined-button:hover { -fx-background-color: -md-hover-overlay; }
+
+.text-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -md-primary;
+    -mfx-text-fill: -md-primary;
+    -fx-background-radius: 20;
+    -fx-padding: 8 12 8 12;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+.text-button:hover { -fx-background-color: -md-hover-overlay; }
+
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -md-on-surface-variant;
+    -mfx-text-fill: -md-on-surface-variant;
+    -fx-background-radius: 20;
+    -fx-min-width: 40; -fx-min-height: 40;
+    -fx-max-width: 40; -fx-max-height: 40;
+    -fx-padding: 0;
+    -fx-font-size: 18px;
+    -fx-cursor: hand;
+    -fx-alignment: center;
+    -fx-content-display: graphic-only;
+}
+.icon-button:hover { -fx-background-color: -md-hover-overlay; }
+.icon-button.danger { -fx-text-fill: -md-error; -mfx-text-fill: -md-error; }
+.icon-button.danger .mat-icon { -fx-background-color: -md-error; }
+.icon-button.active { -fx-background-color: -md-secondary-container; }
+.icon-button.active .mat-icon { -fx-background-color: -md-on-secondary-container; }
+
+/* ------------------------------------------------------------- Toolbar */
+.action-toolbar {
+    -fx-background-color: -md-surface-container-low;
+    -fx-padding: 8 16 8 16;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.toolbar-sep {
+    -fx-min-width: 1; -fx-max-width: 1;
+    -fx-min-height: 24;
+    -fx-background-color: -md-outline-variant;
+    -fx-opacity: 0.7;
+}
+
+/* ----------------------------------------------------------- Data tables */
+.data-table {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+.data-table .column-header-background {
+    -fx-background-color: -md-surface-container;
+}
+.data-table .column-header,
+.data-table .column-header .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-size: 44;
+}
+.data-table .column-header .label {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-weight: 600;
+    -fx-font-size: 13px;
+    -fx-alignment: center-left;
+    -fx-padding: 0 8 0 8;
+}
+.data-table .virtual-flow .clipped-container .sheet .tree-table-row-cell,
+.data-table .virtual-flow .clipped-container .sheet .table-row-cell {
+    -fx-background-color: -md-background;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-cell-size: 40;
+}
+.data-table .tree-table-row-cell:odd,
+.data-table .table-row-cell:odd {
+    -fx-background-color: derive(-md-background, -1.5%);
+}
+.data-table .tree-table-row-cell:hover,
+.data-table .table-row-cell:hover {
+    -fx-background-color: -md-hover-overlay;
+}
+.data-table .tree-table-row-cell:selected,
+.data-table .table-row-cell:selected {
+    -fx-background-color: -md-secondary-container;
+}
+.data-table .tree-table-cell,
+.data-table .table-cell {
+    -fx-text-fill: -md-on-surface;
+    -fx-border-color: transparent;
+    -fx-padding: 0 8 0 8;
+    -fx-alignment: center-left;
+    -fx-font-size: 13px;
+}
+.data-table .tree-table-row-cell:selected .tree-table-cell,
+.data-table .table-row-cell:selected .table-cell {
+    -fx-text-fill: -md-on-secondary-container;
+}
+.data-table .tree-table-cell .arrow,
+.data-table .tree-cell > .tree-disclosure-node > .arrow {
+    -fx-background-color: -md-on-surface-variant;
+}
+/* package (parent) rows a touch heavier */
+.data-table .tree-table-row-cell:package-row {
+    -fx-background-color: -md-surface-container-low;
+}
+.data-table .column-overflow-button { -fx-background-color: transparent; }
+.data-table:focused { -fx-background-color: transparent; }
+
+.empty-table-hint {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-size: 14px;
+}
+
+/* ------------------------------------------------ In-cell progress bar */
+.cell-progress {
+    -fx-pref-height: 6;
+    -fx-min-height: 6;
+}
+.cell-progress > .track {
+    -fx-background-color: -md-surface-variant;
+    -fx-background-radius: 3;
+}
+.cell-progress > .bar {
+    -fx-background-insets: 0;
+    -fx-background-radius: 3;
+    -fx-background-color: -md-primary;
+    -fx-padding: 3;
+}
+.cell-progress.state-finished > .bar { -fx-background-color: -md-success; }
+.cell-progress.state-error    > .bar { -fx-background-color: -md-error; }
+.cell-progress.state-paused   > .bar { -fx-background-color: -md-warning; }
+
+/* --------------------------------------------------------- Status chips */
+.status-chip {
+    -fx-background-radius: 8;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+}
+.status-chip.state-queued   { -fx-background-color: -md-surface-variant;    -fx-text-fill: -md-on-surface-variant; }
+.status-chip.state-running  { -fx-background-color: -md-primary-container;  -fx-text-fill: -md-on-primary-container; }
+.status-chip.state-paused   { -fx-background-color: -md-warning-container;  -fx-text-fill: -md-warning; }
+.status-chip.state-finished { -fx-background-color: -md-success-container;  -fx-text-fill: -md-success; }
+.status-chip.state-error    { -fx-background-color: -md-error-container;    -fx-text-fill: -md-on-error-container; }
+.status-chip.state-disabled { -fx-background-color: -md-surface-variant;    -fx-text-fill: -md-on-surface-variant; -fx-opacity: 0.7; }
+
+/* availability dots for linkgrabber */
+.avail-online  { -fx-fill: -md-success; }
+.avail-offline { -fx-fill: -md-error; }
+.avail-unknown { -fx-fill: -md-outline; }
+
+/* --------------------------------------------------------------- Status bar */
+.status-bar {
+    -fx-background-color: -md-surface-container;
+    -fx-padding: 6 16 6 16;
+    -fx-spacing: 16;
+    -fx-alignment: center-left;
+    -fx-min-height: 36;
+    -fx-border-color: -md-outline-variant transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.status-bar .status-metric { -fx-text-fill: -md-on-surface-variant; -fx-font-size: 12px; }
+.status-bar .status-metric .value { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; }
+.status-bar .status-strong { -fx-text-fill: -md-primary; -fx-font-weight: 700; -fx-font-size: 12px; }
+
+/* --------------------------------------------------------------- Settings */
+.settings-nav { -fx-background-color: -md-surface-container-low; -fx-padding: 12 8 12 8; -fx-spacing: 4; -fx-min-width: 220; }
+.settings-nav .settings-tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 24;
+    -fx-padding: 10 16 10 16;
+    -fx-alignment: center-left;
+    -fx-spacing: 12;
+    -fx-cursor: hand;
+    -fx-text-fill: -md-on-surface-variant;
+}
+.settings-nav .settings-tab:hover { -fx-background-color: -md-hover-overlay; }
+.settings-nav .settings-tab:selected { -fx-background-color: -md-secondary-container; -fx-text-fill: -md-on-secondary-container; }
+.settings-row {
+    -fx-padding: 12 4 12 4;
+    -fx-spacing: 16;
+    -fx-alignment: center-left;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.settings-row .row-title { -fx-font-size: 14px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface; }
+.settings-row .row-desc  { -fx-font-size: 12px; -fx-text-fill: -md-on-surface-variant; }
+
+/* --------------------------------------------------------------- Dialogs */
+.md-dialog {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 28;
+    -fx-padding: 24;
+    -fx-spacing: 16;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 24, 0.1, 0, 6);
+}
+.md-dialog .dialog-title { -fx-font-size: 22px; -fx-font-weight: 600; -fx-text-fill: -md-on-surface; }
+.scrim { -fx-background-color: rgba(0,0,0,0.32); }
+
+.links-area {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 12;
+    -fx-text-fill: -md-on-surface;
+    -fx-font-family: "Cascadia Code", "Consolas", monospace;
+    -fx-font-size: 13px;
+}
+.links-area .content { -fx-background-color: -md-surface-container-highest; -fx-background-radius: 12; }
+.links-area:focused { -fx-border-color: -md-primary; -fx-border-width: 1; -fx-border-radius: 12; }
+.links-area .scroll-pane, .links-area .viewport { -fx-background-color: transparent; }
+
+/* --------------------------------------------- MaterialFX control tinting */
+.mfx-text-field {
+    -mfx-main: -md-primary;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 8 8 0 0;
+}
+.mfx-text-field .mfx-text-field {
+    -fx-text-fill: -md-on-surface;
+}
+.mfx-checkbox { -mfx-main: -md-primary; }
+.mfx-toggle-button { -mfx-main: -md-primary; -mfx-secondary: -md-primary-container; }
+.mfx-combo-box { -mfx-main: -md-primary; -fx-background-color: -md-surface-container-highest; -fx-background-radius: 8 8 0 0; }
+.mfx-progress-bar { -mfx-main: -md-primary; }
+.mfx-slider { -mfx-main: -md-primary; }
+
+/* Edge-to-edge scroll pane (settings pages) */
+.edge-to-edge { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.edge-to-edge > .viewport { -fx-background-color: transparent; }
+.edge-to-edge:focused { -fx-background-color: transparent; }
+
+/* Combo box (Material filled) */
+.combo-box {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 8;
+    -fx-padding: 4 6 4 12;
+    -fx-min-height: 40;
+}
+.combo-box .list-cell { -fx-text-fill: -md-on-surface; -fx-background-color: transparent; -fx-padding: 4 8 4 0; }
+.combo-box .arrow, .combo-box .arrow-button .arrow { -fx-background-color: -md-on-surface-variant; }
+.combo-box-popup .list-view {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 12;
+    -fx-padding: 6;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 16, 0.1, 0, 4);
+}
+.combo-box-popup .list-cell { -fx-background-radius: 8; -fx-padding: 8 12 8 12; -fx-text-fill: -md-on-surface; }
+.combo-box-popup .list-cell:filled:hover { -fx-background-color: -md-hover-overlay; }
+.combo-box-popup .list-cell:filled:selected { -fx-background-color: -md-secondary-container; -fx-text-fill: -md-on-secondary-container; }
+
+/* Slider (Material) */
+.slider .track { -fx-background-color: -md-surface-variant; -fx-background-radius: 3; -fx-pref-height: 6; }
+.slider .thumb { -fx-background-color: -md-primary; -fx-background-radius: 12; -fx-pref-width: 18; -fx-pref-height: 18; }
+.slider .thumb:hover { -fx-background-color: -md-primary-hover; }
+
+/* Plain text field (Material filled) */
+.text-field {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 8;
+    -fx-text-fill: -md-on-surface;
+    -fx-prompt-text-fill: -md-on-surface-variant;
+    -fx-highlight-fill: -md-primary-container;
+    -fx-padding: 8 12 8 12;
+    -fx-min-height: 40;
+}
+.text-field:focused { -fx-border-color: -md-primary; -fx-border-width: 1; -fx-border-radius: 8; }
+
+/* Scroll bars */
+.scroll-bar { -fx-background-color: transparent; }
+.scroll-bar .thumb { -fx-background-color: -md-outline-variant; -fx-background-radius: 8; }
+.scroll-bar .thumb:hover { -fx-background-color: -md-outline; }
+.scroll-bar .track { -fx-background-color: transparent; }
+.scroll-bar .increment-button, .scroll-bar .decrement-button { -fx-opacity: 0; -fx-padding: 0 6 0 6; }
+
+/* Context menu */
+.context-menu {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 12;
+    -fx-padding: 6;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 16, 0.1, 0, 4);
+}
+.context-menu .menu-item { -fx-background-radius: 8; -fx-padding: 8 16 8 16; }
+.context-menu .menu-item:focused { -fx-background-color: -md-secondary-container; }
+.context-menu .menu-item .label { -fx-text-fill: -md-on-surface; }
+.context-menu .menu-item:focused .label { -fx-text-fill: -md-on-secondary-container; }
+.context-menu .separator .line { -fx-border-color: -md-outline-variant; }
+
+/* Tooltip */
+.tooltip {
+    -fx-background-color: -md-inverse-surface;
+    -fx-text-fill: -md-inverse-on-surface;
+    -fx-background-radius: 6;
+    -fx-font-size: 12px;
+    -fx-padding: 6 10 6 10;
+}

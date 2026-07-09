@@ -1,0 +1,347 @@
+package org.jdownloader.material.engine;
+
+import javafx.animation.AnimationTimer;
+import javafx.animation.PauseTransition;
+import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyBooleanWrapper;
+import javafx.beans.property.ReadOnlyIntegerProperty;
+import javafx.beans.property.ReadOnlyIntegerWrapper;
+import javafx.beans.property.ReadOnlyLongProperty;
+import javafx.beans.property.ReadOnlyLongWrapper;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.util.Duration;
+import org.jdownloader.material.model.CrawledLink;
+import org.jdownloader.material.model.CrawledPackage;
+import org.jdownloader.material.model.DownloadItem;
+import org.jdownloader.material.model.DownloadLink;
+import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadState;
+import org.jdownloader.material.model.LinkAvailability;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * A self-contained, in-memory engine that makes the GUI fully interactive
+ * without a real backend: it schedules queued links, advances running
+ * downloads on the JavaFX pulse, simulates online-availability checks and
+ * reconnects, and publishes global speed / count / remaining statistics.
+ * <p>
+ * It is intentionally the <em>only</em> place that would be replaced by a real
+ * JDownloader-core adapter; the views never reference it directly.
+ */
+public final class SimulatedEngine implements DownloadEngine {
+
+    private static final long TICK_MS = 150;
+    private static final long KIB = 1024;
+
+    private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
+    private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
+    private final Settings settings = new Settings();
+
+    private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper paused = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyLongWrapper globalSpeed = new ReadOnlyLongWrapper(0);
+    private final ReadOnlyIntegerWrapper runningCount = new ReadOnlyIntegerWrapper(0);
+    private final ReadOnlyLongWrapper totalRemaining = new ReadOnlyLongWrapper(0);
+    private final ReadOnlyBooleanWrapper reconnecting = new ReadOnlyBooleanWrapper(false);
+
+    /** Per-link target throughput assigned on promotion to RUNNING. */
+    private final Map<String, Long> targetSpeed = new HashMap<>();
+    private long lastTick = 0;
+    private final AnimationTimer timer;
+
+    public SimulatedEngine() {
+        timer = new AnimationTimer() {
+            @Override public void handle(long now) {
+                long ms = now / 1_000_000L;
+                if (lastTick == 0) { lastTick = ms; return; }
+                if (ms - lastTick < TICK_MS) return;
+                double dt = (ms - lastTick) / 1000.0;
+                lastTick = ms;
+                tick(dt);
+            }
+        };
+        timer.start();
+    }
+
+    // -------------------------------------------------------------- Scheduling
+    private void tick(double dt) {
+        List<DownloadLink> all = allLinks();
+
+        if (running.get()) {
+            int limit = Math.max(1, settings.maxSimultaneousDownloadsProperty().get());
+            int active = (int) all.stream().filter(l -> l.state() == DownloadState.RUNNING).count();
+            for (DownloadLink l : all) {
+                if (active >= limit) break;
+                if (l.state() == DownloadState.QUEUED && l.enabled().get()) {
+                    l.setState(DownloadState.RUNNING);
+                    targetSpeed.put(l.id(), randomSpeed());
+                    active++;
+                }
+            }
+        }
+
+        // Advance every running link.
+        List<DownloadLink> runningLinks = all.stream()
+                .filter(l -> l.state() == DownloadState.RUNNING).toList();
+        long assigned = 0;
+        Map<String, Long> speeds = new HashMap<>();
+        for (DownloadLink l : runningLinks) {
+            long base = targetSpeed.getOrDefault(l.id(), randomSpeed());
+            // small jitter so the speedmeter looks alive
+            long spd = (long) (base * (0.85 + ThreadLocalRandom.current().nextDouble() * 0.3));
+            if (paused.get()) spd = (long) (spd * 0.04);
+            speeds.put(l.id(), spd);
+            assigned += spd;
+        }
+        // Global speed cap.
+        if (settings.speedLimitEnabledProperty().get() && assigned > 0) {
+            long cap = (long) settings.speedLimitKbpsProperty().get() * KIB;
+            if (assigned > cap) {
+                double scale = cap / (double) assigned;
+                speeds.replaceAll((k, v) -> (long) (v * scale));
+            }
+        }
+        for (DownloadLink l : runningLinks) {
+            long spd = speeds.getOrDefault(l.id(), 0L);
+            l.speedProp().set(spd);
+            long next = l.loadedProp().get() + (long) (spd * dt);
+            if (next >= l.total()) {
+                l.loadedProp().set(l.total());
+                l.speedProp().set(0);
+                l.setState(DownloadState.FINISHED);
+            } else {
+                l.loadedProp().set(next);
+            }
+        }
+
+        // If nothing left to run, the queue is idle.
+        boolean anyActionable = all.stream()
+                .anyMatch(l -> l.state() == DownloadState.RUNNING
+                        || (running.get() && l.state() == DownloadState.QUEUED && l.enabled().get()));
+        if (!anyActionable && running.get()) running.set(false);
+
+        recomputeGlobals(all);
+    }
+
+    private void recomputeGlobals(List<DownloadLink> all) {
+        long spd = 0, remaining = 0;
+        int active = 0;
+        for (DownloadLink l : all) {
+            if (l.state() == DownloadState.RUNNING) { spd += l.speedProp().get(); active++; }
+            if (l.state() != DownloadState.FINISHED) remaining += Math.max(0, l.total() - l.loadedProp().get());
+        }
+        globalSpeed.set(spd);
+        runningCount.set(active);
+        totalRemaining.set(remaining);
+    }
+
+    private List<DownloadLink> allLinks() {
+        List<DownloadLink> out = new ArrayList<>();
+        for (DownloadPackage p : downloads) out.addAll(p.links());
+        return out;
+    }
+
+    private static long randomSpeed() {
+        // 400 KiB/s .. 3.2 MiB/s
+        return (400 + ThreadLocalRandom.current().nextInt(2800)) * KIB;
+    }
+
+    // ------------------------------------------------------------- LinkGrabber
+    @Override
+    public void addLinks(String text, String packageName, boolean autoConfirm) {
+        List<String> urls = text.lines()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        if (urls.isEmpty()) return;
+        String name = (packageName == null || packageName.isBlank())
+                ? "New Package " + (crawled.size() + 1) : packageName.trim();
+        CrawledPackage pkg = new CrawledPackage(name);
+        for (String url : urls) {
+            pkg.links().add(new CrawledLink(fileNameOf(url), hostOf(url), url, 0));
+        }
+        crawled.add(pkg);
+        simulateAvailabilityCheck(pkg, autoConfirm);
+    }
+
+    private void simulateAvailabilityCheck(CrawledPackage pkg, boolean autoConfirm) {
+        PauseTransition delay = new PauseTransition(Duration.millis(900));
+        delay.setOnFinished(e -> {
+            for (CrawledLink l : pkg.links()) {
+                boolean online = ThreadLocalRandom.current().nextInt(100) < 90;
+                l.availabilityProperty().set(online ? LinkAvailability.ONLINE : LinkAvailability.OFFLINE);
+                if (online) {
+                    l.sizeProperty().set((long) (30 + ThreadLocalRandom.current().nextInt(1500)) * 1024 * 1024);
+                }
+            }
+            if (autoConfirm) confirmToDownloads(List.of(pkg), settings.autoStartProperty().get());
+        });
+        delay.play();
+    }
+
+    @Override
+    public void confirmToDownloads(Collection<CrawledPackage> packages, boolean autoStart) {
+        for (CrawledPackage cp : new ArrayList<>(packages)) {
+            DownloadPackage dp = new DownloadPackage(cp.name());
+            for (CrawledLink cl : cp.links()) {
+                if (cl.availability() != LinkAvailability.OFFLINE) {
+                    dp.links().add(cl.toDownloadLink());
+                }
+            }
+            if (!dp.links().isEmpty()) {
+                if (settings.addAtTopProperty().get()) downloads.add(0, dp);
+                else downloads.add(dp);
+            }
+            crawled.remove(cp);
+        }
+        if (autoStart) start();
+    }
+
+    @Override
+    public void confirmAll(boolean autoStart) {
+        confirmToDownloads(new ArrayList<>(crawled), autoStart);
+    }
+
+    @Override
+    public void removeCrawled(Collection<CrawledPackage> packages) {
+        crawled.removeAll(packages);
+    }
+
+    // --------------------------------------------------------- Download control
+    @Override public void start() { paused.set(false); running.set(true); }
+
+    @Override
+    public void pause(boolean p) {
+        paused.set(p);
+        if (p) running.set(true);
+    }
+
+    @Override
+    public void stop() {
+        running.set(false);
+        paused.set(false);
+        for (DownloadLink l : allLinks()) {
+            if (l.state() == DownloadState.RUNNING || l.state() == DownloadState.PAUSED) {
+                l.setState(DownloadState.QUEUED);
+                l.speedProp().set(0);
+            }
+        }
+        recomputeGlobals(allLinks());
+    }
+
+    @Override
+    public void forceStart(Collection<DownloadLink> links) {
+        for (DownloadLink l : links) {
+            if (l.state() != DownloadState.FINISHED) {
+                l.setState(DownloadState.RUNNING);
+                targetSpeed.put(l.id(), randomSpeed());
+            }
+        }
+        running.set(true);
+    }
+
+    @Override
+    public void removeDownloads(Collection<DownloadItem> items) {
+        for (DownloadItem it : new ArrayList<>(items)) {
+            if (it instanceof DownloadPackage p) {
+                downloads.remove(p);
+            } else if (it instanceof DownloadLink l) {
+                for (DownloadPackage p : downloads) {
+                    if (p.links().remove(l)) break;
+                }
+            }
+        }
+        downloads.removeIf(p -> p.links().isEmpty());
+        recomputeGlobals(allLinks());
+    }
+
+    @Override
+    public void reconnect() {
+        if (reconnecting.get()) return;
+        reconnecting.set(true);
+        PauseTransition p = new PauseTransition(Duration.seconds(2.5));
+        p.setOnFinished(e -> reconnecting.set(false));
+        p.play();
+    }
+
+    // ------------------------------------------------------------- Accessors
+    @Override public ObservableList<DownloadPackage> downloadPackages() { return downloads; }
+    @Override public ObservableList<CrawledPackage> crawledPackages() { return crawled; }
+    @Override public ReadOnlyBooleanProperty runningProperty() { return running.getReadOnlyProperty(); }
+    @Override public ReadOnlyBooleanProperty pausedProperty() { return paused.getReadOnlyProperty(); }
+    @Override public ReadOnlyLongProperty globalSpeedProperty() { return globalSpeed.getReadOnlyProperty(); }
+    @Override public ReadOnlyIntegerProperty runningCountProperty() { return runningCount.getReadOnlyProperty(); }
+    @Override public ReadOnlyLongProperty totalRemainingProperty() { return totalRemaining.getReadOnlyProperty(); }
+    @Override public ReadOnlyBooleanProperty reconnectingProperty() { return reconnecting.getReadOnlyProperty(); }
+    @Override public Settings settings() { return settings; }
+
+    @Override
+    public void shutdown() {
+        timer.stop();
+    }
+
+    // ------------------------------------------------------------- Demo data
+    /** Seeds a few packages so the app opens with representative content. */
+    public void seedDemoData() {
+        DownloadPackage ubuntu = new DownloadPackage("Ubuntu 24.04 LTS");
+        DownloadLink iso = new DownloadLink("ubuntu-24.04-desktop-amd64.iso", "releases.ubuntu.com", 6_100L * 1024 * 1024);
+        iso.loadedProp().set((long) (iso.total() * 0.62));
+        iso.setState(DownloadState.QUEUED);
+        DownloadLink checksum = new DownloadLink("SHA256SUMS", "releases.ubuntu.com", 512);
+        checksum.loadedProp().set(512);
+        checksum.setState(DownloadState.FINISHED);
+        ubuntu.links().addAll(iso, checksum);
+
+        DownloadPackage media = new DownloadPackage("Documentary Series (4 files)");
+        for (int i = 1; i <= 4; i++) {
+            DownloadLink ep = new DownloadLink("episode_0" + i + ".mkv", "rapidgator.net",
+                    (700L + i * 40) * 1024 * 1024);
+            if (i == 1) { ep.loadedProp().set(ep.total()); ep.setState(DownloadState.FINISHED); }
+            media.links().add(ep);
+        }
+
+        DownloadPackage archive = new DownloadPackage("project-backup.rar");
+        DownloadLink part1 = new DownloadLink("project-backup.part1.rar", "mega.nz", 1_500L * 1024 * 1024);
+        DownloadLink part2 = new DownloadLink("project-backup.part2.rar", "mega.nz", 1_500L * 1024 * 1024);
+        part2.setState(DownloadState.ERROR);
+        archive.links().addAll(part1, part2);
+
+        downloads.addAll(ubuntu, media, archive);
+
+        CrawledPackage staged = new CrawledPackage("Wallpapers 4K");
+        for (int i = 1; i <= 3; i++) {
+            CrawledLink cl = new CrawledLink("wallpaper_" + i + ".png", "imgur.com",
+                    "https://imgur.com/wallpaper_" + i + ".png", (8L + i) * 1024 * 1024);
+            cl.availabilityProperty().set(LinkAvailability.ONLINE);
+            staged.links().add(cl);
+        }
+        crawled.add(staged);
+
+        Platform.runLater(() -> downloads.forEach(DownloadPackage::recompute));
+    }
+
+    private static String hostOf(String url) {
+        try {
+            String h = java.net.URI.create(url).getHost();
+            return h == null ? "unknown" : h.replaceFirst("^www\\.", "");
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
+    private static String fileNameOf(String url) {
+        int q = url.indexOf('?');
+        String base = q >= 0 ? url.substring(0, q) : url;
+        int slash = base.lastIndexOf('/');
+        String name = slash >= 0 && slash < base.length() - 1 ? base.substring(slash + 1) : base;
+        return name.isBlank() ? "download.bin" : name;
+    }
+}
