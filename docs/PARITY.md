@@ -9,6 +9,8 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 - ✅ Light / dark Material themes, runtime switch
 - ✅ App-bar toggles: clipboard monitoring, auto-reconnect, reconnect-now
 - ✅ Status bar: global speed, running count, remaining, reconnect indicator
+- ✅ In-app notifications (snackbars + cards) replacing modal dialogs — non-modal overlay,
+  used for all action feedback and the Add Links form
 - 🟡 Navigation rail (Downloads, LinkGrabber, Settings) — My.JDownloader view ⬜
 - ⬜ System tray, bubble notifications, window-title speed toggle (title done, tray ⬜)
 - ⬜ Menu bar (File/Settings/Extensions/Help) — actions live on the toolbar for now
@@ -34,10 +36,10 @@ Legend: ✅ done · 🟡 partial · ⬜ not started
 - ⬜ Quick-filter sidebar (by hoster / type / status)
 - ⬜ Variant selector, inline editing, cleanup submenu
 
-## Add Links dialog
-- ✅ Material modal: URL box (clipboard auto-fill), package name, destination chooser
-- ✅ Add / Add & Start actions
-- 🟡 Extras present as controls (auto-extract, overwrite-Packagizer) — not yet wired
+## Add Links (in-app panel, not a modal dialog)
+- ✅ In-app notification panel: URL box (clipboard auto-fill), package name, destination chooser
+- ✅ Add / Add & Start actions, with snackbar confirmation + "View" navigation
+- 🟡 Extras present as controls (auto-extract) — not yet wired
 - ⬜ Priority, comment, download password, variable-insertion menu, Add Container
 
 ## Settings

@@ -44,6 +44,23 @@ public class JDMaterialApp extends Application {
 
         stage.setOnCloseRequest(e -> engine.shutdown());
         stage.show();
+
+        // Optional demo hook. JD_DEMO=panel opens the Add Links panel; JD_DEMO=snack
+        // re-shows a snackbar on a timer so it can be observed/screenshotted.
+        String demo = System.getenv("JD_DEMO");
+        if (demo != null) {
+            javafx.application.Platform.runLater(() -> {
+                if ("snack".equalsIgnoreCase(demo)) {
+                    var timeline = new javafx.animation.Timeline(
+                            new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, e -> window.demoSnack()),
+                            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3), e -> window.demoSnack()));
+                    timeline.setCycleCount(6);
+                    timeline.play();
+                } else {
+                    window.openAddLinks();
+                }
+            });
+        }
     }
 
     private void loadIcon(Stage stage) {

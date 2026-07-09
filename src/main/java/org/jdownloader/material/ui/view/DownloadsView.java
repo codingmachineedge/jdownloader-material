@@ -20,7 +20,7 @@ import org.jdownloader.material.model.DownloadPackage;
 import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.ui.component.DownloadCells;
 import org.jdownloader.material.ui.component.Mat;
-import org.jdownloader.material.ui.dialog.AddLinksDialog;
+import org.jdownloader.material.ui.component.NotificationCenter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +30,17 @@ import java.util.stream.Collectors;
 public final class DownloadsView extends BorderPane {
 
     private final DownloadEngine engine;
+    private final NotificationCenter notifier;
+    private final Runnable openAddLinks;
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
     private final TreeItem<DownloadItem> root = new TreeItem<>(null);
     private final ListChangeListener<Object> rebuildListener = c -> rebuild();
     private String filter = "";
 
-    public DownloadsView(DownloadEngine engine) {
+    public DownloadsView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
         this.engine = engine;
+        this.notifier = notifier;
+        this.openAddLinks = openAddLinks;
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
@@ -58,14 +62,18 @@ public final class DownloadsView extends BorderPane {
         header.setAlignment(Pos.CENTER_LEFT);
 
         var addLinks = Mat.filled("Add Links", "add");
-        addLinks.setOnAction(e -> new AddLinksDialog(engine, getScene().getWindow()).show());
+        addLinks.setOnAction(e -> openAddLinks.run());
 
         var start = Mat.icon("play", "Start downloads");
-        start.setOnAction(e -> engine.start());
+        start.setOnAction(e -> { engine.start(); notifier.snack("Downloads started"); });
         var pause = Mat.icon("pause", "Pause");
-        pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
+        pause.setOnAction(e -> {
+            boolean willPause = !engine.pausedProperty().get();
+            engine.pause(willPause);
+            notifier.snack(willPause ? "Downloads paused" : "Downloads resumed");
+        });
         var stop = Mat.icon("stop", "Stop all");
-        stop.setOnAction(e -> engine.stop());
+        stop.setOnAction(e -> { engine.stop(); notifier.snack("Downloads stopped"); });
 
         var top = Mat.icon("top", "Move to top");
         top.setOnAction(e -> move(Move.TOP));
@@ -78,7 +86,11 @@ public final class DownloadsView extends BorderPane {
 
         var remove = Mat.icon("delete", "Remove selected");
         remove.getStyleClass().add("danger");
-        remove.setOnAction(e -> engine.removeDownloads(selectedItems()));
+        remove.setOnAction(e -> {
+            int n = selectedItems().size();
+            engine.removeDownloads(selectedItems());
+            if (n > 0) notifier.snack("Removed " + n + (n == 1 ? " item" : " items"));
+        });
 
         HBox bar = new HBox(6, addLinks, Mat.vSep(), start, pause, stop, Mat.vSep(),
                 top, up, down, bottom, Mat.vSep(), remove);

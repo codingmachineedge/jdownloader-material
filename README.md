@@ -32,12 +32,17 @@ Implemented so far:
   move top/up/down/bottom · Remove), live search, right-click context menu.
 - **LinkGrabber** view — staging tree-table with online-availability checking, Paste, and
   Confirm-to-Downloads.
-- **Add Links** dialog — Material modal with URL box (clipboard auto-fill), package name,
-  destination chooser, and Add / Add&Start actions.
+- **In-app notifications instead of dialogs** — a non-modal overlay renders Material snackbars
+  (bottom) and notification cards/panels (top-right). The **Add Links** form is an in-app
+  panel, not a modal window, and every action (start/pause/stop/remove/paste/confirm/reconnect)
+  reports via a snackbar.
 - **Settings** — General, Connection, Reconnect, LinkGrabber, Appearance, Accounts, About
   pages with live-bound controls.
 - **App bar** — clipboard-monitor and auto-reconnect toggles, reconnect-now, light/dark switch.
 - **Status bar** — global speed, running count, remaining bytes, reconnect indicator.
+
+![Add Links as an in-app panel](docs/screenshots/add-links-panel.png)
+![Snackbar notifications](docs/screenshots/snackbar.png)
 - A **simulated engine** that schedules queued links up to the concurrency limit, advances
   downloads live, honors the global speed limit, and simulates availability checks/reconnects.
 
@@ -62,8 +67,8 @@ src/main/java/org/jdownloader/material/
   engine/    DownloadEngine interface, SimulatedEngine, Settings
   ui/        MainWindow, ThemeManager, Icons
   ui/view/   DownloadsView, LinkGrabberView, SettingsView
-  ui/component/ Mat (widget factory), DownloadCells, StatusBar
-  ui/dialog/ AddLinksDialog
+  ui/component/ Mat, DownloadCells, StatusBar, NotificationCenter
+  ui/dialog/ AddLinksPanel (in-app notification panel)
 src/main/resources/css/
   theme-light.css / theme-dark.css   Material 3 color tokens
   material.css                       component stylesheet

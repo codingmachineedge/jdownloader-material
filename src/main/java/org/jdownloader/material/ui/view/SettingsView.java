@@ -22,16 +22,19 @@ import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.Settings;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.ui.component.Mat;
+import org.jdownloader.material.ui.component.NotificationCenter;
 
 /** Material preferences screen: a page rail on the left, setting rows on the right. */
 public final class SettingsView extends BorderPane {
 
     private final Settings s;
+    private final NotificationCenter notifier;
     private final StackPane content = new StackPane();
     private final ToggleGroup nav = new ToggleGroup();
 
-    public SettingsView(Settings settings) {
+    public SettingsView(Settings settings, NotificationCenter notifier) {
         this.s = settings;
+        this.notifier = notifier;
         getStyleClass().add("content-area");
 
         VBox rail = new VBox(4);
@@ -151,11 +154,14 @@ public final class SettingsView extends BorderPane {
     }
 
     private Node accountsPage() {
+        var addBtn = Mat.filled("Add account", "add");
+        addBtn.setOnAction(e -> notifier.info("Accounts",
+                "Premium account management isn't available in this build yet."));
         var card = new VBox(12,
                 Mat.label("Premium accounts", "title"),
                 Mat.label("No premium accounts configured. Add an account to unlock full-speed "
                         + "downloads and skip hoster wait times.", "row-desc"),
-                Mat.filled("Add account", "add"));
+                addBtn);
         card.getStyleClass().add("md-card-flat");
         card.setMaxWidth(560);
         return page(sectionTitle("Account Manager"), card);

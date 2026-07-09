@@ -23,7 +23,7 @@ import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.LinkAvailability;
 import org.jdownloader.material.ui.component.Mat;
-import org.jdownloader.material.ui.dialog.AddLinksDialog;
+import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.util.Formats;
 
 import java.util.LinkedHashSet;
@@ -34,13 +34,17 @@ import java.util.Set;
 public final class LinkGrabberView extends BorderPane {
 
     private final DownloadEngine engine;
+    private final NotificationCenter notifier;
+    private final Runnable openAddLinks;
     private final TreeTableView<Object> tree = new TreeTableView<>();
     private final TreeItem<Object> root = new TreeItem<>(null);
     private final javafx.beans.InvalidationListener refresh = o -> rebuild();
     private String filter = "";
 
-    public LinkGrabberView(DownloadEngine engine) {
+    public LinkGrabberView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
         this.engine = engine;
+        this.notifier = notifier;
+        this.openAddLinks = openAddLinks;
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
@@ -60,18 +64,26 @@ public final class LinkGrabberView extends BorderPane {
         header.setAlignment(Pos.CENTER_LEFT);
 
         var addLinks = Mat.filled("Add Links", "add");
-        addLinks.setOnAction(e -> new AddLinksDialog(engine, getScene().getWindow()).show());
+        addLinks.setOnAction(e -> openAddLinks.run());
         var paste = Mat.tonal("Paste", "paste");
         paste.setOnAction(e -> pasteFromClipboard());
 
         var confirm = Mat.filled("Add to Downloads", "check");
         confirm.setOnAction(e -> confirmSelected());
         var addAll = Mat.outlined("Add all", null);
-        addAll.setOnAction(e -> engine.confirmAll(false));
+        addAll.setOnAction(e -> {
+            int n = engine.crawledPackages().stream().mapToInt(p -> p.links().size()).sum();
+            engine.confirmAll(false);
+            if (n > 0) notifier.snack("Added " + n + (n == 1 ? " link" : " links") + " to Downloads");
+        });
 
         var remove = Mat.icon("delete", "Remove selected");
         remove.getStyleClass().add("danger");
-        remove.setOnAction(e -> engine.removeCrawled(selectedPackages()));
+        remove.setOnAction(e -> {
+            int n = selectedPackages().size();
+            engine.removeCrawled(selectedPackages());
+            if (n > 0) notifier.snack("Removed " + n + (n == 1 ? " package" : " packages"));
+        });
 
         HBox bar = new HBox(6, addLinks, paste, Mat.vSep(), confirm, addAll, Mat.hSpacer(), remove);
         bar.getStyleClass().add("action-toolbar");
@@ -225,14 +237,27 @@ public final class LinkGrabberView extends BorderPane {
 
     private void confirmSelected() {
         Set<CrawledPackage> sel = selectedPackages();
-        if (sel.isEmpty()) engine.confirmAll(false);
-        else engine.confirmToDownloads(sel, false);
+        int n;
+        if (sel.isEmpty()) {
+            n = engine.crawledPackages().stream().mapToInt(p -> p.links().size()).sum();
+            engine.confirmAll(false);
+        } else {
+            n = sel.stream().mapToInt(p -> p.links().size()).sum();
+            engine.confirmToDownloads(sel, false);
+        }
+        if (n > 0) notifier.snack("Added " + n + (n == 1 ? " link" : " links") + " to Downloads");
     }
 
     private void pasteFromClipboard() {
         try {
             String s = javafx.scene.input.Clipboard.getSystemClipboard().getString();
-            if (s != null && !s.isBlank()) engine.addLinks(s, null, false);
+            if (s != null && !s.isBlank()) {
+                long n = s.lines().map(String::trim).filter(x -> !x.isEmpty()).count();
+                engine.addLinks(s, null, false);
+                notifier.snack(n + (n == 1 ? " link" : " links") + " added to LinkGrabber");
+            } else {
+                notifier.snack("Clipboard has no links to paste");
+            }
         } catch (Exception ignored) {
         }
     }
