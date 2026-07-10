@@ -18,7 +18,7 @@ public final class Settings {
 
     /** What to do when a target file already exists. */
     public enum IfExists {
-        ASK("Ask"), SKIP("Skip file"), OVERWRITE("Overwrite"), RENAME("Auto-rename");
+        ASK("Auto-rename (no prompt)"), SKIP("Skip file"), OVERWRITE("Overwrite"), RENAME("Auto-rename");
         private final String label;
         IfExists(String label) { this.label = label; }
         public String label() { return label; }

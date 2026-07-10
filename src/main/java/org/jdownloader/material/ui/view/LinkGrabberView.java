@@ -40,6 +40,7 @@ public final class LinkGrabberView extends BorderPane {
     private final TreeItem<Object> root = new TreeItem<>(null);
     private final javafx.beans.InvalidationListener refresh = o -> rebuild();
     private String filter = "";
+    private AvailabilityFilter availabilityFilter = AvailabilityFilter.ALL;
 
     public LinkGrabberView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
         this.engine = engine;
@@ -59,7 +60,14 @@ public final class LinkGrabberView extends BorderPane {
         search.getStyleClass().add("search-field");
         search.setPrefWidth(240);
         search.textProperty().addListener((o, a, b) -> { filter = b == null ? "" : b.toLowerCase(); rebuild(); });
-        HBox header = new HBox(12, title, Mat.hSpacer(), org.jdownloader.material.ui.Icons.of("search", 20), search);
+        var availability = Mat.outlined(availabilityFilter.label, null);
+        availability.setOnAction(e -> {
+            availabilityFilter = availabilityFilter.next();
+            availability.setText(availabilityFilter.label);
+            rebuild();
+        });
+        HBox header = new HBox(12, title, Mat.hSpacer(), availability,
+                org.jdownloader.material.ui.Icons.of("search", 20), search);
         header.getStyleClass().add("view-header");
         header.setAlignment(Pos.CENTER_LEFT);
 
@@ -131,7 +139,7 @@ public final class LinkGrabberView extends BorderPane {
             { setAlignment(Pos.CENTER_RIGHT); }
             @Override protected void updateItem(Number v, boolean empty) {
                 super.updateItem(v, empty);
-                setText(empty || v == null || v.longValue() <= 0 ? "—" : Formats.bytes(v.longValue()));
+                setText(empty || v == null || v.longValue() <= 0 ? "" : Formats.bytes(v.longValue()));
             }
         });
         size.setPrefWidth(96);
@@ -187,12 +195,18 @@ public final class LinkGrabberView extends BorderPane {
 
     private void attach(CrawledPackage p) {
         p.links().addListener(refresh);
-        for (CrawledLink l : p.links()) l.availabilityProperty().addListener(refresh);
+        for (CrawledLink l : p.links()) {
+            l.availabilityProperty().addListener(refresh);
+            l.sizeProperty().addListener(refresh);
+        }
     }
 
     private void detach(CrawledPackage p) {
         p.links().removeListener(refresh);
-        for (CrawledLink l : p.links()) l.availabilityProperty().removeListener(refresh);
+        for (CrawledLink l : p.links()) {
+            l.availabilityProperty().removeListener(refresh);
+            l.sizeProperty().removeListener(refresh);
+        }
     }
 
     private void rebuild() {
@@ -201,63 +215,95 @@ public final class LinkGrabberView extends BorderPane {
             boolean pkgMatch = filter.isEmpty() || pkg.name().toLowerCase().contains(filter);
             TreeItem<Object> pi = new TreeItem<>(pkg);
             pi.setExpanded(pkg.expandedProperty().get());
+            pi.expandedProperty().addListener((o, wasExpanded, isExpanded) -> pkg.expandedProperty().set(isExpanded));
             for (CrawledLink l : pkg.links()) {
-                if (filter.isEmpty() || pkgMatch
+                boolean textMatch = filter.isEmpty() || pkgMatch
                         || l.name().toLowerCase().contains(filter)
-                        || l.host().toLowerCase().contains(filter)) {
+                        || l.host().toLowerCase().contains(filter);
+                if (textMatch && availabilityFilter.matches(l.availability())) {
                     l.availabilityProperty().removeListener(refresh);
                     l.availabilityProperty().addListener(refresh);
+                    l.sizeProperty().removeListener(refresh);
+                    l.sizeProperty().addListener(refresh);
                     pi.getChildren().add(new TreeItem<>(l));
                 }
             }
-            if (pkgMatch || !pi.getChildren().isEmpty()) root.getChildren().add(pi);
+            if (!pi.getChildren().isEmpty() || (availabilityFilter == AvailabilityFilter.ALL && pkgMatch)) {
+                root.getChildren().add(pi);
+            }
         }
         // Package rows derive text (online counts, sizes) at render time from
         // non-observable values; force visible cells to re-render.
         tree.refresh();
     }
 
-    private Set<CrawledPackage> selectedPackages() {
+    private Set<CrawledPackage> selectedPackageRows() {
         Set<CrawledPackage> out = new LinkedHashSet<>();
         for (TreeItem<Object> item : tree.getSelectionModel().getSelectedItems()) {
             if (item == null || item.getValue() == null) continue;
             Object o = item.getValue();
             if (o instanceof CrawledPackage cp) out.add(cp);
-            else if (o instanceof CrawledLink cl) parentOf(cl).ifPresent(out::add);
         }
         return out;
     }
 
-    private java.util.Optional<CrawledPackage> parentOf(CrawledLink link) {
-        return engine.crawledPackages().stream().filter(p -> p.links().contains(link)).findFirst();
+    private Set<CrawledLink> selectedLinkRows(Set<CrawledPackage> selectedPackages) {
+        Set<CrawledLink> out = new LinkedHashSet<>();
+        for (TreeItem<Object> item : tree.getSelectionModel().getSelectedItems()) {
+            if (item != null && item.getValue() instanceof CrawledLink link
+                    && selectedPackages.stream().noneMatch(pkg -> pkg.links().contains(link))) {
+                out.add(link);
+            }
+        }
+        return out;
     }
 
     /** Immediate remove with additive Undo — no confirm dialog. */
     private void removeSelected() {
-        Set<CrawledPackage> sel = selectedPackages();
-        if (sel.isEmpty()) return;
+        Set<CrawledPackage> selectedPackages = selectedPackageRows();
+        Set<CrawledLink> selectedLinks = selectedLinkRows(selectedPackages);
+        if (selectedPackages.isEmpty() && selectedLinks.isEmpty()) return;
         var packages = engine.crawledPackages();
+        Set<CrawledPackage> affectedPackages = new LinkedHashSet<>(selectedPackages);
+        for (CrawledLink link : selectedLinks) {
+            packages.stream().filter(pkg -> pkg.links().contains(link)).findFirst().ifPresent(affectedPackages::add);
+        }
         var indices = new java.util.LinkedHashMap<CrawledPackage, Integer>();
-        for (CrawledPackage p : sel) indices.put(p, packages.indexOf(p));
+        var linkOrder = new java.util.LinkedHashMap<CrawledPackage, List<CrawledLink>>();
+        for (CrawledPackage pkg : affectedPackages) {
+            indices.put(pkg, packages.indexOf(pkg));
+            linkOrder.put(pkg, new java.util.ArrayList<>(pkg.links()));
+        }
 
-        engine.removeCrawled(sel);
+        engine.removeCrawled(selectedPackages);
+        engine.removeCrawledLinks(selectedLinks);
 
-        int n = sel.size();
-        notifier.snack("Removed " + n + (n == 1 ? " package" : " packages"), "Undo", () -> {
+        int n = selectedPackages.size() + selectedLinks.size();
+        notifier.snack("Removed " + n + (n == 1 ? " item" : " items"), "Undo", () -> {
             for (var entry : indices.entrySet()) {
                 if (!packages.contains(entry.getKey())) {
                     packages.add(Math.min(entry.getValue(), packages.size()), entry.getKey());
+                }
+                List<CrawledLink> wanted = linkOrder.get(entry.getKey());
+                for (int i = 0; i < wanted.size(); i++) {
+                    CrawledLink link = wanted.get(i);
+                    if (!entry.getKey().links().contains(link)) {
+                        entry.getKey().links().add(Math.min(i, entry.getKey().links().size()), link);
+                    }
                 }
             }
         });
     }
 
     private void confirmSelected() {
-        Set<CrawledPackage> sel = selectedPackages();
-        if (sel.isEmpty()) {
+        Set<CrawledPackage> selectedPackages = selectedPackageRows();
+        Set<CrawledLink> selectedLinks = selectedLinkRows(selectedPackages);
+        boolean autoStart = engine.settings().autoStartProperty().get();
+        if (selectedPackages.isEmpty() && selectedLinks.isEmpty()) {
             engine.confirmAll(engine.settings().autoStartProperty().get());
         } else {
-            engine.confirmToDownloads(sel, engine.settings().autoStartProperty().get());
+            if (!selectedPackages.isEmpty()) engine.confirmToDownloads(selectedPackages, autoStart);
+            if (!selectedLinks.isEmpty()) engine.confirmLinksToDownloads(selectedLinks, autoStart);
         }
     }
 
@@ -265,9 +311,35 @@ public final class LinkGrabberView extends BorderPane {
         try {
             String s = javafx.scene.input.Clipboard.getSystemClipboard().getString();
             if (s != null && !s.isBlank()) {
-                engine.addLinks(s, null, false, false);
+                engine.addLinks(s, null, engine.settings().downloadFolderProperty().get(), false, false);
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private enum AvailabilityFilter {
+        ALL("All links", null),
+        CHECKING("Checking", LinkAvailability.UNKNOWN),
+        ONLINE("Online", LinkAvailability.ONLINE),
+        OFFLINE("Offline", LinkAvailability.OFFLINE);
+
+        private final String label;
+        private final LinkAvailability availability;
+
+        AvailabilityFilter(String label, LinkAvailability availability) {
+            this.label = label;
+            this.availability = availability;
+        }
+
+        boolean matches(LinkAvailability value) {
+            return availability == null || value == availability;
+        }
+
+        AvailabilityFilter next() {
+            AvailabilityFilter[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+
+        @Override public String toString() { return label; }
     }
 }

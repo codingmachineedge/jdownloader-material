@@ -1,64 +1,90 @@
 # Architecture
 
-JDownloader Material has a strict dependency direction: **UI -> engine interface -> model**.
-Views never depend on a concrete engine implementation.
+JDownloader Material keeps the UI dependent on the DownloadEngine interface rather than on a
+particular transfer backend. In a normal launch, the application selects DirectHttpEngine for real
+direct HTTP(S) transfers. SimulatedEngine is selected only for deterministic screenshot/demo
+paths, where reaching the network would make documentation unstable.
 
 ~~~text
-ui
-  JDMaterialApp -> MainWindow
-    view/DownloadsView   view/LinkGrabberView   view/AddLinksView   view/SettingsView
-    component/{Mat, DownloadCells, StatusBar, NotificationCenter}
-    ThemeManager, Icons
-              |
-              v
-engine
-  DownloadEngine (interface)   Settings   SettingsIO
-  SimulatedEngine (current implementation)
-              |
-              v
-model
-  DownloadItem -> DownloadPackage -> DownloadLink
-  CrawledPackage -> CrawledLink
-  DownloadState, LinkAvailability
+app
+  JDMaterialApp
+    normal launch ------------------------> DirectHttpEngine
+    screenshot/demo capture -------------> SimulatedEngine
+                                             |
+ui                                           v
+  MainWindow ----------------------> DownloadEngine (interface)
+    DownloadsView                      Settings / SettingsIO
+    LinkGrabberView                          |
+    AddLinksView                             v
+    SettingsView                    AppStateStore (local journal)
+    StatusBar / NotificationCenter            |
+          |                                   v
+          +-------------------------------> model
+                                      DownloadItem -> DownloadPackage -> DownloadLink
+                                      CrawledPackage -> CrawledLink
+                                      DownloadState, LinkAvailability
 ~~~
 
-SimulatedEngine is the only bundled engine implementation. It makes the UI demonstrable but
-does not contain the JDownloader crawler, plugin system, or production download controller. A
-JDownloader-core adapter is a future integration point, not code that is present in this
-repository.
+The UI consumes observable packages, link properties, settings, and global statistics through
+the interface. It does not depend on DirectHttpEngine, SimulatedEngine, or JDownloader-core
+classes directly.
 
-## Data flow and nonblocking work
+## Normal direct-download path
 
-The model uses JavaFX observable properties. The engine changes bytes loaded, speed, and state;
-views bind table cells and labels directly to those properties, so updates do not require a
-manual refresh.
+For the normal application path, DirectHttpEngine provides a small but real direct-file pipeline:
 
-- DownloadPackage observes its children and re-aggregates size, loaded bytes, speed, state,
-  and progress when a child or child list changes.
-- SimulatedEngine uses an AnimationTimer on the JavaFX pulse (roughly a 150 ms cadence) to
-  admit queued links to the configured concurrency limit, advance active work, honor the speed
-  cap, and publish global speed, running count, and remaining bytes.
-- Link submission is deliberately deferred: addLinks immediately puts work in LinkGrabber,
-  availability checking completes later, and auto-confirm/auto-start applies after that check.
-  The inline Add Links composer therefore never waits on a confirmation dialog.
-- The views keep their tree tables synchronized with ListChangeListeners on the engine's
-  observable package lists; row values come from property-bound cell value factories.
-- Settings backup takes a settings snapshot on the JavaFX thread, then performs encryption and
-  file I/O in a JavaFX Task; imported properties are applied back on the JavaFX thread. The
-  Backup page reports progress inline rather than opening a blocking form.
+1. Add Links and clipboard input submit direct HTTP(S) URLs without blocking the UI.
+2. Background crawl workers parse the text, create LinkGrabber rows, and probe metadata using
+   HEAD with a ranged GET fallback.
+3. The UI receives availability, filename, and size updates on the JavaFX Application Thread.
+   Auto-confirm occurs after the probe if requested; auto-start applies to those auto-confirmed
+   results.
+4. An AnimationTimer scheduler admits queued links according to the global
+   simultaneous-download and per-host connection limits.
+5. Transfer workers stream HTTP responses to target-name .part files, attempt Range resumption,
+   and atomically move completed files into place when the filesystem supports atomic moves.
+6. The scheduler and worker state update observable model properties; tree-table cells and the
+   status bar react through bindings instead of polling or modal dialogs.
 
-## Theming
+If the server does not honor a range request, the engine restarts the partial stream. File
+collisions are resolved by the configured policy on the worker. In particular, the default Ask
+policy safely auto-renames instead of placing an acknowledgement dialog in the download path.
 
-ThemeManager installs a token stylesheet (theme-light.css or theme-dark.css) and the shared
-material.css stylesheet. The token file defines the -md-* Material 3 color roles; switching
-themes swaps that token file, so controls re-resolve their colors together. See
-[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).
+## Local state recovery
 
-## Why an engine interface
+DirectHttpEngine owns AppStateStore, a debounced best-effort journal at
+~/.jdownloader-material/state.properties. The state writer snapshots non-secret settings, the
+Downloads queue, and LinkGrabber packages on the JavaFX thread, then writes it on a background
+worker using a temporary file and atomic replacement where available.
 
-The engine boundary makes UI development independent of download-backend integration. The
-current SimulatedEngine supplies predictable interactive behavior for the application and the
-documentation screenshots. A future adapter can map the same
-[DownloadEngine](ENGINE_API.md) contract onto JDownloader core classes, provided it marshals
-backend updates to the JavaFX Application Thread. Until that adapter exists, releases should be
-understood as a simulated front-end experience rather than a full JDownloader client.
+At startup the journal is read asynchronously and applied on the JavaFX thread. Formerly running
+or paused links are restored as queued because a live HTTP stream cannot survive process exit;
+their remaining .part file is available for the next direct transfer to resume. My.JDownloader
+credentials are deliberately omitted from this ordinary journal. The encrypted Backup page is
+the route for carrying those optional credentials between machines.
+
+## Nonblocking work and UI state
+
+The model uses JavaFX observable properties. Views bind table cells and labels directly, so
+progress, speed, availability, and state changes do not need a manual refresh.
+
+- Network probes, HTTP streaming, state writes, backup encryption, and backup file I/O run on
+  background workers.
+- Model mutations that JavaFX observes are marshalled back with Platform.runLater.
+- Link submission is deferred: the inline Add Links composer returns immediately while probing
+  proceeds, then auto-confirm / auto-start can continue without a dialog.
+- Transfers expose progress, failure detail, and pause state in their rows and the status bar.
+  A compact snackbar is reserved for a navigable or reversible UI result, not normal workflow.
+- Settings backup snapshots/applies JavaFX properties on the UI thread while encryption and disk
+  work stay in a JavaFX Task.
+
+## SimulatedEngine and future JDownloader integration
+
+SimulatedEngine is retained to seed reliable screenshots and demos with no live network traffic.
+It is not the engine normal users run and it is not evidence of a JDownloader-core integration.
+
+DirectHttpEngine also is not JDownloader core. It handles only ordinary direct HTTP(S) files.
+JDownloader plugins, hoster-specific logic, container formats, accounts, CAPTCHA, remote
+control, and full upstream parity remain future work. A future adapter can map the same
+[DownloadEngine](ENGINE_API.md) contract onto JDownloader core classes, provided it preserves
+the JavaFX-thread boundary described above.

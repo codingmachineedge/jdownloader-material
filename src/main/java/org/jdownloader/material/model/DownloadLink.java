@@ -20,6 +20,8 @@ public final class DownloadLink extends DownloadItem {
     private final StringProperty name = new SimpleStringProperty(this, "name", "");
     private final StringProperty host = new SimpleStringProperty(this, "host", "");
     private final StringProperty url = new SimpleStringProperty(this, "url", "");
+    private final StringProperty destination = new SimpleStringProperty(this, "destination", "");
+    private final StringProperty detail = new SimpleStringProperty(this, "detail", "");
     private final LongProperty bytesTotal = new SimpleLongProperty(this, "bytesTotal", 0);
     private final LongProperty bytesLoaded = new SimpleLongProperty(this, "bytesLoaded", 0);
     private final LongProperty speed = new SimpleLongProperty(this, "speed", 0);
@@ -54,10 +56,15 @@ public final class DownloadLink extends DownloadItem {
 
     // Writable accessors used by the engine --------------------------------
     public LongProperty loadedProp()   { return bytesLoaded; }
+    public LongProperty totalProp()    { return bytesTotal; }
     public LongProperty speedProp()    { return speed; }
     public ObjectProperty<DownloadState> stateProp() { return state; }
     public BooleanProperty enabled()   { return enabled; }
     public StringProperty url()        { return url; }
+    /** Per-link destination captured from its package at confirmation time. */
+    public StringProperty destinationProperty() { return destination; }
+    /** Inline status detail such as an HTTP or filesystem failure. */
+    public StringProperty detailProperty() { return detail; }
     public long total()                { return bytesTotal.get(); }
 
     public void setState(DownloadState s) { state.set(s); }

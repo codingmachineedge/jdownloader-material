@@ -11,14 +11,22 @@ import javafx.collections.ObservableList;
 public final class CrawledPackage {
 
     private final StringProperty name = new SimpleStringProperty(this, "name", "");
+    private final StringProperty destination = new SimpleStringProperty(this, "destination", "");
     private final ObservableList<CrawledLink> links = FXCollections.observableArrayList();
     private final BooleanProperty expanded = new SimpleBooleanProperty(this, "expanded", true);
 
     public CrawledPackage(String name) {
+        this(name, "");
+    }
+
+    public CrawledPackage(String name, String destination) {
         this.name.set(name);
+        this.destination.set(destination == null ? "" : destination);
     }
 
     public StringProperty nameProperty() { return name; }
+    /** Destination captured when this package was submitted. */
+    public StringProperty destinationProperty() { return destination; }
     public ObservableList<CrawledLink> links() { return links; }
     public BooleanProperty expandedProperty() { return expanded; }
 

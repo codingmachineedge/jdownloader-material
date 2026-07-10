@@ -47,8 +47,12 @@ public final class ClipboardMonitor {
             System.out.println("[clip] poll enabled=" + engine.settings().clipboardMonitoringProperty().get()
                     + " value=" + abbrev(readClipboard()) + " lastSeen=" + abbrev(lastSeen));
         }
-        if (!engine.settings().clipboardMonitoringProperty().get()) return;
         String text = readClipboard();
+        if (!engine.settings().clipboardMonitoringProperty().get()) {
+            // Do not enqueue data copied while monitoring was intentionally off.
+            lastSeen = text;
+            return;
+        }
         if (text == null || text.equals(lastSeen)) return;
         lastSeen = text;
 
@@ -59,7 +63,8 @@ public final class ClipboardMonitor {
                 .toList();
         if (urls.isEmpty()) return;
 
-        engine.addLinks(String.join("\n", urls), null, false, false);
+        engine.addLinks(String.join("\n", urls), null,
+                engine.settings().downloadFolderProperty().get(), false, false);
         notifier.snack(urls.size() + (urls.size() == 1 ? " link" : " links")
                 + " grabbed from clipboard", "View", viewLinkGrabber);
     }

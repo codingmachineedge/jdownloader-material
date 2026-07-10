@@ -4,7 +4,7 @@ package org.jdownloader.material.model;
 public enum LinkAvailability {
     ONLINE("Online", "avail-online"),
     OFFLINE("Offline", "avail-offline"),
-    UNKNOWN("Unchecked", "avail-unknown");
+    UNKNOWN("Checking", "avail-unknown");
 
     private final String label;
     private final String styleClass;

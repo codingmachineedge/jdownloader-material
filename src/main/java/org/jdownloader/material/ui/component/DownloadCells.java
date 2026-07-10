@@ -42,7 +42,9 @@ public final class DownloadCells {
                     label.setText(name + "  (" + n + ")");
                     label.setStyle("-fx-font-weight: 600;");
                 } else {
-                    label.setText(name);
+                    String detail = item instanceof org.jdownloader.material.model.DownloadLink link
+                            ? link.detailProperty().get() : "";
+                    label.setText(detail == null || detail.isBlank() ? name : name + " — " + detail);
                     label.setStyle("");
                 }
                 setGraphic(box);

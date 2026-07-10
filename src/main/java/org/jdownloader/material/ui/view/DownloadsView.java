@@ -1,6 +1,7 @@
 package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXTextField;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.control.ContextMenu;
@@ -68,6 +69,13 @@ public final class DownloadsView extends BorderPane {
         start.setOnAction(e -> engine.start());
         var pause = Mat.icon("pause", "Pause");
         pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
+        Runnable updatePause = () -> {
+            boolean isPaused = engine.pausedProperty().get();
+            pause.setGraphic(org.jdownloader.material.ui.Icons.of(isPaused ? "play" : "pause", 20));
+            Mat.tip(pause, isPaused ? "Resume downloads" : "Pause downloads");
+        };
+        updatePause.run();
+        engine.pausedProperty().addListener((o, wasPaused, isPaused) -> updatePause.run());
         var stop = Mat.icon("stop", "Stop all");
         stop.setOnAction(e -> engine.stop());
 
@@ -121,6 +129,13 @@ public final class DownloadsView extends BorderPane {
         status.setCellFactory(DownloadCells.status());
         status.setPrefWidth(130);
 
+        TreeTableColumn<DownloadItem, String> details = new TreeTableColumn<>("Details");
+        details.setCellValueFactory(p -> {
+            DownloadItem item = p.getValue().getValue();
+            return item instanceof DownloadLink link ? link.detailProperty() : new ReadOnlyStringWrapper("");
+        });
+        details.setPrefWidth(180);
+
         TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>("Progress");
         progress.setCellValueFactory(p -> p.getValue().getValue().progressProperty());
         progress.setCellFactory(DownloadCells.progress());
@@ -137,18 +152,18 @@ public final class DownloadsView extends BorderPane {
         eta.setCellFactory(DownloadCells.eta());
         eta.setPrefWidth(90);
 
-        tree.getColumns().setAll(List.of(name, size, host, status, progress, speed, eta));
+        tree.getColumns().setAll(List.of(name, size, host, status, details, progress, speed, eta));
         tree.setContextMenu(buildContextMenu());
         return tree;
     }
 
     private ContextMenu buildContextMenu() {
         MenuItem start = new MenuItem("Start");
-        start.setOnAction(e -> engine.forceStart(selectedLinks()));
+        start.setOnAction(e -> engine.startLinks(selectedLinks()));
         MenuItem force = new MenuItem("Force start");
         force.setOnAction(e -> engine.forceStart(selectedLinks()));
         MenuItem stop = new MenuItem("Stop");
-        stop.setOnAction(e -> engine.stop());
+        stop.setOnAction(e -> engine.stopLinks(selectedLinks()));
         MenuItem expand = new MenuItem("Expand / collapse");
         expand.setOnAction(e -> toggleExpandSelected());
         MenuItem remove = new MenuItem("Remove");
@@ -252,7 +267,6 @@ public final class DownloadsView extends BorderPane {
             if (it instanceof DownloadLink l) out.add(l);
             else if (it instanceof DownloadPackage p) out.addAll(p.links());
         }
-        if (out.isEmpty()) engine.downloadPackages().forEach(p -> out.addAll(p.links()));
         return out;
     }
 

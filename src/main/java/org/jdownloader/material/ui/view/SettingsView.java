@@ -102,7 +102,7 @@ public final class SettingsView extends BorderPane {
                         slider(s.maxSimultaneousDownloadsProperty(), 1, 10, 1)),
                 row("Connections per download", "Segments used to speed up a single file",
                         slider(s.maxChunksPerDownloadProperty(), 1, 20, 1)),
-                row("If a file already exists", "Behavior on filename collision", ifExists)
+                row("If a file already exists", "Collisions resolve inline; the default safely auto-renames", ifExists)
         );
     }
 

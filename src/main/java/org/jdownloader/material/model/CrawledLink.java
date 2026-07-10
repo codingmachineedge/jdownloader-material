@@ -46,6 +46,14 @@ public final class CrawledLink {
 
     /** Promotes this crawled link into a concrete download link. */
     public DownloadLink toDownloadLink() {
-        return new DownloadLink(name.get(), host.get(), size.get());
+        return toDownloadLink("");
+    }
+
+    /** Promotes this crawled link while preserving its source and destination. */
+    public DownloadLink toDownloadLink(String destination) {
+        DownloadLink download = new DownloadLink(name.get(), host.get(), size.get());
+        download.url().set(url.get());
+        download.destinationProperty().set(destination == null ? "" : destination);
+        return download;
     }
 }

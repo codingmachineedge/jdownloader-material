@@ -10,6 +10,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -32,6 +34,7 @@ public final class SettingsIO {
     private static final int IV_LEN = 12;
     private static final int KEY_BITS = 256;
     private static final int ITERATIONS = 210_000;
+    private static final long MAX_BACKUP_BYTES = 8L * 1024 * 1024;
 
     private SettingsIO() {
     }
@@ -94,7 +97,21 @@ public final class SettingsIO {
         out.write(salt);
         out.write(iv);
         out.write(encrypted);
-        Files.write(file, out.toByteArray());
+        Path target = file.toAbsolutePath();
+        Path parent = target.getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Path tempParent = parent == null ? Path.of(System.getProperty("java.io.tmpdir")) : parent;
+        Path temp = Files.createTempFile(tempParent, "jdmbackup-", ".tmp");
+        try {
+            Files.write(temp, out.toByteArray());
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ex) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temp);
+        }
     }
 
     // ---------------------------------------------------------------- Import
@@ -106,6 +123,9 @@ public final class SettingsIO {
     /** Decrypts a backup without mutating JavaFX settings from a worker thread. */
     public static Properties importFrom(Path file, char[] passphrase)
             throws IOException, BackupException {
+        if (Files.size(file) > MAX_BACKUP_BYTES) {
+            throw new IOException("Backup file is too large to import safely.");
+        }
         byte[] blob = Files.readAllBytes(file);
         if (blob.length < MAGIC.length + SALT_LEN + IV_LEN + 16
                 || !Arrays.equals(Arrays.copyOf(blob, MAGIC.length), MAGIC)) {
@@ -132,16 +152,16 @@ public final class SettingsIO {
     /** Applies a decoded backup on the JavaFX application thread. */
     public static void apply(Properties p, Settings s) {
         apply(p, "downloadFolder", v -> s.downloadFolderProperty().set(v));
-        applyInt(p, "maxSimultaneousDownloads", v -> s.maxSimultaneousDownloadsProperty().set(v));
-        applyInt(p, "maxChunksPerDownload", v -> s.maxChunksPerDownloadProperty().set(v));
+        applyInt(p, "maxSimultaneousDownloads", v -> s.maxSimultaneousDownloadsProperty().set(clamp(v, 1, 10)));
+        applyInt(p, "maxChunksPerDownload", v -> s.maxChunksPerDownloadProperty().set(clamp(v, 1, 20)));
         apply(p, "ifFileExists", v -> s.ifFileExistsProperty().set(Settings.IfExists.valueOf(v)));
         applyBool(p, "clipboardMonitoring", v -> s.clipboardMonitoringProperty().set(v));
         applyBool(p, "autoConfirm", v -> s.autoConfirmProperty().set(v));
         applyBool(p, "autoStart", v -> s.autoStartProperty().set(v));
         applyBool(p, "addAtTop", v -> s.addAtTopProperty().set(v));
         applyBool(p, "speedLimitEnabled", v -> s.speedLimitEnabledProperty().set(v));
-        applyInt(p, "speedLimitKbps", v -> s.speedLimitKbpsProperty().set(v));
-        applyInt(p, "maxConnectionsPerHost", v -> s.maxConnectionsPerHostProperty().set(v));
+        applyInt(p, "speedLimitKbps", v -> s.speedLimitKbpsProperty().set(clamp(v, 128, 20_000)));
+        applyInt(p, "maxConnectionsPerHost", v -> s.maxConnectionsPerHostProperty().set(clamp(v, 1, 20)));
         applyBool(p, "autoReconnect", v -> s.autoReconnectProperty().set(v));
         apply(p, "reconnectMethod", v -> s.reconnectMethodProperty().set(v));
         applyBool(p, "darkTheme", v -> s.darkThemeProperty().set(v));
@@ -183,6 +203,10 @@ public final class SettingsIO {
     private static void applyBool(Properties p, String key, Setter<Boolean> setter) {
         String v = p.getProperty(key);
         if (v != null) setter.set(Boolean.parseBoolean(v));
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(value, max));
     }
 
     /** UTF-8 chars of a string as a char[] the caller can zero after use. */

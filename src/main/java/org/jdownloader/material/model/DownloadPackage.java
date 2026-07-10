@@ -23,6 +23,7 @@ import javafx.collections.ObservableList;
 public final class DownloadPackage extends DownloadItem {
 
     private final StringProperty name = new SimpleStringProperty(this, "name", "");
+    private final StringProperty destination = new SimpleStringProperty(this, "destination", "");
     private final ObservableList<DownloadLink> links = FXCollections.observableArrayList();
     private final BooleanProperty expanded = new SimpleBooleanProperty(this, "expanded", true);
 
@@ -37,7 +38,12 @@ public final class DownloadPackage extends DownloadItem {
     private final InvalidationListener childListener = o -> recompute();
 
     public DownloadPackage(String name) {
+        this(name, "");
+    }
+
+    public DownloadPackage(String name, String destination) {
         this.name.set(name);
+        this.destination.set(destination == null ? "" : destination);
         this.progress = Bindings.createDoubleBinding(() -> {
             long tot = bytesTotal.get();
             if (tot <= 0) return -1.0;
@@ -107,6 +113,8 @@ public final class DownloadPackage extends DownloadItem {
 
     public ObservableList<DownloadLink> links() { return links; }
     public StringProperty nameProp() { return name; }
+    /** Destination captured when this package was confirmed. */
+    public StringProperty destinationProperty() { return destination; }
     public BooleanProperty expandedProperty() { return expanded; }
     public int childCount() { return links.size(); }
 

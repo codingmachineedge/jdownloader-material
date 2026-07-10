@@ -1,13 +1,15 @@
 # JDownloader Material
 
 JDownloader Material is a JavaFX + [MaterialFX](https://github.com/palexdev/MaterialFX)
-front-end experiment inspired by [JDownloader 2](https://jdownloader.org/), styled with
+desktop downloader inspired by [JDownloader 2](https://jdownloader.org/), styled with
 Material Design 3 in both light and dark themes.
 
-The repository currently ships a fully interactive in-memory SimulatedEngine. It is **not**
-a distribution of, or adapter to, the JDownloader core. The UI talks to a small
-[engine boundary](docs/ENGINE_API.md) so a future core integration can be added without
-rewriting the views; that adapter is not included in this release.
+Normal launches use `DirectHttpEngine` to download **direct HTTP and HTTPS files**. URLs are
+probed in the background, streamed to resumable `.part` files, and finalized into their target
+names without a blocking confirmation dialog. It is **not** a distribution of, or adapter to,
+the JDownloader core: JDownloader plugins, containers, accounts, CAPTCHA handling, and the full
+hoster ecosystem are not bundled. The UI talks to a small [engine boundary](docs/ENGINE_API.md)
+so a future core integration can be added without rewriting the views.
 
 ![Downloads - light](docs/screenshots/downloads-light.png)
 ![Downloads - dark](docs/screenshots/downloads-dark.png)
@@ -16,7 +18,8 @@ rewriting the views; that adapter is not included in this release.
 - **UI:** JavaFX 25, MaterialFX components, hand-authored Material 3 stylesheet
 - **Themes:** Material light + dark, switchable at runtime from the app bar
 - **Engine:** a swappable [DownloadEngine](src/main/java/org/jdownloader/material/engine/DownloadEngine.java)
-  interface, currently backed by the interactive SimulatedEngine
+  interface; normal launches use `DirectHttpEngine`, while `SimulatedEngine` is reserved for
+  deterministic screenshots and demos
 
 ## Visual tour
 
@@ -46,13 +49,23 @@ implemented surface and remaining upstream work; [docs/FEATURE_SPEC.md](docs/FEA
 is the upstream reference inventory, not a claim of full core compatibility.
 
 - **Downloads** - package-to-file tree table with Name, Size, Host, Status, Progress, Speed,
-  and ETA; Material status chips and progress bars; Add Links, Start, Pause, Stop, ordering,
-  Remove, live search, and a context menu.
-- **LinkGrabber** - staging tree table with deferred availability checks, Paste, Remove, and
-  Confirm-to-Downloads.
-- **Inline Add Links composer** - paste one or more URLs, optionally name the package and set
-  a destination, then choose **Queue in LinkGrabber** or **Queue & Start**. Availability checks,
-  automatic confirmation, and starting are deferred so the user can keep navigating.
+  ETA, and inline Details; Material status chips and progress bars; Add Links, Start, Pause, Stop, ordering,
+  Remove, live search, and a context menu. Direct HTTP(S) files stream to disk for normal runs.
+- **LinkGrabber** - staging tree table with asynchronous direct-URL metadata probes, Paste,
+  Remove, Confirm-to-Downloads, and an inline availability filter (All, Checking, Online, Offline).
+- **Inline Add Links composer** - paste one or more direct HTTP(S) URLs, optionally name the
+  package and set a destination, then choose **Queue in LinkGrabber** or **Queue & Start**.
+  Parsing, availability checks, automatic confirmation, and starting are deferred so the user
+  can keep navigating.
+- **Direct HTTP(S) transfers** - redirect-aware metadata probes; background streaming;
+  resumable `.part` files when the server supports byte ranges; atomic finalization where the
+  filesystem supports it; global and per-host transfer limits; and a global speed cap.
+- **Nonblocking file collisions** - the default "Ask" policy safely auto-renames instead of
+  showing a prompt. Skip, overwrite, and rename policies are selected in Settings and applied by
+  the worker, not by a dialog.
+- **Local state recovery** - settings (excluding remote-control credentials), the Downloads
+  queue, and LinkGrabber staging data are journaled under `~/.jdownloader-material/`. In-progress
+  transfers recover as queued on restart and reuse their `.part` file when started again.
 - **Nonblocking feedback** - ordinary transfer actions expose their state in the view and status
   bar. A compact transient message is reserved for navigable or reversible results such as
   **View** and **Undo**; it never asks the user to dismiss a workflow-blocking prompt.
@@ -64,15 +77,15 @@ is the upstream reference inventory, not a claim of full core compatibility.
 - **App bar and status bar** - clipboard monitoring, automatic reconnect, reconnect-now,
   light/dark switch, window controls, global speed, running count, remaining bytes, and
   reconnect state.
-- **Simulated engine** - schedules queued links up to the concurrency limit, advances progress,
-  honors the global speed limit, supports real paused states, and simulates availability checks
-  and reconnects. It is a UI/demo backend, not the JDownloader download pipeline.
+- **Screenshot/demo engine** - `SimulatedEngine` supplies deterministic sample rows and fake
+  progress only when the opt-in screenshot/demo path is used. It is not the normal downloader.
 
 ## Installer releases
 
-Every push to main builds and publishes a new GitHub release with self-contained native
+Every push builds and publishes a new GitHub release with self-contained native
 installers for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. The installers
 include a Java 25 runtime, so users do not need to install Java or Maven separately.
+The release workflow validates and publishes only those four installer uploads.
 
 - [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
 - [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
@@ -118,7 +131,7 @@ inputs inline and performs export/import work asynchronously; nothing is written
 src/main/java/org/jdownloader/material/
   app/       Application entry point (JDMaterialApp, Launcher)
   model/     DownloadItem/Link/Package, CrawledLink/Package, states
-  engine/    DownloadEngine interface, SimulatedEngine, Settings
+  engine/    DownloadEngine interface, DirectHttpEngine, SimulatedEngine, AppStateStore, Settings
   ui/        MainWindow, ThemeManager, Icons
   ui/view/   DownloadsView, LinkGrabberView, AddLinksView, SettingsView
   ui/component/ Mat, DownloadCells, StatusBar, NotificationCenter
@@ -130,10 +143,11 @@ docs/        UI_GUIDE, FEATURE_SPEC, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE
 
 ## Relationship to JDownloader
 
-This project currently reimplements a portion of the **graphical front end** only. It does not
-ship the JDownloader crawler, hoster/plugin ecosystem, or real download controller, and no
+This project has its own small direct-file downloader, not the JDownloader core. It can retrieve
+ordinary direct HTTP(S) files, but it does not ship JDownloader's crawler, hoster/plugin
+ecosystem, container formats, Account Manager, CAPTCHA flow, or remote-control backend. No
 JDownloader-core adapter exists in this repository yet. [docs/ENGINE_API.md](docs/ENGINE_API.md)
-documents the intended integration boundary and class mapping for future work.
+documents both the shipped direct engine and the intended future core integration boundary.
 
 ## License
 

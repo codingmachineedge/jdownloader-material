@@ -10,6 +10,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import java.net.URI;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.ui.component.Mat;
 
@@ -79,18 +80,33 @@ public final class AddLinksView extends BorderPane {
 
     private void submit(boolean start) {
         String text = links.getText();
-        long count = text == null ? 0 : text.lines().map(String::trim).filter(line -> !line.isEmpty()).count();
+        long entered = text == null ? 0 : text.lines().map(String::trim).filter(line -> !line.isEmpty()).count();
+        long count = text == null ? 0 : text.lines().map(String::trim).filter(AddLinksView::isDirectHttpUrl).count();
         if (count == 0) {
-            status.setText("Paste at least one URL to queue a download.");
+            status.setText("Paste at least one direct HTTP or HTTPS URL to queue a download.");
             return;
         }
-        engine.addLinks(text, packageName.getText(), start, start);
-        status.setText(start
+        engine.addLinks(text, packageName.getText(), destination.getText(), start, start);
+        String result = start
                 ? count + (count == 1 ? " link is" : " links are")
                         + " being checked and will start automatically."
                 : count + (count == 1 ? " link is" : " links are")
-                        + " being checked in LinkGrabber.");
+                        + " being checked in LinkGrabber.";
+        if (entered > count) result += " " + (entered - count)
+                + (entered - count == 1 ? " unsupported line was ignored." : " unsupported lines were ignored.");
+        status.setText(result);
         links.clear();
         packageName.clear();
+    }
+
+    private static boolean isDirectHttpUrl(String value) {
+        try {
+            URI uri = URI.create(value);
+            String scheme = uri.getScheme();
+            return uri.getHost() != null && scheme != null
+                    && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 }

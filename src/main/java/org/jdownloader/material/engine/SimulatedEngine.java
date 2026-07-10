@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -57,6 +58,7 @@ public final class SimulatedEngine implements DownloadEngine {
 
     /** Per-link target throughput assigned on promotion to RUNNING. */
     private final Map<String, Long> targetSpeed = new HashMap<>();
+    private final Set<String> manuallyStopped = new java.util.HashSet<>();
     private long lastTick = 0;
     private final AnimationTimer timer;
     private final ExecutorService crawlParser = Executors.newSingleThreadExecutor(runnable -> {
@@ -107,7 +109,7 @@ public final class SimulatedEngine implements DownloadEngine {
             }
             for (DownloadLink l : all) {
                 if (active >= limit) break;
-                if (l.state() == DownloadState.QUEUED && l.enabled().get()) {
+                if (l.state() == DownloadState.QUEUED && l.enabled().get() && !manuallyStopped.contains(l.id())) {
                     l.setState(DownloadState.RUNNING);
                     targetSpeed.put(l.id(), randomSpeed());
                     active++;
@@ -151,7 +153,8 @@ public final class SimulatedEngine implements DownloadEngine {
         // If nothing left to run, the queue is idle.
         boolean anyActionable = all.stream()
                 .anyMatch(l -> l.state() == DownloadState.RUNNING
-                        || (running.get() && l.state() == DownloadState.QUEUED && l.enabled().get()));
+                        || (running.get() && l.state() == DownloadState.QUEUED && l.enabled().get()
+                        && !manuallyStopped.contains(l.id())));
         if (!anyActionable && running.get()) running.set(false);
 
         recomputeGlobals(all);
@@ -182,9 +185,11 @@ public final class SimulatedEngine implements DownloadEngine {
 
     // ------------------------------------------------------------- LinkGrabber
     @Override
-    public void addLinks(String text, String packageName, boolean autoConfirm, boolean autoStart) {
+    public void addLinks(String text, String packageName, String destination,
+                         boolean autoConfirm, boolean autoStart) {
         String source = text == null ? "" : text;
         String requestedName = packageName == null ? "" : packageName.trim();
+        String requestedDestination = destination == null ? "" : destination.trim();
         boolean confirmWhenChecked = autoConfirm || settings.autoConfirmProperty().get();
         boolean startWhenConfirmed = autoStart || settings.autoStartProperty().get();
 
@@ -196,14 +201,15 @@ public final class SimulatedEngine implements DownloadEngine {
                     .filter(s -> !s.isEmpty())
                     .toList();
             if (urls.isEmpty()) return;
-            Platform.runLater(() -> beginCrawl(urls, requestedName, confirmWhenChecked, startWhenConfirmed));
+            Platform.runLater(() -> beginCrawl(urls, requestedName, requestedDestination,
+                    confirmWhenChecked, startWhenConfirmed));
         });
     }
 
-    private void beginCrawl(List<String> urls, String requestedName,
+    private void beginCrawl(List<String> urls, String requestedName, String destination,
                             boolean autoConfirm, boolean autoStart) {
         String name = requestedName.isBlank() ? "New Package " + (crawled.size() + 1) : requestedName;
-        CrawledPackage pkg = new CrawledPackage(name);
+        CrawledPackage pkg = new CrawledPackage(name, destination);
         crawled.add(pkg);
         appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart);
     }
@@ -251,21 +257,39 @@ public final class SimulatedEngine implements DownloadEngine {
 
     @Override
     public void confirmToDownloads(Collection<CrawledPackage> packages, boolean autoStart) {
-        for (CrawledPackage cp : new ArrayList<>(packages)) {
-            if (!crawled.contains(cp)) continue;
-            DownloadPackage dp = new DownloadPackage(cp.name());
-            for (CrawledLink cl : cp.links()) {
-                if (cl.availability() != LinkAvailability.OFFLINE) {
-                    dp.links().add(cl.toDownloadLink());
-                }
-            }
-            if (!dp.links().isEmpty()) {
-                if (settings.addAtTopProperty().get()) downloads.add(0, dp);
-                else downloads.add(dp);
-            }
-            crawled.remove(cp);
+        List<CrawledLink> links = new ArrayList<>();
+        for (CrawledPackage pkg : packages) {
+            if (crawled.contains(pkg)) links.addAll(pkg.links());
         }
-        if (autoStart) start();
+        confirmLinksToDownloads(links, autoStart);
+    }
+
+    @Override
+    public void confirmLinksToDownloads(Collection<CrawledLink> links, boolean autoStart) {
+        Map<CrawledPackage, List<CrawledLink>> grouped = new java.util.LinkedHashMap<>();
+        for (CrawledLink link : links) {
+            CrawledPackage owner = crawled.stream().filter(pkg -> pkg.links().contains(link)).findFirst().orElse(null);
+            if (owner != null) grouped.computeIfAbsent(owner, ignored -> new ArrayList<>()).add(link);
+        }
+        boolean moved = false;
+        for (Map.Entry<CrawledPackage, List<CrawledLink>> entry : grouped.entrySet()) {
+            CrawledPackage cp = entry.getKey();
+            List<CrawledLink> ready = entry.getValue().stream()
+                    .filter(cp.links()::contains)
+                    .filter(link -> link.availability() == LinkAvailability.ONLINE)
+                    .toList();
+            if (ready.isEmpty()) continue;
+            DownloadPackage dp = new DownloadPackage(cp.name(), cp.destinationProperty().get());
+            for (CrawledLink cl : ready) {
+                dp.links().add(cl.toDownloadLink(cp.destinationProperty().get()));
+                }
+            if (settings.addAtTopProperty().get()) downloads.add(0, dp);
+            else downloads.add(dp);
+            cp.links().removeAll(ready);
+            if (cp.links().isEmpty()) crawled.remove(cp);
+            moved = true;
+        }
+        if (moved && autoStart) start();
     }
 
     @Override
@@ -278,8 +302,32 @@ public final class SimulatedEngine implements DownloadEngine {
         crawled.removeAll(packages);
     }
 
+    @Override
+    public void removeCrawledLinks(Collection<CrawledLink> links) {
+        for (CrawledLink link : new ArrayList<>(links)) {
+            for (CrawledPackage pkg : new ArrayList<>(crawled)) {
+                if (pkg.links().remove(link) && pkg.links().isEmpty()) {
+                    crawled.remove(pkg);
+                    break;
+                }
+            }
+        }
+    }
+
     // --------------------------------------------------------- Download control
-    @Override public void start() { paused.set(false); running.set(true); }
+    @Override public void start() { manuallyStopped.clear(); paused.set(false); running.set(true); }
+
+    @Override
+    public void startLinks(Collection<DownloadLink> links) {
+        if (links.isEmpty()) return;
+        paused.set(false);
+        for (DownloadLink link : links) {
+            if (link.state() == DownloadState.FINISHED) continue;
+            manuallyStopped.remove(link.id());
+            if (link.state() == DownloadState.PAUSED) link.setState(DownloadState.QUEUED);
+        }
+        running.set(true);
+    }
 
     @Override
     public void pause(boolean p) {
@@ -301,10 +349,24 @@ public final class SimulatedEngine implements DownloadEngine {
     }
 
     @Override
+    public void stopLinks(Collection<DownloadLink> links) {
+        for (DownloadLink link : links) {
+            if (link.state() == DownloadState.FINISHED) continue;
+            manuallyStopped.add(link.id());
+            if (link.state() == DownloadState.RUNNING || link.state() == DownloadState.PAUSED) {
+                link.setState(DownloadState.QUEUED);
+                link.speedProp().set(0);
+            }
+        }
+        recomputeGlobals(allLinks());
+    }
+
+    @Override
     public void forceStart(Collection<DownloadLink> links) {
         paused.set(false);
         for (DownloadLink l : links) {
             if (l.state() != DownloadState.FINISHED) {
+                manuallyStopped.remove(l.id());
                 l.setState(DownloadState.RUNNING);
                 targetSpeed.put(l.id(), randomSpeed());
             }
@@ -316,8 +378,10 @@ public final class SimulatedEngine implements DownloadEngine {
     public void removeDownloads(Collection<DownloadItem> items) {
         for (DownloadItem it : new ArrayList<>(items)) {
             if (it instanceof DownloadPackage p) {
+                p.links().forEach(link -> manuallyStopped.remove(link.id()));
                 downloads.remove(p);
             } else if (it instanceof DownloadLink l) {
+                manuallyStopped.remove(l.id());
                 for (DownloadPackage p : downloads) {
                     if (p.links().remove(l)) break;
                 }

@@ -17,6 +17,7 @@ import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import org.jdownloader.material.engine.DirectHttpEngine;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.engine.SimulatedEngine;
 import org.jdownloader.material.ui.MainWindow;
@@ -27,6 +28,7 @@ import org.jdownloader.material.util.Formats;
 public class JDMaterialApp extends Application {
 
     private DownloadEngine engine;
+    private boolean engineShutdown;
 
     @Override
     public void start(Stage stage) {
@@ -34,9 +36,15 @@ public class JDMaterialApp extends Application {
         // native title bar so it does not render as a duplicate strip above it.
         stage.initStyle(StageStyle.UNDECORATED);
 
-        SimulatedEngine sim = new SimulatedEngine();
-        sim.seedDemoData();
-        this.engine = sim;
+        String screenshotDir = System.getenv("JD_SCREENSHOT_DIR");
+        if (screenshotDir != null && !screenshotDir.isBlank()) {
+            // Documentation needs stable, local sample rows and must never reach the network.
+            SimulatedEngine sim = new SimulatedEngine();
+            sim.seedDemoData();
+            this.engine = sim;
+        } else {
+            this.engine = new DirectHttpEngine();
+        }
 
         ThemeManager theme = new ThemeManager();
         // Keep the Appearance toggle and the app-bar toggle in lock-step.
@@ -60,11 +68,10 @@ public class JDMaterialApp extends Application {
 
         stage.setOnCloseRequest(e -> {
             window.dispose();
-            engine.shutdown();
+            shutdownEngine();
         });
         stage.show();
 
-        String screenshotDir = System.getenv("JD_SCREENSHOT_DIR");
         if (screenshotDir != null && !screenshotDir.isBlank()) {
             captureDocumentation(scene, window, theme, Path.of(screenshotDir));
             return;
@@ -169,7 +176,13 @@ public class JDMaterialApp extends Application {
 
     @Override
     public void stop() {
-        if (engine != null) engine.shutdown();
+        shutdownEngine();
+    }
+
+    private void shutdownEngine() {
+        if (engineShutdown || engine == null) return;
+        engineShutdown = true;
+        engine.shutdown();
     }
 
     public static void main(String[] args) {

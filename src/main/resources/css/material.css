@@ -26,7 +26,9 @@
     -fx-text-fill: -md-on-surface;
     -fx-focus-color: -md-primary;
     -fx-faint-focus-color: transparent;
+    -fx-background-color: -md-background;
 }
+.app-shell { -fx-background-color: -md-background; }
 
 /* Material type scale ------------------------------------------------- */
 .display   { -fx-font-size: 32px; -fx-font-weight: 400; -fx-text-fill: -md-on-surface; }
@@ -86,7 +88,7 @@
     -fx-background-color: -md-surface-container-low;
     -fx-padding: 12 8 12 8;
     -fx-spacing: 6;
-    -fx-min-width: 92; -fx-pref-width: 92;
+    -fx-min-width: 112; -fx-pref-width: 112;
     -fx-alignment: top-center;
     -fx-border-color: transparent -md-outline-variant transparent transparent;
     -fx-border-width: 0 1 0 0;
@@ -97,7 +99,7 @@
     -fx-padding: 8 6 8 6;
     -fx-spacing: 4;
     -fx-alignment: center;
-    -fx-min-width: 72; -fx-max-width: 72;
+    -fx-min-width: 96; -fx-max-width: 96;
     -fx-cursor: hand;
 }
 .nav-item .nav-glyph {
@@ -444,9 +446,9 @@
 .mfx-slider { -mfx-main: -md-primary; }
 
 /* Edge-to-edge scroll pane (settings pages) */
-.edge-to-edge { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
-.edge-to-edge > .viewport { -fx-background-color: transparent; }
-.edge-to-edge:focused { -fx-background-color: transparent; }
+.edge-to-edge { -fx-background-color: -md-background; -fx-background-insets: 0; -fx-padding: 0; }
+.edge-to-edge > .viewport { -fx-background-color: -md-background; }
+.edge-to-edge:focused { -fx-background-color: -md-background; }
 
 /* Combo box (Material filled) */
 .combo-box {

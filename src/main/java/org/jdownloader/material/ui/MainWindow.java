@@ -1,6 +1,7 @@
 package org.jdownloader.material.ui;
 
 import io.github.palexdev.materialfx.controls.MFXButton;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -25,6 +26,7 @@ import org.jdownloader.material.ui.view.AddLinksView;
 import org.jdownloader.material.ui.view.DownloadsView;
 import org.jdownloader.material.ui.view.LinkGrabberView;
 import org.jdownloader.material.ui.view.SettingsView;
+import org.jdownloader.material.util.Formats;
 
 /**
  * Assembles the whole window: top app bar, navigation rail, content and status
@@ -76,6 +78,7 @@ public final class MainWindow extends StackPane {
         VBox.setVgrow(rail.getChildren().get(2), Priority.ALWAYS);
 
         BorderPane shell = new BorderPane();
+        shell.getStyleClass().add("app-shell");
         shell.setTop(buildTopAppBar());
         shell.setLeft(rail);
         shell.setCenter(content);
@@ -130,6 +133,12 @@ public final class MainWindow extends StackPane {
         StackPane mark = new StackPane(Icons.of("download", 18, "icon-on-primary"));
         mark.getStyleClass().add("app-mark");
         Label title = Mat.label("JDownloader", "app-title");
+        title.textProperty().bind(Bindings.createStringBinding(() -> {
+            if (engine.settings().speedInTitleProperty().get() && engine.globalSpeedProperty().get() > 0) {
+                return "JDownloader  -  " + Formats.speed(engine.globalSpeedProperty().get());
+            }
+            return "JDownloader";
+        }, engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
         VBox titleBox = new VBox(-2, title);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -140,11 +149,12 @@ public final class MainWindow extends StackPane {
 
         var themeToggle = Mat.icon(theme.isDark() ? "sun" : "moon",
                 theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
-        themeToggle.setOnAction(e -> {
-            theme.toggle();
+        Runnable updateThemeToggle = () -> {
             themeToggle.setGraphic(Icons.of(theme.isDark() ? "sun" : "moon", 20));
             Mat.tip(themeToggle, theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
-        });
+        };
+        themeToggle.setOnAction(e -> theme.toggle());
+        theme.darkProperty().addListener((o, wasDark, isDark) -> updateThemeToggle.run());
 
         var minimize = Mat.icon("minimize", "Minimize");
         minimize.getStyleClass().add("window-control");
