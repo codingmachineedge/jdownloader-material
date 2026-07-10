@@ -4,14 +4,18 @@ import io.github.palexdev.materialfx.controls.MFXButton;
 import javafx.beans.property.BooleanProperty;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.ui.component.ClipboardMonitor;
 import org.jdownloader.material.ui.component.DownloadNotifications;
@@ -32,6 +36,7 @@ public final class MainWindow extends StackPane {
 
     private final DownloadEngine engine;
     private final ThemeManager theme;
+    private final Stage stage;
     private final NotificationCenter notifier = new NotificationCenter();
     private final StackPane content = new StackPane();
     private final ToggleGroup navGroup = new ToggleGroup();
@@ -40,10 +45,13 @@ public final class MainWindow extends StackPane {
     private final ClipboardMonitor clipboardMonitor;
     @SuppressWarnings("unused") // holds listener registrations for the window's lifetime
     private final DownloadNotifications transferNotifications;
+    private double dragOffsetX;
+    private double dragOffsetY;
 
-    public MainWindow(DownloadEngine engine, ThemeManager theme) {
+    public MainWindow(DownloadEngine engine, ThemeManager theme, Stage stage) {
         this.engine = engine;
         this.theme = theme;
+        this.stage = stage;
 
         // "View" snack actions navigate to the LinkGrabber; resolved after nav is built.
         Runnable[] navToLinkGrabber = {() -> { }};
@@ -127,11 +135,59 @@ public final class MainWindow extends StackPane {
             Mat.tip(themeToggle, theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
         });
 
+        var minimize = Mat.icon("minimize", "Minimize");
+        minimize.getStyleClass().add("window-control");
+        minimize.setOnAction(e -> stage.setIconified(true));
+
+        var maximize = Mat.icon("maximize", "Maximize");
+        maximize.getStyleClass().add("window-control");
+        maximize.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
+        stage.maximizedProperty().addListener((o, wasMaximized, isMaximized) ->
+                updateMaximizeControl(maximize, isMaximized));
+
+        var close = Mat.icon("close", "Close");
+        close.getStyleClass().addAll("window-control", "window-close");
+        close.setOnAction(e -> stage.close());
+
         HBox bar = new HBox(12, mark, titleBox, Mat.hSpacer(),
-                clipboard, autoReconnect, reconnectNow, Mat.vSep(), themeToggle);
+                clipboard, autoReconnect, reconnectNow, Mat.vSep(), themeToggle, Mat.vSep(),
+                minimize, maximize, close);
         bar.getStyleClass().add("top-app-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
+        installWindowDragging(bar);
         return bar;
+    }
+
+    private void updateMaximizeControl(MFXButton button, boolean maximized) {
+        button.setGraphic(Icons.of(maximized ? "restore" : "maximize", 20));
+        Mat.tip(button, maximized ? "Restore" : "Maximize");
+    }
+
+    /** Lets the app bar replace the native title bar without losing window movement. */
+    private void installWindowDragging(HBox bar) {
+        bar.addEventHandler(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() != MouseButton.PRIMARY || targetsAControl(event.getTarget())) return;
+            dragOffsetX = event.getScreenX() - stage.getX();
+            dragOffsetY = event.getScreenY() - stage.getY();
+        });
+        bar.addEventHandler(MouseEvent.MOUSE_DRAGGED, event -> {
+            if (!event.isPrimaryButtonDown() || stage.isMaximized() || targetsAControl(event.getTarget())) return;
+            stage.setX(event.getScreenX() - dragOffsetX);
+            stage.setY(event.getScreenY() - dragOffsetY);
+        });
+        bar.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2
+                    && !targetsAControl(event.getTarget())) {
+                stage.setMaximized(!stage.isMaximized());
+            }
+        });
+    }
+
+    private boolean targetsAControl(Object target) {
+        for (Node node = target instanceof Node n ? n : null; node != null; node = node.getParent()) {
+            if (node instanceof ButtonBase || node instanceof MFXButton) return true;
+        }
+        return false;
     }
 
     /** A 40dp icon button that reflects and toggles a boolean setting. */

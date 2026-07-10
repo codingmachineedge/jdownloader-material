@@ -61,6 +61,9 @@
     -fx-alignment: center;
 }
 .top-app-bar .app-mark .glyph { -fx-fill: -md-on-primary; -fx-font-weight: 700; }
+.top-app-bar .window-control { -fx-background-radius: 8; }
+.top-app-bar .window-close:hover { -fx-background-color: -md-error; }
+.top-app-bar .window-close:hover .mat-icon { -fx-background-color: -md-on-error; }
 
 /* ------------------------------------------------------------ Search field */
 .search-field {

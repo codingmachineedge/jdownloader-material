@@ -5,6 +5,7 @@ import javafx.beans.binding.Bindings;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.engine.SimulatedEngine;
 import org.jdownloader.material.ui.MainWindow;
@@ -18,6 +19,10 @@ public class JDMaterialApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        // The Material app bar supplies its own window controls. Suppress the
+        // native title bar so it does not render as a duplicate strip above it.
+        stage.initStyle(StageStyle.UNDECORATED);
+
         SimulatedEngine sim = new SimulatedEngine();
         sim.seedDemoData();
         this.engine = sim;
@@ -26,7 +31,7 @@ public class JDMaterialApp extends Application {
         // Keep the Appearance toggle and the app-bar toggle in lock-step.
         theme.darkProperty().bindBidirectional(engine.settings().darkThemeProperty());
 
-        MainWindow window = new MainWindow(engine, theme);
+        MainWindow window = new MainWindow(engine, theme, stage);
         Scene scene = new Scene(window, 1180, 720);
         theme.install(scene);
 
