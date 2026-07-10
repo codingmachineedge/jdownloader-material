@@ -4,8 +4,10 @@ import java.nio.file.Path;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
@@ -52,6 +54,8 @@ public final class Settings {
     // Appearance
     private final BooleanProperty darkTheme = new SimpleBooleanProperty(this, "darkTheme", false);
     private final BooleanProperty speedInTitle = new SimpleBooleanProperty(this, "speedInTitle", true);
+    private final ObjectProperty<LanguageMode> language =
+            new SimpleObjectProperty<>(this, "language", LanguageMode.ENGLISH);
 
     // My.JDownloader remote-control credentials (the password is a secret —
     // see SettingsIO, which only ever writes settings encrypted).
@@ -73,6 +77,7 @@ public final class Settings {
     public StringProperty reconnectMethodProperty() { return reconnectMethod; }
     public BooleanProperty darkThemeProperty() { return darkTheme; }
     public BooleanProperty speedInTitleProperty() { return speedInTitle; }
+    public ObjectProperty<LanguageMode> languageProperty() { return language; }
     public StringProperty myjdEmailProperty() { return myjdEmail; }
     public StringProperty myjdPasswordProperty() { return myjdPassword; }
 }

@@ -5,6 +5,7 @@ import javafx.animation.Timeline;
 import javafx.scene.input.Clipboard;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.i18n.I18n;
 
 import java.util.List;
 
@@ -22,13 +23,15 @@ public final class ClipboardMonitor {
     private final DownloadEngine engine;
     private final NotificationCenter notifier;
     private final Runnable viewLinkGrabber;
+    private final I18n i18n;
     private final Timeline timeline;
     private String lastSeen;
 
-    public ClipboardMonitor(DownloadEngine engine, NotificationCenter notifier, Runnable viewLinkGrabber) {
+    public ClipboardMonitor(DownloadEngine engine, NotificationCenter notifier, Runnable viewLinkGrabber, I18n i18n) {
         this.engine = engine;
         this.notifier = notifier;
         this.viewLinkGrabber = viewLinkGrabber;
+        this.i18n = i18n;
         this.lastSeen = readClipboard(); // ignore whatever is on the clipboard at launch
         this.timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> poll()));
         this.timeline.setCycleCount(Timeline.INDEFINITE);
@@ -65,8 +68,8 @@ public final class ClipboardMonitor {
 
         engine.addLinks(String.join("\n", urls), null,
                 engine.settings().downloadFolderProperty().get(), false, false);
-        notifier.snack(urls.size() + (urls.size() == 1 ? " link" : " links")
-                + " grabbed from clipboard", "View", viewLinkGrabber);
+        notifier.snack(i18n.text(urls.size() == 1 ? "clipboard.grabbed.one" : "clipboard.grabbed.many",
+                urls.size()), i18n.text("action.view"), viewLinkGrabber);
     }
 
     private static String readClipboard() {

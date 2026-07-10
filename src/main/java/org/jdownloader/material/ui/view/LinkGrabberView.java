@@ -16,12 +16,14 @@ import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.LinkAvailability;
@@ -31,6 +33,7 @@ import org.jdownloader.material.util.Formats;
 
 import java.util.LinkedHashSet;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,41 +44,52 @@ public final class LinkGrabberView extends BorderPane {
     private final DownloadEngine engine;
     private final NotificationCenter notifier;
     private final Runnable openAddLinks;
+    private final I18n i18n;
     private final TreeTableView<Object> tree = new TreeTableView<>();
     private final TreeItem<Object> root = new TreeItem<>(null);
     private final javafx.beans.InvalidationListener refresh = o -> requestRebuild();
     private final PauseTransition rebuildDelay = new PauseTransition(Duration.millis(80));
     private final Map<CrawledPackage, ListChangeListener<CrawledLink>> packageLinkListeners = new HashMap<>();
+    private final Map<CrawledLink, Integer> linkListenerReferences = new IdentityHashMap<>();
+    private final ListChangeListener<CrawledPackage> crawledPackagesListener = c -> {
+        while (c.next()) {
+            for (CrawledPackage p : c.getAddedSubList()) attach(p);
+            for (CrawledPackage p : c.getRemoved()) detach(p);
+        }
+        requestRebuild();
+    };
+    private volatile boolean disposed;
     private boolean rebuildScheduled;
     private String filter = "";
     private AvailabilityFilter availabilityFilter = AvailabilityFilter.ALL;
 
-    public LinkGrabberView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
+    public LinkGrabberView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks, I18n i18n) {
         this.engine = engine;
         this.notifier = notifier;
         this.openAddLinks = openAddLinks;
+        this.i18n = i18n;
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
         rebuildDelay.setOnFinished(event -> {
             rebuildScheduled = false;
-            rebuild();
+            if (!disposed) rebuild();
         });
         wireModel();
         rebuild();
     }
 
     private VBox buildHeaderAndToolbar() {
-        var title = Mat.label("LinkGrabber", "headline");
+        var title = Mat.label(i18n.text("linkgrabber.title"), "headline");
         var search = new MFXTextField();
-        search.setPromptText("Search links");
+        search.setPromptText(i18n.text("linkgrabber.search"));
         search.getStyleClass().add("search-field");
         search.setPrefWidth(240);
         search.textProperty().addListener((o, a, b) -> { filter = b == null ? "" : b.toLowerCase(); rebuild(); });
-        var availability = Mat.outlined(availabilityFilter.label, null);
+        var availability = Mat.outlined(availabilityFilter.label(i18n), null);
         availability.setOnAction(e -> {
             availabilityFilter = availabilityFilter.next();
-            availability.setText(availabilityFilter.label);
+            availability.setText(availabilityFilter.label(i18n));
             requestRebuild();
         });
         HBox header = new HBox(12, title, Mat.hSpacer(), availability,
@@ -83,25 +97,25 @@ public final class LinkGrabberView extends BorderPane {
         header.getStyleClass().add("view-header");
         header.setAlignment(Pos.CENTER_LEFT);
 
-        var addLinks = Mat.filled("Add Links", "add");
+        var addLinks = Mat.filled(i18n.text("linkgrabber.add_links"), "add");
         addLinks.setOnAction(e -> openAddLinks.run());
-        var paste = Mat.tonal("Paste", "paste");
+        var paste = Mat.tonal(i18n.text("linkgrabber.paste"), "paste");
         paste.setOnAction(e -> pasteFromClipboard());
 
-        var confirm = Mat.filled("Add to Downloads", "check");
+        var confirm = Mat.filled(i18n.text("linkgrabber.add_to_downloads"), "check");
         confirm.setOnAction(e -> confirmSelected());
         confirm.disableProperty().bind(Bindings.isEmpty(tree.getSelectionModel().getSelectedItems()));
-        var addAll = Mat.outlined("Add all to Downloads", null);
+        var addAll = Mat.outlined(i18n.text("linkgrabber.add_all"), null);
         addAll.setOnAction(e -> {
             engine.confirmAll(engine.settings().autoStartProperty().get());
         });
 
-        var remove = Mat.text("Remove", "delete");
-        Mat.tip(remove, "Remove selected");
+        var remove = Mat.text(i18n.text("linkgrabber.remove"), "delete");
+        Mat.tip(remove, i18n.text("tooltip.remove"));
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 
-        HBox bar = new HBox(6, addLinks, paste, Mat.vSep(), confirm, addAll, Mat.hSpacer(), remove);
+        FlowPane bar = new FlowPane(6, 4, addLinks, paste, Mat.vSep(), confirm, addAll, Mat.vSep(), remove);
         bar.getStyleClass().add("action-toolbar");
         bar.setAlignment(Pos.CENTER_LEFT);
         return new VBox(header, bar);
@@ -113,9 +127,9 @@ public final class LinkGrabberView extends BorderPane {
         tree.setRoot(root);
         tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         tree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        tree.setPlaceholder(Mat.label("No links staged — add links to check and organize them here.", "empty-table-hint"));
+        tree.setPlaceholder(Mat.label(i18n.text("empty.linkgrabber"), "empty-table-hint"));
 
-        TreeTableColumn<Object, String> name = new TreeTableColumn<>("Name");
+        TreeTableColumn<Object, String> name = new TreeTableColumn<>(i18n.text("column.name"));
         name.setCellValueFactory(p -> {
             Object o = p.getValue().getValue();
             if (o instanceof CrawledPackage cp) return cp.nameProperty();
@@ -125,7 +139,7 @@ public final class LinkGrabberView extends BorderPane {
         name.setPrefWidth(320);
         name.setMinWidth(180);
 
-        TreeTableColumn<Object, LinkAvailability> avail = new TreeTableColumn<>("Availability");
+        TreeTableColumn<Object, LinkAvailability> avail = new TreeTableColumn<>(i18n.text("column.availability"));
         avail.setCellValueFactory(p -> {
             Object o = p.getValue().getValue();
             if (o instanceof CrawledLink cl) return cl.availabilityProperty();
@@ -134,15 +148,21 @@ public final class LinkGrabberView extends BorderPane {
         avail.setCellFactory(availabilityCell());
         avail.setPrefWidth(140);
 
-        TreeTableColumn<Object, String> host = new TreeTableColumn<>("Host");
+        TreeTableColumn<Object, String> host = new TreeTableColumn<>(i18n.text("column.host"));
         host.setCellValueFactory(p -> {
             Object o = p.getValue().getValue();
             if (o instanceof CrawledLink cl) return cl.hostProperty();
             return new ReadOnlyStringWrapper("");
         });
+        host.setCellFactory(col -> new TreeTableCell<>() {
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                setText(empty ? null : "unknown".equalsIgnoreCase(value) ? i18n.text("host.unknown") : value);
+            }
+        });
         host.setPrefWidth(150);
 
-        TreeTableColumn<Object, Number> size = new TreeTableColumn<>("Size");
+        TreeTableColumn<Object, Number> size = new TreeTableColumn<>(i18n.text("column.size"));
         size.setCellValueFactory(p -> {
             Object o = p.getValue().getValue();
             if (o instanceof CrawledLink cl) return cl.sizeProperty();
@@ -158,7 +178,7 @@ public final class LinkGrabberView extends BorderPane {
         });
         size.setPrefWidth(96);
 
-        TreeTableColumn<Object, String> url = new TreeTableColumn<>("URL");
+        TreeTableColumn<Object, String> url = new TreeTableColumn<>(i18n.text("column.url"));
         url.setCellValueFactory(p -> {
             Object o = p.getValue().getValue();
             if (o instanceof CrawledLink cl) return cl.urlProperty();
@@ -180,7 +200,7 @@ public final class LinkGrabberView extends BorderPane {
                 if (empty || row == null) { setGraphic(null); setText(null); return; }
                 if (row instanceof CrawledPackage cp) {
                     setGraphic(null);
-                    setText(cp.onlineCount() + " / " + cp.links().size() + " online");
+                    setText(i18n.text("availability.count", cp.onlineCount(), cp.links().size()));
                     return;
                 }
                 LinkAvailability av = a == null ? LinkAvailability.UNKNOWN : a;
@@ -189,7 +209,7 @@ public final class LinkGrabberView extends BorderPane {
                     case OFFLINE -> Color.web("#c5352c");
                     case UNKNOWN -> Color.web("#8b8792");
                 });
-                var label = new javafx.scene.control.Label(av.label());
+                var label = new javafx.scene.control.Label(i18n.text("availability." + av.name()));
                 label.getStyleClass().add("table-content-label");
                 box.getChildren().setAll(dot, label);
                 setGraphic(box);
@@ -199,17 +219,12 @@ public final class LinkGrabberView extends BorderPane {
     }
 
     private void wireModel() {
-        engine.crawledPackages().addListener((ListChangeListener<CrawledPackage>) c -> {
-            while (c.next()) {
-                for (CrawledPackage p : c.getAddedSubList()) attach(p);
-                for (CrawledPackage p : c.getRemoved()) detach(p);
-            }
-            requestRebuild();
-        });
+        engine.crawledPackages().addListener(crawledPackagesListener);
         for (CrawledPackage p : engine.crawledPackages()) attach(p);
     }
 
     private void attach(CrawledPackage p) {
+        if (disposed) return;
         if (packageLinkListeners.containsKey(p)) return;
         ListChangeListener<CrawledLink> listener = change -> {
             while (change.next()) {
@@ -230,11 +245,21 @@ public final class LinkGrabberView extends BorderPane {
     }
 
     private void attachLink(CrawledLink link) {
+        int references = linkListenerReferences.getOrDefault(link, 0);
+        linkListenerReferences.put(link, references + 1);
+        if (references > 0) return;
         link.availabilityProperty().addListener(refresh);
         link.sizeProperty().addListener(refresh);
     }
 
     private void detachLink(CrawledLink link) {
+        Integer references = linkListenerReferences.get(link);
+        if (references == null) return;
+        if (references > 1) {
+            linkListenerReferences.put(link, references - 1);
+            return;
+        }
+        linkListenerReferences.remove(link);
         link.availabilityProperty().removeListener(refresh);
         link.sizeProperty().removeListener(refresh);
     }
@@ -245,12 +270,13 @@ public final class LinkGrabberView extends BorderPane {
      * entire tree on the JavaFX Application Thread.
      */
     private void requestRebuild() {
-        if (rebuildScheduled) return;
+        if (disposed || rebuildScheduled) return;
         rebuildScheduled = true;
         rebuildDelay.playFromStart();
     }
 
     private void rebuild() {
+        if (disposed) return;
         Set<Object> selectedBefore = new LinkedHashSet<>();
         for (TreeItem<Object> item : tree.getSelectionModel().getSelectedItems()) {
             if (item != null && item.getValue() != null) selectedBefore.add(item.getValue());
@@ -278,6 +304,29 @@ public final class LinkGrabberView extends BorderPane {
         // Package rows derive text (online counts, sizes) at render time from
         // non-observable values; force visible cells to re-render.
         tree.refresh();
+    }
+
+    /**
+     * Stops deferred work and removes every listener this view registered on
+     * the long-lived crawler model before a language shell rebuild replaces it.
+     */
+    public void dispose() {
+        if (disposed) return;
+        disposed = true;
+        rebuildDelay.stop();
+        rebuildDelay.setOnFinished(null);
+        rebuildScheduled = false;
+        engine.crawledPackages().removeListener(crawledPackagesListener);
+        for (CrawledPackage p : new java.util.ArrayList<>(packageLinkListeners.keySet())) detach(p);
+        // The package map should have removed every link registration. Keep a
+        // defensive final pass so an inconsistent model change cannot retain
+        // this discarded view through a link property listener.
+        for (CrawledLink link : new java.util.ArrayList<>(linkListenerReferences.keySet())) {
+            link.availabilityProperty().removeListener(refresh);
+            link.sizeProperty().removeListener(refresh);
+        }
+        linkListenerReferences.clear();
+        packageLinkListeners.clear();
     }
 
     private void restoreSelection(TreeItem<Object> parent, Set<Object> selected) {
@@ -329,7 +378,8 @@ public final class LinkGrabberView extends BorderPane {
         engine.removeCrawledLinks(selectedLinks);
 
         int n = selectedPackages.size() + selectedLinks.size();
-        notifier.snack("Removed " + n + (n == 1 ? " item" : " items"), "Undo", () -> {
+        notifier.snack(i18n.text(n == 1 ? "snack.removed.one" : "snack.removed.many", n),
+                i18n.text("action.undo"), () -> {
             for (var entry : indices.entrySet()) {
                 if (!packages.contains(entry.getKey())) {
                     packages.add(Math.min(entry.getValue(), packages.size()), entry.getKey());
@@ -364,17 +414,21 @@ public final class LinkGrabberView extends BorderPane {
     }
 
     private enum AvailabilityFilter {
-        ALL("All links", null),
-        CHECKING("Checking", LinkAvailability.UNKNOWN),
-        ONLINE("Online", LinkAvailability.ONLINE),
-        OFFLINE("Offline", LinkAvailability.OFFLINE);
+        ALL("linkgrabber.filter.all", null),
+        CHECKING("linkgrabber.filter.checking", LinkAvailability.UNKNOWN),
+        ONLINE("linkgrabber.filter.online", LinkAvailability.ONLINE),
+        OFFLINE("linkgrabber.filter.offline", LinkAvailability.OFFLINE);
 
-        private final String label;
+        private final String key;
         private final LinkAvailability availability;
 
-        AvailabilityFilter(String label, LinkAvailability availability) {
-            this.label = label;
+        AvailabilityFilter(String key, LinkAvailability availability) {
+            this.key = key;
             this.availability = availability;
+        }
+
+        String label(I18n i18n) {
+            return i18n.text(key);
         }
 
         boolean matches(LinkAvailability value) {
@@ -385,7 +439,5 @@ public final class LinkGrabberView extends BorderPane {
             AvailabilityFilter[] values = values();
             return values[(ordinal() + 1) % values.length];
         }
-
-        @Override public String toString() { return label; }
     }
 }

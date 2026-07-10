@@ -29,13 +29,17 @@ import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
 import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.component.CompletedFileActions;
 import org.jdownloader.material.ui.component.DownloadCells;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** The Downloads list: package/file tree-table with toolbar, search and context menu. */
@@ -44,9 +48,20 @@ public final class DownloadsView extends BorderPane {
     private final DownloadEngine engine;
     private final NotificationCenter notifier;
     private final Runnable openAddLinks;
+    private final I18n i18n;
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
     private final TreeItem<DownloadItem> root = new TreeItem<>(null);
-    private final ListChangeListener<Object> rebuildListener = c -> rebuild();
+    private final ListChangeListener<DownloadLink> rebuildListener = c -> rebuild();
+    private final ListChangeListener<DownloadPackage> downloadPackagesListener = c -> {
+        while (c.next()) {
+            for (DownloadPackage p : c.getAddedSubList()) attachPackage(p);
+            for (DownloadPackage p : c.getRemoved()) detachPackage(p);
+        }
+        rebuild();
+    };
+    private final ListChangeListener<TreeItem<DownloadItem>> selectionListener = change -> refreshProperties();
+    private final Set<DownloadPackage> observedPackages =
+            Collections.newSetFromMap(new IdentityHashMap<>());
     private final VBox properties = new VBox(8);
     private final TextField editName = new TextField();
     private final TextField editDestination = new TextField();
@@ -55,12 +70,15 @@ public final class DownloadsView extends BorderPane {
     private final ChangeListener<DownloadState> propertiesStateListener = (o, was, is) -> refreshProperties();
     private DownloadItem propertiesItem;
     private DownloadItem observedPropertiesItem;
+    private ChangeListener<Boolean> pausedListener;
+    private volatile boolean disposed;
     private String filter = "";
 
-    public DownloadsView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
+    public DownloadsView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks, I18n i18n) {
         this.engine = engine;
         this.notifier = notifier;
         this.openAddLinks = openAddLinks;
+        this.i18n = i18n;
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
@@ -71,9 +89,9 @@ public final class DownloadsView extends BorderPane {
 
     // --------------------------------------------------------------- Toolbar
     private VBox buildHeaderAndToolbar() {
-        var title = Mat.label("Downloads", "headline");
+        var title = Mat.label(i18n.text("downloads.title"), "headline");
         var search = new MFXTextField();
-        search.setPromptText("Search downloads");
+        search.setPromptText(i18n.text("downloads.search"));
         search.getStyleClass().add("search-field");
         search.setPrefWidth(260);
         search.textProperty().addListener((o, a, b) -> { filter = b == null ? "" : b.toLowerCase(); rebuild(); });
@@ -82,41 +100,44 @@ public final class DownloadsView extends BorderPane {
         header.getStyleClass().add("view-header");
         header.setAlignment(Pos.CENTER_LEFT);
 
-        var addLinks = Mat.filled("Add Links", "add");
+        var addLinks = Mat.filled(i18n.text("downloads.add_links"), "add");
         addLinks.setOnAction(e -> openAddLinks.run());
 
-        var start = Mat.text("Start", "play");
-        Mat.tip(start, "Start downloads");
+        var start = Mat.text(i18n.text("toolbar.start"), "play");
+        Mat.tip(start, i18n.text("tooltip.start"));
         start.setOnAction(e -> engine.start());
-        var pause = Mat.text("Pause", "pause");
+        var pause = Mat.text(i18n.text("toolbar.pause"), "pause");
         pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
         Runnable updatePause = () -> {
             boolean isPaused = engine.pausedProperty().get();
-            pause.setText(isPaused ? "Resume" : "Pause");
+            pause.setText(i18n.text(isPaused ? "toolbar.resume" : "toolbar.pause"));
             pause.setGraphic(org.jdownloader.material.ui.Icons.of(isPaused ? "play" : "pause", 20));
-            Mat.tip(pause, isPaused ? "Resume downloads" : "Pause downloads");
+            Mat.tip(pause, i18n.text(isPaused ? "tooltip.resume" : "tooltip.pause"));
         };
         updatePause.run();
-        engine.pausedProperty().addListener((o, wasPaused, isPaused) -> updatePause.run());
-        var stop = Mat.text("Stop", "stop");
-        Mat.tip(stop, "Stop all downloads");
+        pausedListener = (o, wasPaused, isPaused) -> {
+            if (!disposed) updatePause.run();
+        };
+        engine.pausedProperty().addListener(pausedListener);
+        var stop = Mat.text(i18n.text("toolbar.stop"), "stop");
+        Mat.tip(stop, i18n.text("tooltip.stop"));
         stop.setOnAction(e -> engine.stop());
 
-        var top = Mat.text("Top", "top");
-        Mat.tip(top, "Move selected package to top");
+        var top = Mat.text(i18n.text("toolbar.top"), "top");
+        Mat.tip(top, i18n.text("tooltip.top"));
         top.setOnAction(e -> move(Move.TOP));
-        var up = Mat.text("Up", "up");
-        Mat.tip(up, "Move selected package up");
+        var up = Mat.text(i18n.text("toolbar.up"), "up");
+        Mat.tip(up, i18n.text("tooltip.up"));
         up.setOnAction(e -> move(Move.UP));
-        var down = Mat.text("Down", "down");
-        Mat.tip(down, "Move selected package down");
+        var down = Mat.text(i18n.text("toolbar.down"), "down");
+        Mat.tip(down, i18n.text("tooltip.down"));
         down.setOnAction(e -> move(Move.DOWN));
-        var bottom = Mat.text("Bottom", "bottom");
-        Mat.tip(bottom, "Move selected package to bottom");
+        var bottom = Mat.text(i18n.text("toolbar.bottom"), "bottom");
+        Mat.tip(bottom, i18n.text("tooltip.bottom"));
         bottom.setOnAction(e -> move(Move.BOTTOM));
 
-        var remove = Mat.text("Remove", "delete");
-        Mat.tip(remove, "Remove selected");
+        var remove = Mat.text(i18n.text("toolbar.remove"), "delete");
+        Mat.tip(remove, i18n.text("tooltip.remove"));
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 
@@ -134,50 +155,50 @@ public final class DownloadsView extends BorderPane {
         tree.setShowRoot(false);
         tree.setRoot(root);
         tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        tree.getSelectionModel().getSelectedItems().addListener(
-                (ListChangeListener<TreeItem<DownloadItem>>) change -> refreshProperties());
+        tree.getSelectionModel().getSelectedItems().addListener(selectionListener);
         tree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        tree.setPlaceholder(Mat.label("No downloads yet — click “Add Links” to get started.", "empty-table-hint"));
+        tree.setPlaceholder(Mat.label(i18n.text("empty.downloads"), "empty-table-hint"));
 
-        TreeTableColumn<DownloadItem, String> name = new TreeTableColumn<>("Name");
+        TreeTableColumn<DownloadItem, String> name = new TreeTableColumn<>(i18n.text("column.name"));
         name.setCellValueFactory(p -> p.getValue().getValue().nameProperty());
         name.setCellFactory(DownloadCells.name());
         name.setPrefWidth(340);
         name.setMinWidth(200);
 
-        TreeTableColumn<DownloadItem, Number> size = new TreeTableColumn<>("Size");
+        TreeTableColumn<DownloadItem, Number> size = new TreeTableColumn<>(i18n.text("column.size"));
         size.setCellValueFactory(p -> p.getValue().getValue().bytesTotalProperty());
         size.setCellFactory(DownloadCells.bytes());
         size.setPrefWidth(96);
 
-        TreeTableColumn<DownloadItem, String> host = new TreeTableColumn<>("Host");
+        TreeTableColumn<DownloadItem, String> host = new TreeTableColumn<>(i18n.text("column.host"));
         host.setCellValueFactory(p -> p.getValue().getValue().hostProperty());
+        host.setCellFactory(DownloadCells.host(i18n));
         host.setPrefWidth(150);
 
-        TreeTableColumn<DownloadItem, DownloadState> status = new TreeTableColumn<>("Status");
+        TreeTableColumn<DownloadItem, DownloadState> status = new TreeTableColumn<>(i18n.text("column.status"));
         status.setCellValueFactory(p -> p.getValue().getValue().stateProperty());
-        status.setCellFactory(DownloadCells.status());
+        status.setCellFactory(DownloadCells.status(i18n));
         status.setPrefWidth(130);
 
-        TreeTableColumn<DownloadItem, String> details = new TreeTableColumn<>("Details");
+        TreeTableColumn<DownloadItem, String> details = new TreeTableColumn<>(i18n.text("column.details"));
         details.setCellValueFactory(p -> {
             DownloadItem item = p.getValue().getValue();
             return item instanceof DownloadLink link ? link.detailProperty() : new ReadOnlyStringWrapper("");
         });
         details.setPrefWidth(180);
 
-        TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>("Progress");
+        TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>(i18n.text("column.progress"));
         progress.setCellValueFactory(p -> p.getValue().getValue().progressProperty());
         progress.setCellFactory(DownloadCells.progress());
         progress.setPrefWidth(220);
         progress.setMinWidth(140);
 
-        TreeTableColumn<DownloadItem, Number> speed = new TreeTableColumn<>("Speed");
+        TreeTableColumn<DownloadItem, Number> speed = new TreeTableColumn<>(i18n.text("column.speed"));
         speed.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         speed.setCellFactory(DownloadCells.speed());
         speed.setPrefWidth(104);
 
-        TreeTableColumn<DownloadItem, Number> eta = new TreeTableColumn<>("ETA");
+        TreeTableColumn<DownloadItem, Number> eta = new TreeTableColumn<>(i18n.text("column.eta"));
         eta.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         eta.setCellFactory(DownloadCells.eta());
         eta.setPrefWidth(90);
@@ -194,9 +215,10 @@ public final class DownloadsView extends BorderPane {
      * captured by the transfer or finalized on disk.
      */
     private VBox buildProperties() {
-        var title = Mat.label("Selected item", "label-md");
-        editName.setPromptText("Name");
-        editDestination.setPromptText("Destination folder (leave empty for the default)");
+        var title = Mat.label(i18n.text("properties.selected"), "label-md");
+        editName.setPromptText(i18n.text("properties.name"));
+        editDestination.setPromptText(i18n.text("properties.destination"));
+        applyProperties.setText(i18n.text("properties.apply"));
         HBox.setHgrow(editName, Priority.ALWAYS);
         HBox.setHgrow(editDestination, Priority.ALWAYS);
         HBox fields = new HBox(10, editName, editDestination, applyProperties);
@@ -215,6 +237,7 @@ public final class DownloadsView extends BorderPane {
     }
 
     private void refreshProperties() {
+        if (disposed) return;
         List<DownloadItem> selection = selectedItems();
         if (selection.size() != 1) {
             propertiesItem = null;
@@ -238,8 +261,8 @@ public final class DownloadsView extends BorderPane {
         editDestination.setDisable(!editable);
         applyProperties.setDisable(!editable);
         propertiesHint.setText(editable
-                ? "Changes apply before the next start. Leave the destination empty to use the global default."
-                : "Stop an active transfer before changing its name or destination. Completed files stay where they were saved.");
+                ? i18n.text("properties.hint.editable")
+                : i18n.text("properties.hint.locked"));
         properties.setManaged(true);
         properties.setVisible(true);
     }
@@ -271,7 +294,7 @@ public final class DownloadsView extends BorderPane {
         if (propertiesItem == null || !isEditable(propertiesItem)) return;
         String name = editName.getText() == null ? "" : editName.getText().trim();
         if (name.isBlank()) {
-            notifier.snack("A download name is required");
+            notifier.snack(i18n.text("properties.name_required"));
             return;
         }
         String destination = editDestination.getText() == null ? "" : editDestination.getText().trim();
@@ -283,39 +306,39 @@ public final class DownloadsView extends BorderPane {
             pkg.destinationProperty().set(destination);
             pkg.links().forEach(link -> link.destinationProperty().set(destination));
         }
-        notifier.snack("Updated selected download");
+        notifier.snack(i18n.text("properties.updated"));
         rebuild();
     }
 
     private ContextMenu buildContextMenu() {
-        MenuItem start = new MenuItem("Start");
+        MenuItem start = new MenuItem(i18n.text("context.start"));
         start.setOnAction(e -> engine.startLinks(selectedLinks()));
-        MenuItem force = new MenuItem("Force start");
+        MenuItem force = new MenuItem(i18n.text("context.force_start"));
         force.setOnAction(e -> engine.forceStart(selectedLinks()));
-        MenuItem stop = new MenuItem("Stop");
+        MenuItem stop = new MenuItem(i18n.text("context.stop"));
         stop.setOnAction(e -> engine.stopLinks(selectedLinks()));
-        MenuItem enable = new MenuItem("Enable");
+        MenuItem enable = new MenuItem(i18n.text("context.enable"));
         enable.setOnAction(e -> engine.setEnabled(selectedLinks(), true));
-        MenuItem disable = new MenuItem("Disable");
+        MenuItem disable = new MenuItem(i18n.text("context.disable"));
         disable.setOnAction(e -> engine.setEnabled(selectedLinks(), false));
-        Menu priority = new Menu("Priority");
+        Menu priority = new Menu(i18n.text("context.priority"));
         ToggleGroup priorityGroup = new ToggleGroup();
         java.util.Map<DownloadPriority, RadioMenuItem> priorityOptions =
                 new java.util.EnumMap<>(DownloadPriority.class);
         for (DownloadPriority value : DownloadPriority.values()) {
-            RadioMenuItem option = new RadioMenuItem(value.label());
+            RadioMenuItem option = new RadioMenuItem(i18n.text("priority." + value.name()));
             option.setToggleGroup(priorityGroup);
             option.setOnAction(e -> engine.setPriority(selectedLinks(), value));
             priority.getItems().add(option);
             priorityOptions.put(value, option);
         }
-        MenuItem open = new MenuItem("Open completed file");
-        open.setOnAction(e -> firstCompletedLink().ifPresent(CompletedFileActions::openFile));
-        MenuItem folder = new MenuItem("Show in folder");
-        folder.setOnAction(e -> firstCompletedLink().ifPresent(CompletedFileActions::showInFolder));
-        MenuItem expand = new MenuItem("Expand / collapse");
+        MenuItem open = new MenuItem(i18n.text("context.open_file"));
+        open.setOnAction(e -> firstCompletedLink().ifPresent(link -> CompletedFileActions.openFile(link, i18n)));
+        MenuItem folder = new MenuItem(i18n.text("context.show_folder"));
+        folder.setOnAction(e -> firstCompletedLink().ifPresent(link -> CompletedFileActions.showInFolder(link, i18n)));
+        MenuItem expand = new MenuItem(i18n.text("context.expand"));
         expand.setOnAction(e -> toggleExpandSelected());
-        MenuItem remove = new MenuItem("Remove");
+        MenuItem remove = new MenuItem(i18n.text("context.remove"));
         remove.setOnAction(e -> removeSelected());
         ContextMenu menu = new ContextMenu(start, force, stop, new SeparatorMenuItem(), enable, disable, priority,
                 new SeparatorMenuItem(), open, folder, new SeparatorMenuItem(), expand,
@@ -344,17 +367,20 @@ public final class DownloadsView extends BorderPane {
 
     // ----------------------------------------------------------- Model sync
     private void wireModel() {
-        engine.downloadPackages().addListener((ListChangeListener<DownloadPackage>) c -> {
-            while (c.next()) {
-                for (DownloadPackage p : c.getAddedSubList()) p.links().addListener(rebuildListener);
-                for (DownloadPackage p : c.getRemoved()) p.links().removeListener(rebuildListener);
-            }
-            rebuild();
-        });
-        for (DownloadPackage p : engine.downloadPackages()) p.links().addListener(rebuildListener);
+        engine.downloadPackages().addListener(downloadPackagesListener);
+        for (DownloadPackage p : engine.downloadPackages()) attachPackage(p);
+    }
+
+    private void attachPackage(DownloadPackage p) {
+        if (observedPackages.add(p)) p.links().addListener(rebuildListener);
+    }
+
+    private void detachPackage(DownloadPackage p) {
+        if (observedPackages.remove(p)) p.links().removeListener(rebuildListener);
     }
 
     private void rebuild() {
+        if (disposed) return;
         var selectedBefore = selectedItems();
         root.getChildren().clear();
         for (DownloadPackage pkg : engine.downloadPackages()) {
@@ -373,6 +399,22 @@ public final class DownloadsView extends BorderPane {
             for (TreeItem<DownloadItem> pi : root.getChildren()) restoreSelection(pi, selectedBefore);
         }
         refreshProperties();
+    }
+
+    /**
+     * Releases listeners held by the engine and download models before the
+     * language shell replaces this view. The engine outlives individual views,
+     * so leaving these registrations in place would keep discarded controls
+     * alive and duplicate rebuild work after each language change.
+     */
+    public void dispose() {
+        if (disposed) return;
+        disposed = true;
+        engine.downloadPackages().removeListener(downloadPackagesListener);
+        for (DownloadPackage p : new ArrayList<>(observedPackages)) detachPackage(p);
+        if (pausedListener != null) engine.pausedProperty().removeListener(pausedListener);
+        tree.getSelectionModel().getSelectedItems().removeListener(selectionListener);
+        observePropertiesItem(null);
     }
 
     private void restoreSelection(TreeItem<DownloadItem> item, List<DownloadItem> selectedBefore) {
@@ -439,7 +481,8 @@ public final class DownloadsView extends BorderPane {
         int n = selection.size();
         engine.removeDownloads(selection);
 
-        notifier.snack("Removed " + n + (n == 1 ? " item" : " items"), "Undo", () -> {
+        notifier.snack(i18n.text(n == 1 ? "snack.removed.one" : "snack.removed.many", n),
+                i18n.text("action.undo"), () -> {
             for (int i = 0; i < pkgOrder.size(); i++) {
                 DownloadPackage p = pkgOrder.get(i);
                 if (!packages.contains(p)) {

@@ -12,8 +12,10 @@ the JDownloader core: JDownloader plugins, containers, accounts, CAPTCHA handlin
 hoster ecosystem are not bundled. The UI talks to a small [engine boundary](docs/ENGINE_API.md)
 so a future core integration can be added without rewriting the views.
 
-- **Language:** Java 25 (Temurin), JavaFX 25
+- **Runtime:** Java 25 (Temurin), JavaFX 25
 - **UI:** JavaFX 25, MaterialFX components, hand-authored Material 3 stylesheet
+- **Interface languages:** English, 香港粵語（得意版）, or bilingual English · 香港粵語,
+  switchable immediately from **Settings → Appearance**
 - **Themes:** Material light + dark, switchable at runtime from the app bar
 - **Engine:** a swappable [DownloadEngine](src/main/java/org/jdownloader/material/engine/DownloadEngine.java)
   interface; normal launches use `DirectHttpEngine`, while `SimulatedEngine` is reserved for
@@ -27,6 +29,18 @@ explains the shell, views, nonblocking flows, and repeatable capture mode.
 | Downloads light | Downloads dark |
 | --- | --- |
 | ![Downloads in the light theme](docs/screenshots/downloads-light.png) | ![Downloads in the dark theme](docs/screenshots/downloads-dark.png) |
+
+| 香港粵語（得意版） | Bilingual English · 香港粵語 |
+| --- | --- |
+| ![Downloads in playful Hong Kong Cantonese](docs/screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](docs/screenshots/downloads-bilingual.png) |
+
+| 香港粵語 LinkGrabber | Bilingual Add Links |
+| --- | --- |
+| ![LinkGrabber in playful Hong Kong Cantonese](docs/screenshots/linkgrabber-cantonese.png) | ![Add Links in bilingual English and Hong Kong Cantonese](docs/screenshots/add-links-bilingual.png) |
+
+| English language setting | Bilingual language setting |
+| --- | --- |
+| ![Appearance settings showing the English selector](docs/screenshots/settings-appearance-light.png) | ![Appearance settings showing the bilingual selector](docs/screenshots/settings-appearance-bilingual.png) |
 
 | Selected item light | Selected item dark |
 | --- | --- |
@@ -78,8 +92,10 @@ is the upstream reference inventory, not a claim of full core compatibility.
   bar. A compact transient message is reserved for navigable or reversible results such as
   **View** and **Undo**; it never asks the user to dismiss a workflow-blocking prompt.
 - **Settings** - General, Connection, network-recovery retry, LinkGrabber, Appearance,
-  backup compatibility fields, Backup, and About. Router reconnect and remote control remain
-  clearly unavailable in direct HTTP mode; an account is not required to download.
+  backup compatibility fields, Backup, and About. Appearance includes a persisted, immediate
+  language switch for English, playful Hong Kong Cantonese, and a view that shows both. Router
+  reconnect and remote control remain clearly unavailable in direct HTTP mode; an account is not
+  required to download.
 - **Encrypted settings backup** - inline export/import fields run file and cryptographic work
   asynchronously, preserving access to the rest of the application.
 - **App bar and status bar** - clipboard monitoring, automatic transient-failure retry,

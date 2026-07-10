@@ -15,6 +15,7 @@ Legend: **Done**; **Partial**; **Not started**
   and custom window controls
 - **Done** Status bar: global speed, running count, remaining bytes, pending-retry indicator
 - **Done** Window-title speed setting
+- **Done** Live English, 香港粵語（得意版）, and bilingual English · 香港粵語 interface modes
 - **Done** Inline Add Links workflow and compact nonblocking feedback for undo/navigation; no
   workflow-blocking action cards or floating form panels
 - **Partial** Navigation rail: Downloads, LinkGrabber, and Settings are present; Add Links opens
@@ -84,8 +85,8 @@ Legend: **Done**; **Partial**; **Not started**
   Backup, and About
 - **Partial** Live-bound controls: DirectHttpEngine applies the direct download folder,
   simultaneous-download limit, per-host limit, speed limit, collision policy, transient-failure
-  retry, and LinkGrabber flow settings. Multi-connection segmentation is disabled because direct
-  mode currently uses one safe stream per file.
+  retry, LinkGrabber flow settings, and persisted presentation language. Multi-connection
+  segmentation is disabled because direct mode currently uses one safe stream per file.
 - **Done** Full settings export/import including optional credentials, encrypted as AES-256-GCM
   .jdmbackup files; the page performs file work asynchronously
 - **Done** Non-secret settings, Download queue, and LinkGrabber staging state are journaled

@@ -1,6 +1,11 @@
 package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXToggleButton;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.concurrent.Task;
@@ -14,53 +19,70 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Properties;
+import javafx.util.StringConverter;
+import org.jdownloader.material.engine.LanguageMode;
 import org.jdownloader.material.engine.Settings;
 import org.jdownloader.material.engine.SettingsIO;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.ui.component.Mat;
 
 /** Material preferences screen: a page rail on the left, setting rows on the right. */
 public final class SettingsView extends BorderPane {
 
+    private static final String EXTERNAL_COMMAND = "External command";
+    private static final String ROUTER_UPNP = "Router (UPnP)";
+    private static final String MODEM_SCRIPT = "Modem script";
+    private static final String CLR_SCRIPT = "ClR script";
+    private static final String[] RECONNECT_METHODS = {
+            EXTERNAL_COMMAND, ROUTER_UPNP, MODEM_SCRIPT, CLR_SCRIPT
+    };
+
     private final Settings s;
+    private final I18n i18n;
     private final StackPane content = new StackPane();
     private final ToggleGroup nav = new ToggleGroup();
+    private final Map<String, ToggleButton> tabs = new HashMap<>();
+    private final Map<String, ScrollPane> pages = new HashMap<>();
+    private String selectedTabKey;
 
-    public SettingsView(Settings settings) {
+    public SettingsView(Settings settings, I18n i18n) {
+        this(settings, i18n, "settings.tab.general");
+    }
+
+    public SettingsView(Settings settings, I18n i18n, String selectedTabKey) {
         this.s = settings;
+        this.i18n = i18n;
+        this.selectedTabKey = selectedTabKey == null ? "settings.tab.general" : selectedTabKey;
         getStyleClass().add("content-area");
 
         VBox rail = new VBox(4);
         rail.getStyleClass().add("settings-nav");
-        addTab(rail, "General", "settings", generalPage(), true);
-        addTab(rail, "Connection", "speed", connectionPage(), false);
-        addTab(rail, "Reconnect", "reconnect", reconnectPage(), false);
-        addTab(rail, "LinkGrabber", "link", linkgrabberPage(), false);
-        addTab(rail, "Appearance", "palette", appearancePage(), false);
-        addTab(rail, "Accounts", "account", accountsPage(), false);
-        addTab(rail, "Backup", "shield", backupPage(), false);
-        addTab(rail, "About", "info", aboutPage(), false);
+        addTab(rail, "settings.tab.general", "settings", generalPage());
+        addTab(rail, "settings.tab.connection", "speed", connectionPage());
+        addTab(rail, "settings.tab.reconnect", "reconnect", reconnectPage());
+        addTab(rail, "settings.tab.linkgrabber", "link", linkgrabberPage());
+        addTab(rail, "settings.tab.appearance", "palette", appearancePage());
+        addTab(rail, "settings.tab.accounts", "account", accountsPage());
+        addTab(rail, "settings.tab.backup", "shield", backupPage());
+        addTab(rail, "settings.tab.about", "info", aboutPage());
 
-        var header = new HBox(Mat.label("Settings", "headline"));
+        var header = new HBox(Mat.label(t("settings.title"), "headline"));
         header.getStyleClass().add("view-header");
         setTop(header);
         setLeft(rail);
         setCenter(content);
     }
 
-    private void addTab(VBox rail, String title, String icon, Node page, boolean selected) {
-        ToggleButton tab = new ToggleButton(title);
+    private void addTab(VBox rail, String titleKey, String icon, Node page) {
+        ToggleButton tab = new ToggleButton(t(titleKey));
         tab.setGraphic(Icons.of(icon, 20));
         tab.setGraphicTextGap(12);
         tab.getStyleClass().add("settings-tab");
@@ -70,9 +92,33 @@ public final class SettingsView extends BorderPane {
         ScrollPane sp = new ScrollPane(page);
         sp.setFitToWidth(true);
         sp.getStyleClass().add("edge-to-edge");
-        tab.setOnAction(e -> { tab.setSelected(true); content.getChildren().setAll(sp); });
+        tabs.put(titleKey, tab);
+        pages.put(titleKey, sp);
+        tab.setOnAction(e -> showTab(titleKey));
         rail.getChildren().add(tab);
-        if (selected) { tab.setSelected(true); content.getChildren().setAll(sp); }
+        if (titleKey.equals(selectedTabKey)) {
+            showTab(titleKey);
+        }
+    }
+
+    /** The active settings rail tab, retained when the translated shell is rebuilt. */
+    public String selectedTabKey() {
+        return selectedTabKey;
+    }
+
+    /** Used by documentation capture to show the persisted language picker. */
+    public void showAppearanceForCapture() {
+        showTab("settings.tab.appearance");
+    }
+
+    private void showTab(String requestedKey) {
+        String tabKey = tabs.containsKey(requestedKey) ? requestedKey : "settings.tab.general";
+        ToggleButton tab = tabs.get(tabKey);
+        ScrollPane page = pages.get(tabKey);
+        if (tab == null || page == null) return;
+        selectedTabKey = tabKey;
+        tab.setSelected(true);
+        content.getChildren().setAll(page);
     }
 
     // ------------------------------------------------------------- Pages
@@ -91,65 +137,65 @@ public final class SettingsView extends BorderPane {
         folderCtl.setAlignment(Pos.CENTER_LEFT);
         folderCtl.setPrefWidth(360);
 
-        ComboBox<Settings.IfExists> ifExists = new ComboBox<>();
-        ifExists.getItems().setAll(Settings.IfExists.values());
+        ComboBox<Settings.IfExists> ifExists = ifExistsSelector();
         ifExists.valueProperty().bindBidirectional(s.ifFileExistsProperty());
 
         return page(
-                sectionTitle("Downloads"),
-                row("Default download folder", "Where finished files are saved", folderCtl),
-                row("Simultaneous downloads", "How many files download at once",
+                sectionTitle(t("settings.section.downloads")),
+                row(t("settings.default_folder"), t("desc.default_folder"), folderCtl),
+                row(t("settings.simultaneous"), t("desc.simultaneous"),
                         slider(s.maxSimultaneousDownloadsProperty(), 1, 10, 1)),
-                row("Connections per download", "Unavailable in direct HTTP mode; downloads use one safe stream",
+                row(t("settings.connections_per_download"), t("desc.connections_per_download"),
                         disabled(slider(s.maxChunksPerDownloadProperty(), 1, 20, 1))),
-                row("If a file already exists", "Collisions resolve inline; the default safely auto-renames", ifExists)
+                row(t("settings.if_exists"), t("desc.if_exists"), ifExists)
         );
     }
 
     private Node connectionPage() {
         return page(
-                sectionTitle("Bandwidth"),
-                row("Enable speed limit", "Cap the total download rate", toggle(s.speedLimitEnabledProperty())),
-                row("Speed limit (KiB/s)", "Applied when the limit is enabled",
+                sectionTitle(t("settings.section.bandwidth")),
+                row(t("settings.speed_limit_enable"), t("desc.speed_limit_enable"),
+                        toggle(s.speedLimitEnabledProperty())),
+                row(t("settings.speed_limit"), t("desc.speed_limit"),
                         slider(s.speedLimitKbpsProperty(), 128, 20000, 128)),
-                row("Max connections per host", "Parallel connections to a single hoster",
+                row(t("settings.host_connections"), t("desc.host_connections"),
                         slider(s.maxConnectionsPerHostProperty(), 1, 20, 1))
         );
     }
 
     private Node reconnectPage() {
-        ComboBox<String> method = new ComboBox<>();
-        method.getItems().setAll("External command", "Router (UPnP)", "Modem script", "ClR script");
+        ComboBox<String> method = reconnectMethodSelector();
         method.valueProperty().bindBidirectional(s.reconnectMethodProperty());
         method.setDisable(true);
         return page(
-                sectionTitle("Network recovery"),
-                row("Retry transient HTTP failures", "Retry network, 408, 429, and server errors in the background",
+                sectionTitle(t("settings.section.recovery")),
+                row(t("settings.retry_transient"), t("desc.retry_transient"),
                         toggle(s.autoReconnectProperty())),
-                row("Router reconnect", "Unavailable in direct HTTP mode; no network device is controlled", method)
+                row(t("settings.router_reconnect"), t("desc.router_reconnect"), method)
         );
     }
 
     private Node linkgrabberPage() {
         return page(
-                sectionTitle("Link collection"),
-                row("Clipboard monitoring", "Auto-grab links copied to the clipboard",
+                sectionTitle(t("settings.section.collection")),
+                row(t("settings.clipboard_monitoring"), t("desc.clipboard_monitoring"),
                         toggle(s.clipboardMonitoringProperty())),
-                row("Auto-confirm", "Move crawled links to Downloads automatically",
+                row(t("settings.auto_confirm"), t("desc.auto_confirm"),
                         toggle(s.autoConfirmProperty())),
-                row("Auto-start", "Begin downloading as soon as links are confirmed",
+                row(t("settings.auto_start"), t("desc.auto_start"),
                         toggle(s.autoStartProperty())),
-                row("Add at top", "Insert new packages at the top of the list",
+                row(t("settings.add_at_top"), t("desc.add_at_top"),
                         toggle(s.addAtTopProperty()))
         );
     }
 
     private Node appearancePage() {
         return page(
-                sectionTitle("Theme"),
-                row("Dark theme", "Use the Material dark color scheme", toggle(s.darkThemeProperty())),
-                row("Show speed in window title", "Mirror the global speed into the title bar",
-                        toggle(s.speedInTitleProperty()))
+                sectionTitle(t("settings.section.appearance")),
+                row(t("settings.dark_theme"), t("desc.dark_theme"), toggle(s.darkThemeProperty())),
+                row(t("settings.speed_in_title"), t("desc.speed_in_title"),
+                        toggle(s.speedInTitleProperty())),
+                row(t("settings.language"), t("desc.language"), languageSelector())
         );
     }
 
@@ -165,10 +211,10 @@ public final class SettingsView extends BorderPane {
 
         email.setDisable(true);
         password.setDisable(true);
-        return page(sectionTitle("My.JDownloader"),
-                Mat.label("Remote control is not available in this direct HTTP build. Downloading works without an account.", "row-desc"),
-                row("Email", "Retained only for encrypted backup compatibility", email),
-                row("Password", "Retained only for encrypted backup compatibility", password));
+        return page(sectionTitle(t("settings.section.accounts")),
+                Mat.label(t("desc.accounts_unavailable"), "row-desc"),
+                row(t("settings.email"), t("desc.backup_only"), email),
+                row(t("settings.password"), t("desc.backup_only"), password));
     }
 
     private Node backupPage() {
@@ -176,35 +222,31 @@ public final class SettingsView extends BorderPane {
                 "jdownloader-material-settings.jdmbackup").toString();
 
         TextField exportPath = new TextField(defaultPath);
-        exportPath.setPromptText("Path for the encrypted backup file");
+        exportPath.setPromptText(t("settings.path_export"));
         exportPath.setMaxWidth(640);
         PasswordField exportPassphrase = new PasswordField();
-        exportPassphrase.setPromptText("Passphrase");
+        exportPassphrase.setPromptText(t("settings.passphrase"));
         PasswordField exportConfirm = new PasswordField();
-        exportConfirm.setPromptText("Confirm passphrase");
-        Label exportStatus = Mat.label("Choose a path and passphrase; export runs in the background.", "row-desc");
-        var exportBtn = Mat.filled("Export encrypted backup", "download");
+        exportConfirm.setPromptText(t("settings.confirm_passphrase"));
+        Label exportStatus = Mat.label(t("status.backup.ready_export"), "row-desc");
+        var exportBtn = Mat.filled(t("settings.export_button"), "download");
         exportBtn.setOnAction(e -> exportSettings(exportPath, exportPassphrase, exportConfirm,
                 exportStatus, exportBtn));
-        VBox exportCard = backupCard("Export settings",
-                "Every setting, including saved remote-control credentials, is encrypted with "
-                        + "AES-256-GCM before it is written to this file.",
+        VBox exportCard = backupCard(t("settings.export"), t("desc.export"),
                 exportPath, exportPassphrase, exportConfirm, exportBtn, exportStatus);
 
         TextField importPath = new TextField();
-        importPath.setPromptText("Path to a .jdmbackup file");
+        importPath.setPromptText(t("settings.path_import"));
         importPath.setMaxWidth(640);
         PasswordField importPassphrase = new PasswordField();
-        importPassphrase.setPromptText("Backup passphrase");
-        Label importStatus = Mat.label("Import is verified in the background before settings are applied.", "row-desc");
-        var importBtn = Mat.outlined("Import encrypted backup", "folder");
+        importPassphrase.setPromptText(t("settings.backup_passphrase"));
+        Label importStatus = Mat.label(t("status.backup.ready_import"), "row-desc");
+        var importBtn = Mat.outlined(t("settings.import_button"), "folder");
         importBtn.setOnAction(e -> importSettings(importPath, importPassphrase, importStatus, importBtn));
-        VBox importCard = backupCard("Import settings",
-                "Paste the backup path and passphrase. Existing settings remain in place if "
-                        + "the backup cannot be verified.",
+        VBox importCard = backupCard(t("settings.import"), t("desc.import"),
                 importPath, importPassphrase, importBtn, importStatus);
 
-        return page(sectionTitle("Export / Import"), exportCard, importCard);
+        return page(sectionTitle(t("settings.section.backup")), exportCard, importCard);
     }
 
     private VBox backupCard(String title, String description, Node... controls) {
@@ -219,16 +261,16 @@ public final class SettingsView extends BorderPane {
                                 PasswordField confirmationField, Label status, ButtonBase button) {
         String rawPath = pathField.getText() == null ? "" : pathField.getText().trim();
         if (rawPath.isEmpty()) {
-            status.setText("Enter a path for the encrypted backup file.");
+            status.setText(t("status.backup.path_required"));
             return;
         }
         String passphrase = passphraseField.getText();
         if (passphrase == null || passphrase.isEmpty()) {
-            status.setText("Enter a passphrase to protect the backup.");
+            status.setText(t("status.backup.passphrase_required"));
             return;
         }
         if (!passphrase.equals(confirmationField.getText())) {
-            status.setText("The passphrases do not match.");
+            status.setText(t("status.backup.passphrase_mismatch"));
             return;
         }
 
@@ -236,7 +278,7 @@ public final class SettingsView extends BorderPane {
         try {
             output = Path.of(rawPath);
         } catch (RuntimeException ex) {
-            status.setText("That backup path is not valid.");
+            status.setText(t("status.backup.invalid_path"));
             return;
         }
         Properties snapshot = SettingsIO.snapshot(s);
@@ -254,19 +296,17 @@ public final class SettingsView extends BorderPane {
                 }
             }
         };
-        task.setOnRunning(e -> {
-            status.setText("Exporting encrypted settings in the background...");
-        });
+        task.setOnRunning(e -> status.setText(t("status.backup.exporting")));
         task.setOnSucceeded(e -> {
             button.setDisable(false);
-            status.setText("Settings exported to " + output.toAbsolutePath() + ".");
+            status.setText(t("status.backup.exported", output.toAbsolutePath()));
         });
         task.setOnFailed(e -> {
             button.setDisable(false);
-            status.setText("Could not export settings: " + taskMessage(task.getException()));
+            status.setText(t("status.backup.export_failed", taskMessage(task.getException())));
         });
         button.setDisable(true);
-        status.setText("Exporting encrypted settings in the background...");
+        status.setText(t("status.backup.exporting"));
         startTask(task, "settings-export");
     }
 
@@ -274,12 +314,12 @@ public final class SettingsView extends BorderPane {
                                 Label status, ButtonBase button) {
         String rawPath = pathField.getText() == null ? "" : pathField.getText().trim();
         if (rawPath.isEmpty()) {
-            status.setText("Enter the path to a .jdmbackup file.");
+            status.setText(t("status.backup.import_path_required"));
             return;
         }
         String passphrase = passphraseField.getText();
         if (passphrase == null || passphrase.isEmpty()) {
-            status.setText("Enter the backup passphrase.");
+            status.setText(t("status.backup.import_passphrase_required"));
             return;
         }
 
@@ -287,7 +327,7 @@ public final class SettingsView extends BorderPane {
         try {
             input = Path.of(rawPath);
         } catch (RuntimeException ex) {
-            status.setText("That backup path is not valid.");
+            status.setText(t("status.backup.invalid_path"));
             return;
         }
         char[] secret = SettingsIO.chars(passphrase);
@@ -302,20 +342,18 @@ public final class SettingsView extends BorderPane {
                 }
             }
         };
-        task.setOnRunning(e -> {
-            status.setText("Verifying and reading the backup in the background...");
-        });
+        task.setOnRunning(e -> status.setText(t("status.backup.importing")));
         task.setOnSucceeded(e -> {
             button.setDisable(false);
             SettingsIO.apply(task.getValue(), s);
-            status.setText("Settings imported from " + input.toAbsolutePath() + ".");
+            status.setText(t("status.backup.imported", input.toAbsolutePath()));
         });
         task.setOnFailed(e -> {
             button.setDisable(false);
-            status.setText("Could not import settings: " + taskMessage(task.getException()));
+            status.setText(t("status.backup.import_failed", taskMessage(task.getException())));
         });
         button.setDisable(true);
-        status.setText("Verifying and reading the backup in the background...");
+        status.setText(t("status.backup.importing"));
         startTask(task, "settings-import");
     }
 
@@ -325,9 +363,14 @@ public final class SettingsView extends BorderPane {
         worker.start();
     }
 
-    private static String taskMessage(Throwable error) {
+    private String taskMessage(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SettingsIO.BackupException) {
+                return t("status.backup.verify_failed");
+            }
+        }
         if (error == null || error.getMessage() == null || error.getMessage().isBlank()) {
-            return "The file could not be processed.";
+            return t("status.backup.file_error");
         }
         return error.getMessage();
     }
@@ -339,19 +382,85 @@ public final class SettingsView extends BorderPane {
         mark.setMinSize(56, 56);
         mark.setMaxSize(56, 56);
         var about = new VBox(6,
-                Mat.label("JDownloader Material", "display"),
-                Mat.label("Version " + version + " — a ground-up Material Design downloader.", "body"),
-                Mat.label("Standalone direct HTTP(S) engine; JDownloader-core integration remains future work.", "row-desc"));
+                Mat.label(t("app.title"), "display"),
+                Mat.label(t("about.version", version), "body"),
+                Mat.label(t("about.scope"), "row-desc"));
         HBox head = new HBox(20, mark, about);
         head.setAlignment(Pos.CENTER_LEFT);
         return page(head);
     }
 
     // ------------------------------------------------------------- Widgets
-    private Label sectionTitle(String t) {
-        Label l = Mat.label(t, "subtitle");
-        l.setPadding(new Insets(8, 0, 4, 0));
-        return l;
+    private ComboBox<Settings.IfExists> ifExistsSelector() {
+        ComboBox<Settings.IfExists> selector = new ComboBox<>();
+        selector.getItems().setAll(Settings.IfExists.values());
+        selector.setConverter(new StringConverter<>() {
+            @Override public String toString(Settings.IfExists value) {
+                return value == null ? "" : t("ifexists." + value.name());
+            }
+
+            @Override public Settings.IfExists fromString(String text) {
+                return Arrays.stream(Settings.IfExists.values())
+                        .filter(value -> toString(value).equals(text))
+                        .findFirst()
+                        .orElse(s.ifFileExistsProperty().get());
+            }
+        });
+        return selector;
+    }
+
+    private ComboBox<String> reconnectMethodSelector() {
+        ComboBox<String> selector = new ComboBox<>();
+        selector.getItems().setAll(RECONNECT_METHODS);
+        selector.setConverter(new StringConverter<>() {
+            @Override public String toString(String value) {
+                return value == null ? "" : reconnectMethodLabel(value);
+            }
+
+            @Override public String fromString(String text) {
+                return Arrays.stream(RECONNECT_METHODS)
+                        .filter(value -> reconnectMethodLabel(value).equals(text))
+                        .findFirst()
+                        .orElse(s.reconnectMethodProperty().get());
+            }
+        });
+        return selector;
+    }
+
+    private ComboBox<LanguageMode> languageSelector() {
+        ComboBox<LanguageMode> selector = new ComboBox<>();
+        selector.getItems().setAll(LanguageMode.values());
+        selector.setConverter(new StringConverter<>() {
+            @Override public String toString(LanguageMode value) {
+                return value == null ? "" : i18n.languageName(value);
+            }
+
+            @Override public LanguageMode fromString(String text) {
+                return Arrays.stream(LanguageMode.values())
+                        .filter(value -> i18n.languageName(value).equals(text))
+                        .findFirst()
+                        .orElse(s.languageProperty().get());
+            }
+        });
+        selector.setPrefWidth(300);
+        selector.valueProperty().bindBidirectional(s.languageProperty());
+        return selector;
+    }
+
+    private String reconnectMethodLabel(String method) {
+        return switch (method) {
+            case EXTERNAL_COMMAND -> t("settings.reconnect.external_command");
+            case ROUTER_UPNP -> t("settings.reconnect.router_upnp");
+            case MODEM_SCRIPT -> t("settings.reconnect.modem_script");
+            case CLR_SCRIPT -> t("settings.reconnect.clr_script");
+            default -> method;
+        };
+    }
+
+    private Label sectionTitle(String text) {
+        Label label = Mat.label(text, "subtitle");
+        label.setPadding(new Insets(8, 0, 4, 0));
+        return label;
     }
 
     private HBox row(String title, String desc, Node control) {
@@ -363,10 +472,10 @@ public final class SettingsView extends BorderPane {
     }
 
     private MFXToggleButton toggle(BooleanProperty prop) {
-        MFXToggleButton t = new MFXToggleButton();
-        t.setSelected(prop.get());
-        t.selectedProperty().bindBidirectional(prop);
-        return t;
+        MFXToggleButton toggle = new MFXToggleButton();
+        toggle.setSelected(prop.get());
+        toggle.selectedProperty().bindBidirectional(prop);
+        return toggle;
     }
 
     private static <T extends Node> T disabled(T node) {
@@ -395,5 +504,9 @@ public final class SettingsView extends BorderPane {
         HBox box = new HBox(12, slider, value);
         box.setAlignment(Pos.CENTER_LEFT);
         return box;
+    }
+
+    private String t(String key, Object... arguments) {
+        return i18n.text(key, arguments);
     }
 }

@@ -59,6 +59,7 @@ import javafx.beans.property.ReadOnlyLongWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadItem;
@@ -84,10 +85,16 @@ public final class DirectHttpEngine implements DownloadEngine {
     private static final int MAX_AUTO_RETRIES = 4;
     private static final long INITIAL_RETRY_DELAY_MILLIS = 2_000;
     private static final long MAX_RETRY_DELAY_MILLIS = 30_000;
+    // These identifiers deliberately remain stable English implementation text:
+    // retry classification compares them without depending on presentation language.
+    private static final String PARTIAL_IDENTITY_ERROR = "Partial file has no safe resume identity";
+    private static final String INVALID_RESUME_RANGE_ERROR = "Server returned an invalid resume range";
+    private static final String REMOTE_FILE_CHANGED_ERROR = "Remote file changed during resume";
 
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
     private final Settings settings = new Settings();
+    private final I18n i18n = new I18n(settings.languageProperty());
 
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
     private final ReadOnlyBooleanWrapper paused = new ReadOnlyBooleanWrapper(false);
@@ -188,7 +195,8 @@ public final class DirectHttpEngine implements DownloadEngine {
 
     private void beginCrawl(List<String> urls, String requestedName, String destination,
                             boolean autoConfirm, boolean autoStart) {
-        String name = requestedName.isBlank() ? "New Package " + (crawled.size() + 1) : requestedName;
+        String name = requestedName.isBlank()
+                ? i18n.text("engine.new_package", crawled.size() + 1) : requestedName;
         CrawledPackage pkg = new CrawledPackage(name, destination);
         crawled.add(pkg);
         appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart);
@@ -447,12 +455,12 @@ public final class DirectHttpEngine implements DownloadEngine {
         try {
             uri = URI.create(link.url().get());
         } catch (Exception ex) {
-            fail(link, "Invalid download URL");
+            fail(link, i18n.text("engine.invalid_url"));
             clearStartRequests(link);
             return false;
         }
         if (!isDirectHttpUri(uri)) {
-            fail(link, "Only direct HTTP(S) URLs are supported");
+            fail(link, i18n.text("engine.only_http"));
             clearStartRequests(link);
             return false;
         }
@@ -462,7 +470,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         try {
             folder = Path.of(destination);
         } catch (Exception ex) {
-            fail(link, "Invalid destination folder");
+            fail(link, i18n.text("engine.invalid_destination"));
             clearStartRequests(link);
             return false;
         }
@@ -479,7 +487,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         } catch (RejectedExecutionException ex) {
             activeTransfers.remove(link.id(), transfer);
             transferEpochs.remove(link.id(), transfer.epoch);
-            fail(link, "Download engine is shutting down");
+            fail(link, i18n.text("engine.shutting_down"));
             clearStartRequests(link);
             return false;
         }
@@ -705,7 +713,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             long existing = allowResume && Files.exists(partial) ? Files.size(partial) : 0;
             PartialIdentity identity = existing > 0 ? readPartialIdentity(partial) : null;
             if (existing > 0 && identity == null) {
-                throw new IOException("Partial file has no safe resume identity");
+                throw new IOException(PARTIAL_IDENTITY_ERROR);
             }
             HttpRequest.Builder request = HttpRequest.newBuilder(uri).timeout(Duration.ofMinutes(5)).GET();
             if (existing > 0) {
@@ -726,7 +734,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             boolean append = existing > 0 && status == 206;
             if (append && rangeStart(response) != existing) {
                 closeQuietly(response.body());
-                throw new IOException("Server returned an invalid resume range");
+                throw new IOException(INVALID_RESUME_RANGE_ERROR);
             }
             String validator = responseValidator(response);
             if (append && !identity.validator.isBlank() && !validator.isBlank()
@@ -735,7 +743,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 Files.deleteIfExists(partial);
                 Files.deleteIfExists(partialIdentityPath(partial));
                 if (restartedAfterChange) {
-                    throw new IOException("Remote file changed during resume");
+                    throw new IOException(REMOTE_FILE_CHANGED_ERROR);
                 }
                 stream(output, false, true);
                 return;
@@ -790,8 +798,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 outputStream.flush();
                 if (cancelled.get()) return;
                 if (total >= 0 && written != total) {
-                    throw new IOException("Incomplete HTTP response (received " + written
-                            + " of " + total + " bytes)");
+                    throw new IncompleteResponseException(written, total);
                 }
                 completed = written;
             }
@@ -847,7 +854,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         link.outputPathProperty().set(output.toString());
         String requested = sanitizeFileName(transfer.requestedName);
         String resolved = output.getFileName() == null ? output.toString() : output.getFileName().toString();
-        link.detailProperty().set(requested.equals(resolved) ? "" : "Saved as " + resolved);
+        link.detailProperty().set(requested.equals(resolved) ? "" : i18n.text("engine.saved_as", resolved));
         resetRetry(link);
         link.setState(DownloadState.FINISHED);
         clearTransferEpoch(transfer);
@@ -865,7 +872,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             }
             link.speedProp().set(0);
             link.outputPathProperty().set(output.toString());
-            link.detailProperty().set("Existing file kept");
+            link.detailProperty().set(i18n.text("engine.existing_kept"));
             resetRetry(link);
             link.setState(DownloadState.FINISHED);
             clearTransferEpoch(transfer);
@@ -899,7 +906,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                         && link.retryAttemptProperty().get() >= MAX_AUTO_RETRIES
                         && isTransientFailure(error);
                 link.detailProperty().set(exhausted
-                        ? "Failed after " + MAX_AUTO_RETRIES + " retries: " + message : message);
+                        ? i18n.text("engine.failed_after", MAX_AUTO_RETRIES, message) : message);
                 resetRetry(link);
                 link.setState(DownloadState.ERROR);
                 clearTransferEpoch(transfer);
@@ -925,9 +932,10 @@ public final class DirectHttpEngine implements DownloadEngine {
         return Math.min(MAX_RETRY_DELAY_MILLIS, INITIAL_RETRY_DELAY_MILLIS << exponent);
     }
 
-    private static String retryDetail(int attempt, long seconds, String reason) {
-        String suffix = reason == null || reason.isBlank() ? "" : ": " + reason;
-        return "Retrying in " + seconds + "s (attempt " + attempt + "/" + MAX_AUTO_RETRIES + ")" + suffix;
+    private String retryDetail(int attempt, long seconds, String reason) {
+        return reason == null || reason.isBlank()
+                ? i18n.text("engine.retrying_plain", seconds, attempt, MAX_AUTO_RETRIES)
+                : i18n.text("engine.retrying", seconds, attempt, MAX_AUTO_RETRIES, reason);
     }
 
     private static boolean isTransientFailure(Exception error) {
@@ -941,9 +949,9 @@ public final class DirectHttpEngine implements DownloadEngine {
         if (root instanceof FileSystemException) return false;
         if (root instanceof IOException io) {
             String message = io.getMessage() == null ? "" : io.getMessage();
-            return !message.startsWith("Partial file has no safe resume identity")
-                    && !message.startsWith("Server returned an invalid resume range")
-                    && !message.startsWith("Remote file changed during resume");
+            return !message.startsWith(PARTIAL_IDENTITY_ERROR)
+                    && !message.startsWith(INVALID_RESUME_RANGE_ERROR)
+                    && !message.startsWith(REMOTE_FILE_CHANGED_ERROR);
         }
         return false;
     }
@@ -970,8 +978,8 @@ public final class DirectHttpEngine implements DownloadEngine {
             String reason = link.retryReasonProperty().get();
             resetRetry(link);
             link.detailProperty().set(reason == null || reason.isBlank()
-                    ? "Automatic retry cancelled"
-                    : "Automatic retry cancelled: " + reason);
+                    ? i18n.text("engine.retry_cancelled")
+                    : i18n.text("engine.retry_cancelled_reason", reason));
             link.setState(DownloadState.ERROR);
             clearStartRequests(link);
         }
@@ -1013,8 +1021,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 if (loaded.error != null) {
                     // Preserve an unreadable or oversized journal in place rather
                     // than replacing the user's queue with an empty snapshot.
-                    System.err.println("JDownloader Material kept its unreadable state journal: "
-                            + readableError(loaded.error));
+                    System.err.println(i18n.text("engine.state_journal_unreadable", readableError(loaded.error)));
                     return;
                 }
                 restoringState = true;
@@ -1059,6 +1066,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         settings.reconnectMethodProperty().addListener(stateDirty);
         settings.darkThemeProperty().addListener(stateDirty);
         settings.speedInTitleProperty().addListener(stateDirty);
+        settings.languageProperty().addListener(stateDirty);
     }
 
     private void observeDownloads() {
@@ -1459,10 +1467,20 @@ public final class DirectHttpEngine implements DownloadEngine {
         return candidate.length() > 180 ? candidate.substring(0, 180) : candidate;
     }
 
-    private static String readableError(Exception error) {
+    private String readableError(Exception error) {
         Throwable root = rootCause(error);
+        if (root instanceof HttpStatusException status) {
+            return i18n.text("engine.http_status", status.statusCode);
+        }
+        if (root instanceof IncompleteResponseException incomplete) {
+            return i18n.text("engine.incomplete_response", incomplete.received, incomplete.total);
+        }
         String message = root.getMessage();
-        return message == null || message.isBlank() ? "Download failed" : message;
+        if (message == null || message.isBlank()) return i18n.text("engine.failed");
+        if (PARTIAL_IDENTITY_ERROR.equals(message)) return i18n.text("engine.partial_identity");
+        if (INVALID_RESUME_RANGE_ERROR.equals(message)) return i18n.text("engine.invalid_resume_range");
+        if (REMOTE_FILE_CHANGED_ERROR.equals(message)) return i18n.text("engine.remote_changed");
+        return message;
     }
 
     private static void closeQuietly(Closeable closeable) {
@@ -1530,6 +1548,18 @@ public final class DirectHttpEngine implements DownloadEngine {
         private HttpStatusException(int statusCode) {
             super("HTTP " + statusCode);
             this.statusCode = statusCode;
+        }
+    }
+
+    /** Keeps transfer accounting typed while preserving the prior IOException retry behavior. */
+    private static final class IncompleteResponseException extends IOException {
+        private final long received;
+        private final long total;
+
+        private IncompleteResponseException(long received, long total) {
+            super("Incomplete HTTP response (received " + received + " of " + total + " bytes)");
+            this.received = received;
+            this.total = total;
         }
     }
 

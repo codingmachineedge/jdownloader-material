@@ -22,6 +22,28 @@ containers, accounts, CAPTCHA handling, or full crawler.
 - **Light and dark themes** - switch from the app bar. Every surface, table, chip, and inline
   form resolves from the same theme tokens.
 
+## Language
+
+**Settings → Appearance → Language** changes the interface immediately and is saved with the
+rest of the local settings and encrypted backup. Choose **English**, **香港粵語（得意版）**, or
+**English · 香港粵語**. The bilingual mode keeps both versions of standard UI copy visible:
+most compact labels use a middle dot, while longer descriptions—and narrow navigation and app-bar
+labels—stack the two versions for readability. The
+download pipeline, background probes, retries, and inline forms continue without a restart or a
+blocking prompt while the language is changed.
+
+| 香港粵語（得意版） | English · 香港粵語 |
+| --- | --- |
+| ![Downloads in playful Hong Kong Cantonese](screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](screenshots/downloads-bilingual.png) |
+
+| 香港粵語 LinkGrabber | English · 香港粵語 Add Links |
+| --- | --- |
+| ![LinkGrabber in playful Hong Kong Cantonese](screenshots/linkgrabber-cantonese.png) | ![Add Links in bilingual English and Hong Kong Cantonese](screenshots/add-links-bilingual.png) |
+
+| English language setting | Bilingual language setting |
+| --- | --- |
+| ![Appearance settings showing the English selector](screenshots/settings-appearance-light.png) | ![Appearance settings showing the bilingual selector](screenshots/settings-appearance-bilingual.png) |
+
 ## Downloads
 
 Downloads is a package-to-file tree with Name, Size, Host, Status, Progress, Speed, ETA, and
@@ -145,7 +167,7 @@ segmentation are labelled unavailable rather than silently pretending to run.
 ## Regenerating the gallery
 
 The application has an opt-in documentation capture mode. It selects SimulatedEngine, seeds
-deterministic sample rows, renders ten scene snapshots, and exits when they are written.
+deterministic sample rows, renders sixteen scene snapshots, and exits when they are written.
 Ordinary launches are unaffected and continue to select DirectHttpEngine.
 
 From PowerShell with JDK 25 available:
@@ -155,4 +177,5 @@ $env:JD_SCREENSHOT_DIR = (Resolve-Path "docs/screenshots").Path
 .\mvnw.cmd javafx:run
 ~~~
 
-This refreshes Downloads, LinkGrabber, Settings, and Add Links in both light and dark themes.
+This refreshes Downloads, LinkGrabber, Settings, and Add Links in both light and dark themes,
+plus Cantonese and bilingual captures across the main transfer flows.

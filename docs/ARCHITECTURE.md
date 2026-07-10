@@ -12,7 +12,7 @@ app
     screenshot capture ------------------> SimulatedEngine
                                              |
 ui                                           v
-  MainWindow ----------------------> DownloadEngine (interface)
+  MainWindow / I18n ---------------> DownloadEngine (interface)
     DownloadsView                      Settings / SettingsIO
     LinkGrabberView                          |
     AddLinksView                             v
@@ -26,8 +26,10 @@ ui                                           v
 ~~~
 
 The UI consumes observable packages, link properties, settings, and global statistics through
-the interface. It does not depend on DirectHttpEngine, SimulatedEngine, or JDownloader-core
-classes directly.
+the interface. `I18n` reads the persisted presentation mode and renders English, playful Hong
+Kong Cantonese, or both; the shell rebuilds its static labels immediately without restarting the
+engine. The UI does not depend on DirectHttpEngine, SimulatedEngine, or JDownloader-core classes
+directly.
 
 ## Normal direct-download path
 

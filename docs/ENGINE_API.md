@@ -117,10 +117,11 @@ export/import flow.
 
 DirectHttpEngine currently applies the direct-download folder, simultaneous-download limit,
 per-host connection limit, global speed limit, file-exists policy, transient-failure retry,
-LinkGrabber auto-confirm / auto-start behavior, ordering, and appearance settings. Each direct
-link uses one safe stream; the stored multi-connection/chunk setting is disabled until a proper
-segmented-transfer implementation exists. Router reconnect and My.JDownloader remote control do
-not run in this release.
+LinkGrabber auto-confirm / auto-start behavior, ordering, and appearance settings. Appearance
+includes a persisted presentation mode: English, playful Hong Kong Cantonese, or a bilingual
+English · 香港粵語 rendering. Each direct link uses one safe stream; the stored
+multi-connection/chunk setting is disabled until a proper segmented-transfer implementation
+exists. Router reconnect and My.JDownloader remote control do not run in this release.
 
 ## Threading contract
 

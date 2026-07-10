@@ -19,6 +19,7 @@ import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DirectHttpEngine;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.engine.LanguageMode;
 import org.jdownloader.material.engine.SimulatedEngine;
 import org.jdownloader.material.ui.MainWindow;
 import org.jdownloader.material.ui.ThemeManager;
@@ -111,6 +112,7 @@ public class JDMaterialApp extends Application {
         }
         // Keep public documentation images independent of the machine that generated them.
         engine.settings().downloadFolderProperty().set("C:\\Downloads");
+        engine.settings().languageProperty().set(LanguageMode.ENGLISH);
 
         List<ScreenshotStep> steps = List.of(
                 new ScreenshotStep("downloads-light.png", () -> {
@@ -120,6 +122,7 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("downloads-properties-light.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-light.png", window::showSettings),
+                new ScreenshotStep("settings-appearance-light.png", window::showSettingsAppearanceForCapture),
                 new ScreenshotStep("add-links-light.png", window::openAddLinks),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
@@ -128,7 +131,19 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("downloads-properties-dark.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-dark.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-dark.png", window::showSettings),
-                new ScreenshotStep("add-links-dark.png", window::openAddLinks));
+                new ScreenshotStep("add-links-dark.png", window::openAddLinks),
+                new ScreenshotStep("downloads-cantonese.png", () -> {
+                    if (theme.isDark()) theme.toggle();
+                    engine.settings().languageProperty().set(LanguageMode.HONG_KONG_CANTONESE);
+                    window.showDownloadsForCapture();
+                }),
+                new ScreenshotStep("linkgrabber-cantonese.png", window::showLinkGrabber),
+                new ScreenshotStep("downloads-bilingual.png", () -> {
+                    engine.settings().languageProperty().set(LanguageMode.BILINGUAL);
+                    window.showDownloadsForCapture();
+                }),
+                new ScreenshotStep("add-links-bilingual.png", window::openAddLinks),
+                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture));
         captureStep(scene, window, steps, directory, 0);
     }
 
@@ -136,12 +151,18 @@ public class JDMaterialApp extends Application {
         ScreenshotStep step = steps.get(index);
         step.prepare().run();
         window.clearTransientFocus();
+        // A content or language switch can replace much of the scene graph.
+        // Force CSS/layout now and start the next step on a fresh UI turn so
+        // snapshots never catch a partially repainted custom app bar.
+        scene.getRoot().applyCss();
+        scene.getRoot().layout();
         PauseTransition delay = new PauseTransition(Duration.millis(350));
         delay.setOnFinished(event -> scene.snapshot(result -> {
             try {
                 writePng(result, directory.resolve(step.fileName()));
                 if (index + 1 < steps.size()) {
-                    captureStep(scene, window, steps, directory, index + 1);
+                    javafx.application.Platform.runLater(() ->
+                            captureStep(scene, window, steps, directory, index + 1));
                 } else {
                     System.out.println("Wrote " + steps.size() + " documentation screenshots to " + directory);
                     window.dispose();

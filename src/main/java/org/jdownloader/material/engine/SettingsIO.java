@@ -70,6 +70,7 @@ public final class SettingsIO {
         p.setProperty("reconnectMethod", s.reconnectMethodProperty().get());
         p.setProperty("darkTheme", Boolean.toString(s.darkThemeProperty().get()));
         p.setProperty("speedInTitle", Boolean.toString(s.speedInTitleProperty().get()));
+        p.setProperty("language", s.languageProperty().get().name());
         // Secrets — protected by the whole-file encryption below.
         p.setProperty("myjdEmail", s.myjdEmailProperty().get());
         p.setProperty("myjdPassword", s.myjdPasswordProperty().get());
@@ -166,6 +167,7 @@ public final class SettingsIO {
         apply(p, "reconnectMethod", v -> s.reconnectMethodProperty().set(v));
         applyBool(p, "darkTheme", v -> s.darkThemeProperty().set(v));
         applyBool(p, "speedInTitle", v -> s.speedInTitleProperty().set(v));
+        apply(p, "language", v -> s.languageProperty().set(LanguageMode.valueOf(v)));
         apply(p, "myjdEmail", v -> s.myjdEmailProperty().set(v));
         apply(p, "myjdPassword", v -> s.myjdPasswordProperty().set(v));
     }

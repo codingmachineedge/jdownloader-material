@@ -21,7 +21,7 @@
 
 /* ----------------------------------------------------------------- Base */
 .root {
-    -fx-font-family: "Segoe UI", "Roboto", "Noto Sans", sans-serif;
+    -fx-font-family: "Segoe UI", "Microsoft JhengHei", "PingFang HK", "Noto Sans CJK TC", "Roboto", "Noto Sans", sans-serif;
     -fx-font-size: 14px;
     -fx-text-fill: -md-on-surface;
     -fx-focus-color: -md-primary;

@@ -5,13 +5,14 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.util.Formats;
 
 /** Bottom status bar mirroring JDownloader's global speed / activity indicators. */
 public final class StatusBar extends HBox {
 
-    public StatusBar(DownloadEngine engine) {
+    public StatusBar(DownloadEngine engine, I18n i18n) {
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
 
@@ -21,19 +22,20 @@ public final class StatusBar extends HBox {
                 () -> "▼ " + Formats.speed(engine.globalSpeedProperty().get()),
                 engine.globalSpeedProperty()));
 
-        Label running = metric("Running",
+        Label running = metric(i18n, "status.running",
                 Bindings.createStringBinding(
                         () -> String.valueOf(engine.runningCountProperty().get()),
                         engine.runningCountProperty()));
 
-        Label remaining = metric("Remaining",
+        Label remaining = metric(i18n, "status.remaining",
                 Bindings.createStringBinding(
                         () -> Formats.bytes(engine.totalRemainingProperty().get()),
                         engine.totalRemainingProperty()));
 
         // Direct HTTP mode uses this legacy-named property for a real retry
         // countdown, not a pretend router reconnect.
-        HBox reconnect = new HBox(6, Icons.of("reconnect", 14, "icon-primary"), new Label("Retry scheduled"));
+        HBox reconnect = new HBox(6, Icons.of("reconnect", 14, "icon-primary"),
+                new Label(i18n.text("status.retry_scheduled")));
         reconnect.setAlignment(Pos.CENTER_LEFT);
         reconnect.visibleProperty().bind(engine.reconnectingProperty());
         reconnect.managedProperty().bind(engine.reconnectingProperty());
@@ -41,10 +43,11 @@ public final class StatusBar extends HBox {
         getChildren().addAll(speed, sep(), running, sep(), remaining, Mat.hSpacer(), reconnect);
     }
 
-    private Label metric(String name, javafx.beans.binding.StringBinding valueBinding) {
+    private Label metric(I18n i18n, String nameKey, javafx.beans.binding.StringBinding valueBinding) {
         Label l = new Label();
         l.getStyleClass().add("status-metric");
-        l.textProperty().bind(Bindings.concat(name + ": "));
+        l.textProperty().bind(Bindings.createStringBinding(() -> i18n.text(nameKey) + ": ",
+                i18n.modeProperty()));
         Label value = new Label();
         value.getStyleClass().addAll("status-metric", "value");
         value.textProperty().bind(valueBinding);

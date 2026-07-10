@@ -12,6 +12,7 @@ import javafx.beans.property.ReadOnlyLongWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.util.Duration;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadItem;
@@ -51,6 +52,7 @@ public final class SimulatedEngine implements DownloadEngine {
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
     private final Settings settings = new Settings();
+    private final I18n i18n = new I18n(settings.languageProperty());
 
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
     private final ReadOnlyBooleanWrapper paused = new ReadOnlyBooleanWrapper(false);
@@ -63,6 +65,7 @@ public final class SimulatedEngine implements DownloadEngine {
     private final Map<String, Long> targetSpeed = new HashMap<>();
     private final Set<String> manuallyStopped = new java.util.HashSet<>();
     private long lastTick = 0;
+    private DownloadLink demoRetryLink;
     private final AnimationTimer timer;
     private final ExecutorService crawlParser = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "link-crawl-parser");
@@ -71,6 +74,7 @@ public final class SimulatedEngine implements DownloadEngine {
     });
 
     public SimulatedEngine() {
+        settings.languageProperty().addListener((observable, previous, current) -> refreshDemoLocalizedCopy());
         timer = new AnimationTimer() {
             @Override public void handle(long now) {
                 long ms = now / 1_000_000L;
@@ -223,7 +227,8 @@ public final class SimulatedEngine implements DownloadEngine {
 
     private void beginCrawl(List<String> urls, String requestedName, String destination,
                             boolean autoConfirm, boolean autoStart) {
-        String name = requestedName.isBlank() ? "New Package " + (crawled.size() + 1) : requestedName;
+        String name = requestedName.isBlank()
+                ? i18n.text("engine.new_package", crawled.size() + 1) : requestedName;
         CrawledPackage pkg = new CrawledPackage(name, destination);
         crawled.add(pkg);
         appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart);
@@ -480,7 +485,8 @@ public final class SimulatedEngine implements DownloadEngine {
         DownloadLink part1 = new DownloadLink("project-backup.part1.rar", "mega.nz", 1_500L * 1024 * 1024);
         DownloadLink part2 = new DownloadLink("project-backup.part2.rar", "mega.nz", 1_500L * 1024 * 1024);
         part2.setState(DownloadState.ERROR);
-        part2.detailProperty().set("Temporary host error — retry is available");
+        demoRetryLink = part2;
+        refreshDemoLocalizedCopy();
         archive.links().addAll(part1, part2);
 
         downloads.addAll(ubuntu, media, archive);
@@ -495,6 +501,12 @@ public final class SimulatedEngine implements DownloadEngine {
         crawled.add(staged);
 
         Platform.runLater(() -> downloads.forEach(DownloadPackage::recompute));
+    }
+
+    private void refreshDemoLocalizedCopy() {
+        if (demoRetryLink != null) {
+            demoRetryLink.detailProperty().set(i18n.text("engine.temporary_host_error"));
+        }
     }
 
     private static String hostOf(String url) {

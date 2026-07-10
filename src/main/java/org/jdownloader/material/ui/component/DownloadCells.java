@@ -10,7 +10,9 @@ import javafx.scene.control.TreeTableColumn;
 import javafx.scene.layout.HBox;
 import javafx.util.Callback;
 import org.jdownloader.material.model.DownloadItem;
+import org.jdownloader.material.model.DownloadPackage;
 import org.jdownloader.material.model.DownloadState;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.util.Formats;
 
@@ -72,6 +74,26 @@ public final class DownloadCells {
         };
     }
 
+    /** Host cell with display-only localization for aggregate and unknown hosts. */
+    public static Callback<TreeTableColumn<DownloadItem, String>, TreeTableCell<DownloadItem, String>> host(I18n i18n) {
+        return col -> new TreeTableCell<>() {
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                DownloadItem item = getTableRow() == null ? null : getTableRow().getItem();
+                if (empty || item == null) {
+                    setText(null);
+                    return;
+                }
+                if (item instanceof DownloadPackage pkg
+                        && pkg.links().stream().map(link -> link.hostProperty().getValue()).distinct().count() > 1) {
+                    setText(i18n.text("host.count", pkg.links().size()));
+                } else {
+                    setText("unknown".equalsIgnoreCase(value) ? i18n.text("host.unknown") : value);
+                }
+            }
+        };
+    }
+
     /** ETA cell — driven by the speed observable, computed from the row item. */
     public static Callback<TreeTableColumn<DownloadItem, Number>, TreeTableCell<DownloadItem, Number>> eta() {
         return col -> new TreeTableCell<>() {
@@ -89,14 +111,14 @@ public final class DownloadCells {
     }
 
     /** Status chip cell, colored by state. */
-    public static Callback<TreeTableColumn<DownloadItem, DownloadState>, TreeTableCell<DownloadItem, DownloadState>> status() {
+    public static Callback<TreeTableColumn<DownloadItem, DownloadState>, TreeTableCell<DownloadItem, DownloadState>> status(I18n i18n) {
         return col -> new TreeTableCell<>() {
             private final Label chip = new Label();
             { chip.getStyleClass().add("status-chip"); }
             @Override protected void updateItem(DownloadState st, boolean empty) {
                 super.updateItem(st, empty);
                 if (empty || st == null) { setGraphic(null); return; }
-                chip.setText(st.label());
+                chip.setText(i18n.text("state." + st.name()));
                 chip.getStyleClass().removeIf(c -> c.startsWith("state-"));
                 chip.getStyleClass().add(st.styleClass());
                 setGraphic(chip);

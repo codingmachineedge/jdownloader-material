@@ -3,6 +3,7 @@ package org.jdownloader.material.ui;
 import io.github.palexdev.materialfx.controls.MFXButton;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ButtonBase;
@@ -18,6 +19,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.engine.LanguageMode;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.component.ClipboardMonitor;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
@@ -28,25 +31,37 @@ import org.jdownloader.material.ui.view.LinkGrabberView;
 import org.jdownloader.material.ui.view.SettingsView;
 import org.jdownloader.material.util.Formats;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Assembles the whole window: top app bar, navigation rail, content and status
- * bar in a shell, with one optional {@link NotificationCenter} snackbar lane
- * for Undo and navigation actions. Forms stay in normal content views.
+ * bar in a shell. Rebuilding the shell when the language changes keeps every
+ * static label in sync without a restart or a modal language prompt.
  */
 public final class MainWindow extends StackPane {
+
+    private enum Page { DOWNLOADS, LINKGRABBER, SETTINGS, ADD_LINKS }
 
     private final DownloadEngine engine;
     private final ThemeManager theme;
     private final Stage stage;
+    private final I18n i18n;
     private final NotificationCenter notifier = new NotificationCenter();
-    private final StackPane content = new StackPane();
-    private final ToggleGroup navGroup = new ToggleGroup();
-    private final DownloadsView downloadsView;
-    private final Runnable openAddLinks;
-    private final Runnable showDownloads;
-    private final Runnable showLinkGrabber;
-    private final Runnable showSettings;
     private final ClipboardMonitor clipboardMonitor;
+    private final List<Runnable> shellDisposers = new ArrayList<>();
+    private final ChangeListener<LanguageMode> languageListener = (observable, previous, current) -> rebuildShell();
+
+    private StackPane content;
+    private ToggleGroup navGroup;
+    private DownloadsView downloadsView;
+    private LinkGrabberView linkgrabberView;
+    private SettingsView settingsView;
+    private AddLinksView addLinksView;
+    private ToggleButton downloadsTab;
+    private ToggleButton linkgrabberTab;
+    private ToggleButton settingsTab;
+    private Page currentPage = Page.DOWNLOADS;
     private double dragOffsetX;
     private double dragOffsetY;
 
@@ -54,27 +69,33 @@ public final class MainWindow extends StackPane {
         this.engine = engine;
         this.theme = theme;
         this.stage = stage;
+        this.i18n = new I18n(engine.settings().languageProperty());
         setFocusTraversable(true);
 
-        // "View" snack actions navigate to the LinkGrabber; resolved after nav is built.
-        Runnable[] navToLinkGrabber = {() -> { }};
-        Runnable[] openComposer = {() -> { }};
+        i18n.modeProperty().addListener(languageListener);
+        rebuildShell();
 
-        downloadsView = new DownloadsView(engine, notifier, () -> openComposer[0].run());
-        Node downloads = downloadsView;
-        Node linkgrabber = new LinkGrabberView(engine, notifier, () -> openComposer[0].run());
-        Node settings = new SettingsView(engine.settings());
+        // Clipboard capture offers one optional View action; no work opens a dialog.
+        clipboardMonitor = new ClipboardMonitor(engine, notifier, this::showLinkGrabber, i18n);
+        clipboardMonitor.start();
+    }
 
-        ToggleButton downloadsTab = navItem("download", "Downloads", downloads);
-        ToggleButton linkgrabberTab = navItem("link", "LinkGrabber", linkgrabber);
-        ToggleButton settingsTab = navItem("settings", "Settings", settings);
-        this.showDownloads = () -> { downloadsTab.setSelected(true); content.getChildren().setAll(downloads); };
-        navToLinkGrabber[0] = () -> { linkgrabberTab.setSelected(true); content.getChildren().setAll(linkgrabber); };
-        this.showLinkGrabber = navToLinkGrabber[0];
-        this.showSettings = () -> { settingsTab.setSelected(true); content.getChildren().setAll(settings); };
-        Node addLinks = new AddLinksView(engine, showDownloads, showLinkGrabber);
-        this.openAddLinks = () -> content.getChildren().setAll(addLinks);
-        openComposer[0] = this.openAddLinks;
+    private void rebuildShell() {
+        AddLinksView.Draft addLinksDraft = addLinksView == null ? null : addLinksView.draft();
+        String selectedSettingsTab = settingsView == null ? null : settingsView.selectedTabKey();
+        disposeShell();
+        content = new StackPane();
+        navGroup = new ToggleGroup();
+
+        downloadsView = new DownloadsView(engine, notifier, this::openAddLinks, i18n);
+        linkgrabberView = new LinkGrabberView(engine, notifier, this::openAddLinks, i18n);
+        settingsView = new SettingsView(engine.settings(), i18n, selectedSettingsTab);
+        addLinksView = new AddLinksView(engine, this::showDownloads, this::showLinkGrabber, i18n);
+        addLinksView.restoreDraft(addLinksDraft);
+
+        downloadsTab = navItem("download", "nav.downloads", downloadsView);
+        linkgrabberTab = navItem("link", "nav.linkgrabber", linkgrabberView);
+        settingsTab = navItem("settings", "nav.settings", settingsView);
 
         VBox rail = new VBox(6, downloadsTab, linkgrabberTab, Mat.hSpacer(), settingsTab);
         rail.getStyleClass().add("nav-rail");
@@ -85,20 +106,30 @@ public final class MainWindow extends StackPane {
         shell.setTop(buildTopAppBar());
         shell.setLeft(rail);
         shell.setCenter(content);
-        shell.setBottom(new StatusBar(engine));
+        shell.setBottom(new StatusBar(engine, i18n));
 
-        showDownloads.run();
-
-        getChildren().addAll(shell, notifier);
-
-        // Clipboard capture offers one optional View action; no work opens a dialog.
-        clipboardMonitor = new ClipboardMonitor(engine, notifier, () -> navToLinkGrabber[0].run());
-        clipboardMonitor.start();
+        getChildren().setAll(shell, notifier);
+        show(currentPage);
     }
 
     /** Stops timers owned by the window (called on application shutdown). */
     public void dispose() {
         clipboardMonitor.stop();
+        i18n.modeProperty().removeListener(languageListener);
+        disposeShell();
+    }
+
+    /** Removes listeners attached by the language-specific shell before replacing it. */
+    private void disposeShell() {
+        if (downloadsView != null) downloadsView.dispose();
+        if (linkgrabberView != null) linkgrabberView.dispose();
+        if (addLinksView != null) addLinksView.dispose();
+        downloadsView = null;
+        linkgrabberView = null;
+        settingsView = null;
+        addLinksView = null;
+        shellDisposers.forEach(Runnable::run);
+        shellDisposers.clear();
     }
 
     /** Moves focus off transient form controls before deterministic scene capture. */
@@ -108,39 +139,45 @@ public final class MainWindow extends StackPane {
 
     /** Opens the inline Add Links composer programmatically (also used for demos/tests). */
     public void openAddLinks() {
-        openAddLinks.run();
+        show(Page.ADD_LINKS);
     }
 
     /** Switches to the LinkGrabber view programmatically (also used for demos/tests). */
     public void showLinkGrabber() {
-        showLinkGrabber.run();
+        show(Page.LINKGRABBER);
     }
 
     /** Switches to Downloads programmatically (also used for demos/tests). */
     public void showDownloads() {
-        showDownloads.run();
+        show(Page.DOWNLOADS);
     }
 
     /** Shows the standard unselected Downloads view for documentation capture. */
     public void showDownloadsForCapture() {
-        showDownloads.run();
+        show(Page.DOWNLOADS);
         downloadsView.clearSelectionForCapture();
     }
 
     /** Shows Downloads with an editable sample row selected for documentation capture. */
     public void showDownloadsWithEditableSelection() {
-        showDownloads.run();
+        show(Page.DOWNLOADS);
         downloadsView.selectFirstEditableForCapture();
     }
 
     /** Switches to Settings programmatically (also used for demos/tests). */
     public void showSettings() {
-        showSettings.run();
+        show(Page.SETTINGS);
+    }
+
+    /** Shows Appearance for a deterministic capture of the language picker. */
+    public void showSettingsAppearanceForCapture() {
+        show(Page.SETTINGS);
+        settingsView.showAppearanceForCapture();
     }
 
     /** Fires a representative snackbar (used by the demo hook and future tests). */
     public void demoSnack() {
-        notifier.snack("3 links added to LinkGrabber", "View", () -> { });
+        notifier.snack(i18n.text("demo.snack"), i18n.text("action.view"), () -> { });
     }
 
     /** Clears transient overlay content before a deterministic visual capture. */
@@ -148,47 +185,74 @@ public final class MainWindow extends StackPane {
         notifier.clear();
     }
 
+    private void show(Page page) {
+        currentPage = page;
+        switch (page) {
+            case DOWNLOADS -> {
+                downloadsTab.setSelected(true);
+                content.getChildren().setAll(downloadsView);
+            }
+            case LINKGRABBER -> {
+                linkgrabberTab.setSelected(true);
+                content.getChildren().setAll(linkgrabberView);
+            }
+            case SETTINGS -> {
+                settingsTab.setSelected(true);
+                content.getChildren().setAll(settingsView);
+            }
+            case ADD_LINKS -> content.getChildren().setAll(addLinksView);
+        }
+    }
+
     // ------------------------------------------------------------- App bar
     private HBox buildTopAppBar() {
         StackPane mark = new StackPane(Icons.of("download", 18, "icon-on-primary"));
         mark.getStyleClass().add("app-mark");
-        Label title = Mat.label("JDownloader", "app-title");
-        title.textProperty().bind(Bindings.createStringBinding(() -> {
+        Label title = Mat.label(i18n.text("app.title"), "app-title");
+        var titleBinding = Bindings.createStringBinding(() -> {
             if (engine.settings().speedInTitleProperty().get() && engine.globalSpeedProperty().get() > 0) {
-                return "JDownloader  -  " + Formats.speed(engine.globalSpeedProperty().get());
+                return i18n.text("app.title") + "  —  ▼ " + Formats.speed(engine.globalSpeedProperty().get());
             }
-            return "JDownloader";
-        }, engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
+            return i18n.text("app.title");
+        }, engine.globalSpeedProperty(), engine.settings().speedInTitleProperty(), i18n.modeProperty());
+        title.textProperty().bind(titleBinding);
+        shellDisposers.add(() -> title.textProperty().unbind());
         VBox titleBox = new VBox(-2, title);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
-        var clipboard = toggleAction("paste", "Clipboard", "Clipboard monitoring",
+        var clipboard = toggleAction("paste", "app.clipboard", "tooltip.clipboard",
                 engine.settings().clipboardMonitoringProperty());
-        var autoReconnect = toggleAction("reconnect", "Auto retry", "Retry transient HTTP failures",
+        var autoReconnect = toggleAction("reconnect", "app.auto_retry", "tooltip.auto_retry",
                 engine.settings().autoReconnectProperty());
 
-        var themeToggle = Mat.text(theme.isDark() ? "Light theme" : "Dark theme",
+        var themeToggle = Mat.text(theme.isDark() ? i18n.text("app.theme.light") : i18n.text("app.theme.dark"),
                 theme.isDark() ? "sun" : "moon");
         Runnable updateThemeToggle = () -> {
-            themeToggle.setText(theme.isDark() ? "Light theme" : "Dark theme");
-            themeToggle.setGraphic(Icons.of(theme.isDark() ? "sun" : "moon", 20));
-            Mat.tip(themeToggle, theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
+            boolean dark = theme.isDark();
+            themeToggle.setText(i18n.text(dark ? "app.theme.light" : "app.theme.dark"));
+            themeToggle.setGraphic(Icons.of(dark ? "sun" : "moon", 20));
+            Mat.tip(themeToggle, i18n.text(dark ? "tooltip.light_theme" : "tooltip.dark_theme"));
         };
         updateThemeToggle.run();
         themeToggle.setOnAction(e -> theme.toggle());
-        theme.darkProperty().addListener((o, wasDark, isDark) -> updateThemeToggle.run());
+        ChangeListener<Boolean> themeListener = (o, wasDark, isDark) -> updateThemeToggle.run();
+        theme.darkProperty().addListener(themeListener);
+        shellDisposers.add(() -> theme.darkProperty().removeListener(themeListener));
 
-        var minimize = Mat.icon("minimize", "Minimize");
+        var minimize = Mat.icon("minimize", i18n.text("window.minimize"));
         minimize.getStyleClass().add("window-control");
         minimize.setOnAction(e -> stage.setIconified(true));
 
-        var maximize = Mat.icon("maximize", "Maximize");
+        var maximize = Mat.icon("maximize", i18n.text("window.maximize"));
         maximize.getStyleClass().add("window-control");
         maximize.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
-        stage.maximizedProperty().addListener((o, wasMaximized, isMaximized) ->
-                updateMaximizeControl(maximize, isMaximized));
+        ChangeListener<Boolean> maximizedListener = (o, wasMaximized, isMaximized) ->
+                updateMaximizeControl(maximize, isMaximized);
+        stage.maximizedProperty().addListener(maximizedListener);
+        shellDisposers.add(() -> stage.maximizedProperty().removeListener(maximizedListener));
+        updateMaximizeControl(maximize, stage.isMaximized());
 
-        var close = Mat.icon("close", "Close");
+        var close = Mat.icon("close", i18n.text("window.close"));
         close.getStyleClass().addAll("window-control", "window-close");
         close.setOnAction(e -> stage.close());
 
@@ -197,13 +261,14 @@ public final class MainWindow extends StackPane {
                 minimize, maximize, close);
         bar.getStyleClass().add("top-app-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setMaxWidth(Double.MAX_VALUE);
         installWindowDragging(bar);
         return bar;
     }
 
     private void updateMaximizeControl(MFXButton button, boolean maximized) {
         button.setGraphic(Icons.of(maximized ? "restore" : "maximize", 20));
-        Mat.tip(button, maximized ? "Restore" : "Maximize");
+        Mat.tip(button, i18n.text(maximized ? "window.restore" : "window.maximize"));
     }
 
     /** Lets the app bar replace the native title bar without losing window movement. */
@@ -234,41 +299,49 @@ public final class MainWindow extends StackPane {
     }
 
     /** A labelled app-bar action that reflects and toggles a boolean setting. */
-    private MFXButton toggleAction(String icon, String text, String tip, BooleanProperty prop) {
-        MFXButton b = Mat.text(text, icon);
-        Mat.tip(b, tip);
+    private MFXButton toggleAction(String icon, String textKey, String tipKey, BooleanProperty prop) {
+        MFXButton button = Mat.text(i18n.text(textKey), icon);
+        Mat.tip(button, i18n.text(tipKey));
         Runnable restyle = () -> {
-            b.getStyleClass().remove("active");
-            if (prop.get()) b.getStyleClass().add("active");
+            button.getStyleClass().remove("active");
+            if (prop.get()) button.getStyleClass().add("active");
         };
         restyle.run();
-        b.setOnAction(e -> {
+        button.setOnAction(e -> {
             prop.set(!prop.get());
             restyle.run();
         });
-        prop.addListener((o, a, v) -> restyle.run());
-        return b;
+        ChangeListener<Boolean> propertyListener = (o, a, v) -> restyle.run();
+        prop.addListener(propertyListener);
+        shellDisposers.add(() -> prop.removeListener(propertyListener));
+        return button;
     }
 
     // -------------------------------------------------------------- Nav rail
-    private ToggleButton navItem(String icon, String text, Node page) {
+    private ToggleButton navItem(String icon, String textKey, Node page) {
         StackPane glyph = new StackPane(Icons.of(icon, 22));
         glyph.getStyleClass().add("nav-glyph");
-        Label label = new Label(text);
+        Label label = new Label(i18n.text(textKey));
         label.getStyleClass().add("nav-label");
+        label.setWrapText(true);
+        label.setMaxWidth(84);
+        label.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        label.setAlignment(Pos.CENTER);
         VBox v = new VBox(4, glyph, label);
         v.setAlignment(Pos.CENTER);
 
-        ToggleButton tb = new ToggleButton();
-        tb.setGraphic(v);
-        tb.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
-        tb.getStyleClass().add("nav-item");
-        tb.setToggleGroup(navGroup);
-        tb.setUserData(page);
-        tb.setOnAction(e -> {
-            tb.setSelected(true); // never allow deselect-to-empty
-            content.getChildren().setAll(page);
+        ToggleButton tab = new ToggleButton();
+        tab.setGraphic(v);
+        tab.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+        tab.getStyleClass().add("nav-item");
+        tab.setToggleGroup(navGroup);
+        tab.setUserData(page);
+        tab.setOnAction(e -> {
+            tab.setSelected(true); // never allow deselect-to-empty
+            if (page == downloadsView) show(Page.DOWNLOADS);
+            else if (page == linkgrabberView) show(Page.LINKGRABBER);
+            else show(Page.SETTINGS);
         });
-        return tb;
+        return tab;
     }
 }

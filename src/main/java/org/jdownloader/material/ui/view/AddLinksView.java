@@ -2,6 +2,7 @@ package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXTextField;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -12,6 +13,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.component.Mat;
 
 /**
@@ -20,41 +22,49 @@ import org.jdownloader.material.ui.component.Mat;
  */
 public final class AddLinksView extends BorderPane {
 
+    /** User-entered composer values retained when the language shell is rebuilt. */
+    public record Draft(String urls, String packageName, String destination) {
+    }
+
     private final DownloadEngine engine;
+    private final I18n i18n;
     private final TextArea links = new TextArea();
     private final MFXTextField packageName = new MFXTextField();
     private final TextField destination;
-    private final Label status = Mat.label(
-            "Links are checked in the background. You can keep navigating while they are queued.",
-            "row-desc");
+    private final Label status = Mat.label("", "row-desc");
+    private final ChangeListener<String> downloadFolderListener;
+    private volatile boolean disposed;
 
-    public AddLinksView(DownloadEngine engine, Runnable showDownloads, Runnable showLinkGrabber) {
+    public AddLinksView(DownloadEngine engine, Runnable showDownloads, Runnable showLinkGrabber, I18n i18n) {
         this.engine = engine;
+        this.i18n = i18n;
         this.destination = new TextField(engine.settings().downloadFolderProperty().get());
+        this.downloadFolderListener = (o, previous, current) -> {
+            if (!disposed && samePath(destination.getText(), previous)) destination.setText(current);
+        };
+        setStatus("status.addlinks.initial");
         // A submission-specific destination must not silently overwrite the global default.
-        engine.settings().downloadFolderProperty().addListener((o, previous, current) -> {
-            // Keep an untouched composer aligned with Settings while preserving
-            // a path the user deliberately entered for this submission.
-            if (samePath(destination.getText(), previous)) destination.setText(current);
-        });
+        // Keep an untouched composer aligned with Settings while preserving a
+        // path the user deliberately entered for this submission.
+        engine.settings().downloadFolderProperty().addListener(downloadFolderListener);
         getStyleClass().add("content-area");
 
-        var title = Mat.label("Add Links", "headline");
-        var downloads = Mat.text("Downloads", "download");
+        var title = Mat.label(i18n.text("addlinks.title"), "headline");
+        var downloads = Mat.text(i18n.text("addlinks.downloads"), "download");
         downloads.setOnAction(e -> showDownloads.run());
-        var linkGrabber = Mat.outlined("LinkGrabber", "link");
+        var linkGrabber = Mat.outlined(i18n.text("addlinks.linkgrabber"), "link");
         linkGrabber.setOnAction(e -> showLinkGrabber.run());
         HBox header = new HBox(12, title, Mat.hSpacer(), downloads, linkGrabber);
         header.getStyleClass().add("view-header");
         header.setAlignment(Pos.CENTER_LEFT);
         setTop(header);
 
-        links.setPromptText("Paste one or more URLs — one per line");
+        links.setPromptText(i18n.text("addlinks.urls_prompt"));
         links.setPrefRowCount(8);
         links.setWrapText(true);
         links.getStyleClass().add("links-area");
 
-        packageName.setFloatingText("Package name (optional)");
+        packageName.setFloatingText(i18n.text("addlinks.package_prompt"));
         packageName.setMaxWidth(Double.MAX_VALUE);
 
         HBox.setHgrow(destination, Priority.ALWAYS);
@@ -62,17 +72,17 @@ public final class AddLinksView extends BorderPane {
         destinationRow.setAlignment(Pos.CENTER_LEFT);
         destinationRow.setMaxWidth(620);
 
-        var add = Mat.outlined("Queue in LinkGrabber", "add");
+        var add = Mat.outlined(i18n.text("addlinks.queue"), "add");
         add.setOnAction(e -> submit(false));
-        var addStart = Mat.filled("Queue & Start", "play");
+        var addStart = Mat.filled(i18n.text("addlinks.queue_start"), "play");
         addStart.setOnAction(e -> submit(true));
         HBox actions = new HBox(8, add, addStart);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         VBox composer = new VBox(12,
-                Mat.label("URLs", "label-md"), links,
-                Mat.label("Package", "label-md"), packageName,
-                Mat.label("Destination", "label-md"), destinationRow,
+                Mat.label(i18n.text("addlinks.urls"), "label-md"), links,
+                Mat.label(i18n.text("addlinks.package"), "label-md"), packageName,
+                Mat.label(i18n.text("addlinks.destination"), "label-md"), destinationRow,
                 actions, status);
         composer.setPadding(new Insets(20));
         composer.setMaxWidth(760);
@@ -84,37 +94,43 @@ public final class AddLinksView extends BorderPane {
     }
 
     private void submit(boolean start) {
+        if (disposed) return;
         String text = links.getText();
         if (text == null || text.isBlank()) {
-            status.setText("Paste at least one direct HTTP or HTTPS URL to queue a download.");
+            setStatus("status.addlinks.empty");
             return;
         }
         String submittedPackage = packageName.getText();
         String submittedDestination = destination.getText();
-        status.setText("Validating links in the background…");
+        setStatus("status.addlinks.validating");
         engine.addLinks(text, submittedPackage, submittedDestination, start, start)
-                .whenComplete((summary, error) -> Platform.runLater(() ->
-                        showSubmissionResult(text, submittedPackage, submittedDestination, start, summary, error)));
+                .whenComplete((summary, error) -> {
+                    if (disposed) return;
+                    Platform.runLater(() -> {
+                        if (!disposed) {
+                            showSubmissionResult(text, submittedPackage, submittedDestination, start, summary, error);
+                        }
+                    });
+                });
     }
 
     private void showSubmissionResult(String submittedText, String submittedPackage, String submittedDestination,
                                       boolean start, org.jdownloader.material.engine.DownloadEngine.AddLinksResult summary,
                                       Throwable error) {
+        if (disposed) return;
         if (error != null) {
-            status.setText("Could not submit links; your input is still available to edit.");
+            setStatus("status.addlinks.failed");
             return;
         }
         if (summary == null || summary.acceptedLinks() == 0) {
-            status.setText("No direct HTTP or HTTPS URLs were found; your input is still available to edit.");
+            setStatus("status.addlinks.none");
             return;
         }
         int accepted = summary.acceptedLinks();
-        String message = accepted + (accepted == 1 ? " link is" : " links are")
-                + (start ? " being checked and will start automatically." : " being checked in LinkGrabber.");
+        String message = i18n.text(start ? "status.addlinks.accepted.start" : "status.addlinks.accepted.queue", accepted);
         if (summary.ignoredLines() > 0) {
-            message += " " + summary.ignoredLines()
-                    + (summary.ignoredLines() == 1 ? " unsupported line was kept out of the queue."
-                    : " unsupported lines were kept out of the queue.");
+            message += " " + i18n.text(summary.ignoredLines() == 1
+                    ? "status.addlinks.ignored.one" : "status.addlinks.ignored.many", summary.ignoredLines());
         }
         status.setText(message);
 
@@ -128,5 +144,31 @@ public final class AddLinksView extends BorderPane {
 
     private static boolean samePath(String value, String other) {
         return java.util.Objects.equals(value == null ? "" : value.trim(), other == null ? "" : other.trim());
+    }
+
+    private void setStatus(String key, Object... arguments) {
+        status.setText(i18n.text(key, arguments));
+    }
+
+    public Draft draft() {
+        return new Draft(links.getText(), packageName.getText(), destination.getText());
+    }
+
+    public void restoreDraft(Draft draft) {
+        if (draft == null) return;
+        links.setText(draft.urls());
+        packageName.setText(draft.packageName());
+        destination.setText(draft.destination());
+    }
+
+    /**
+     * Detaches the Settings listener registered for the composer. In-flight
+     * submissions still finish in the engine, but their UI callback becomes a
+     * no-op once this view has been replaced.
+     */
+    public void dispose() {
+        if (disposed) return;
+        disposed = true;
+        engine.settings().downloadFolderProperty().removeListener(downloadFolderListener);
     }
 }

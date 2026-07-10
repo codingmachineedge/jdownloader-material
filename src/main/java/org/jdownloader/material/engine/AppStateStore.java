@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Properties;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadLink;
@@ -133,10 +134,11 @@ final class AppStateStore {
     static void restore(Properties state, Settings settings, List<DownloadPackage> output,
                         List<CrawledPackage> crawledOutput) {
         SettingsIO.apply(state, settings);
+        I18n i18n = new I18n(settings.languageProperty());
         int packageCount = boundedInt(state.getProperty("queue.packageCount"), 0, MAX_PACKAGES);
         for (int packageIndex = 0; packageIndex < packageCount; packageIndex++) {
             String prefix = "queue.package." + packageIndex + ".";
-            String name = state.getProperty(prefix + "name", "Recovered package " + (packageIndex + 1));
+            String name = state.getProperty(prefix + "name", i18n.text("engine.recovered_package", packageIndex + 1));
             String destination = state.getProperty(prefix + "destination", settings.downloadFolderProperty().get());
             DownloadPackage pkg = new DownloadPackage(name, destination);
             int linkCount = boundedInt(state.getProperty(prefix + "linkCount"), 0, MAX_LINKS_PER_PACKAGE);
@@ -173,7 +175,7 @@ final class AppStateStore {
         for (int packageIndex = 0; packageIndex < crawledCount; packageIndex++) {
             String prefix = "linkgrabber.package." + packageIndex + ".";
             CrawledPackage pkg = new CrawledPackage(
-                    state.getProperty(prefix + "name", "Recovered links " + (packageIndex + 1)),
+                    state.getProperty(prefix + "name", i18n.text("engine.recovered_links", packageIndex + 1)),
                     state.getProperty(prefix + "destination", settings.downloadFolderProperty().get()));
             int linkCount = boundedInt(state.getProperty(prefix + "linkCount"), 0, MAX_LINKS_PER_PACKAGE);
             for (int linkIndex = 0; linkIndex < linkCount; linkIndex++) {
