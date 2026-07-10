@@ -238,6 +238,13 @@
     -fx-opacity: 0.7;
 }
 
+/* Selected queued item controls: inline so properties never interrupt work. */
+.inline-properties {
+    -fx-background-color: -md-surface-container-low;
+    -fx-border-color: -md-outline-variant transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
 /* ----------------------------------------------------------- Data tables */
 .data-table {
     -fx-background-color: transparent;
@@ -292,6 +299,9 @@
 .data-table .table-row-cell:selected .table-cell {
     -fx-text-fill: -md-on-secondary-container;
 }
+.table-content-label { -fx-text-fill: -md-on-surface; }
+.data-table .tree-table-row-cell:selected .table-content-label,
+.data-table .table-row-cell:selected .table-content-label { -fx-text-fill: -md-on-secondary-container; }
 .data-table .tree-table-cell .arrow,
 .data-table .tree-cell > .tree-disclosure-node > .arrow {
     -fx-background-color: -md-on-surface-variant;
@@ -381,7 +391,7 @@
     -fx-border-width: 0 0 1 0;
 }
 .settings-row .row-title { -fx-font-size: 14px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface; }
-.settings-row .row-desc  { -fx-font-size: 12px; -fx-text-fill: -md-on-surface-variant; }
+.row-desc { -fx-font-size: 12px; -fx-text-fill: -md-on-surface-variant; }
 
 /* --------------------------------------------------------------- Dialogs */
 .md-dialog {

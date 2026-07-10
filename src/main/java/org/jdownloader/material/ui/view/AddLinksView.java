@@ -1,6 +1,7 @@
 package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXTextField;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -10,7 +11,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import java.net.URI;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.ui.component.Mat;
 
@@ -31,7 +31,12 @@ public final class AddLinksView extends BorderPane {
     public AddLinksView(DownloadEngine engine, Runnable showDownloads, Runnable showLinkGrabber) {
         this.engine = engine;
         this.destination = new TextField(engine.settings().downloadFolderProperty().get());
-        this.destination.textProperty().bindBidirectional(engine.settings().downloadFolderProperty());
+        // A submission-specific destination must not silently overwrite the global default.
+        engine.settings().downloadFolderProperty().addListener((o, previous, current) -> {
+            // Keep an untouched composer aligned with Settings while preserving
+            // a path the user deliberately entered for this submission.
+            if (samePath(destination.getText(), previous)) destination.setText(current);
+        });
         getStyleClass().add("content-area");
 
         var title = Mat.label("Add Links", "headline");
@@ -80,33 +85,48 @@ public final class AddLinksView extends BorderPane {
 
     private void submit(boolean start) {
         String text = links.getText();
-        long entered = text == null ? 0 : text.lines().map(String::trim).filter(line -> !line.isEmpty()).count();
-        long count = text == null ? 0 : text.lines().map(String::trim).filter(AddLinksView::isDirectHttpUrl).count();
-        if (count == 0) {
+        if (text == null || text.isBlank()) {
             status.setText("Paste at least one direct HTTP or HTTPS URL to queue a download.");
             return;
         }
-        engine.addLinks(text, packageName.getText(), destination.getText(), start, start);
-        String result = start
-                ? count + (count == 1 ? " link is" : " links are")
-                        + " being checked and will start automatically."
-                : count + (count == 1 ? " link is" : " links are")
-                        + " being checked in LinkGrabber.";
-        if (entered > count) result += " " + (entered - count)
-                + (entered - count == 1 ? " unsupported line was ignored." : " unsupported lines were ignored.");
-        status.setText(result);
-        links.clear();
-        packageName.clear();
+        String submittedPackage = packageName.getText();
+        String submittedDestination = destination.getText();
+        status.setText("Validating links in the background…");
+        engine.addLinks(text, submittedPackage, submittedDestination, start, start)
+                .whenComplete((summary, error) -> Platform.runLater(() ->
+                        showSubmissionResult(text, submittedPackage, submittedDestination, start, summary, error)));
     }
 
-    private static boolean isDirectHttpUrl(String value) {
-        try {
-            URI uri = URI.create(value);
-            String scheme = uri.getScheme();
-            return uri.getHost() != null && scheme != null
-                    && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
-        } catch (Exception ignored) {
-            return false;
+    private void showSubmissionResult(String submittedText, String submittedPackage, String submittedDestination,
+                                      boolean start, org.jdownloader.material.engine.DownloadEngine.AddLinksResult summary,
+                                      Throwable error) {
+        if (error != null) {
+            status.setText("Could not submit links; your input is still available to edit.");
+            return;
         }
+        if (summary == null || summary.acceptedLinks() == 0) {
+            status.setText("No direct HTTP or HTTPS URLs were found; your input is still available to edit.");
+            return;
+        }
+        int accepted = summary.acceptedLinks();
+        String message = accepted + (accepted == 1 ? " link is" : " links are")
+                + (start ? " being checked and will start automatically." : " being checked in LinkGrabber.");
+        if (summary.ignoredLines() > 0) {
+            message += " " + summary.ignoredLines()
+                    + (summary.ignoredLines() == 1 ? " unsupported line was kept out of the queue."
+                    : " unsupported lines were kept out of the queue.");
+        }
+        status.setText(message);
+
+        // Never erase a newer edit while an earlier submission was validating.
+        if (java.util.Objects.equals(links.getText(), submittedText)) links.clear();
+        if (java.util.Objects.equals(packageName.getText(), submittedPackage)) packageName.clear();
+        if (samePath(destination.getText(), submittedDestination)) {
+            destination.setText(engine.settings().downloadFolderProperty().get());
+        }
+    }
+
+    private static boolean samePath(String value, String other) {
+        return java.util.Objects.equals(value == null ? "" : value.trim(), other == null ? "" : other.trim());
     }
 }

@@ -41,6 +41,7 @@ public final class MainWindow extends StackPane {
     private final NotificationCenter notifier = new NotificationCenter();
     private final StackPane content = new StackPane();
     private final ToggleGroup navGroup = new ToggleGroup();
+    private final DownloadsView downloadsView;
     private final Runnable openAddLinks;
     private final Runnable showDownloads;
     private final Runnable showLinkGrabber;
@@ -53,12 +54,14 @@ public final class MainWindow extends StackPane {
         this.engine = engine;
         this.theme = theme;
         this.stage = stage;
+        setFocusTraversable(true);
 
         // "View" snack actions navigate to the LinkGrabber; resolved after nav is built.
         Runnable[] navToLinkGrabber = {() -> { }};
         Runnable[] openComposer = {() -> { }};
 
-        Node downloads = new DownloadsView(engine, notifier, () -> openComposer[0].run());
+        downloadsView = new DownloadsView(engine, notifier, () -> openComposer[0].run());
+        Node downloads = downloadsView;
         Node linkgrabber = new LinkGrabberView(engine, notifier, () -> openComposer[0].run());
         Node settings = new SettingsView(engine.settings());
 
@@ -98,6 +101,11 @@ public final class MainWindow extends StackPane {
         clipboardMonitor.stop();
     }
 
+    /** Moves focus off transient form controls before deterministic scene capture. */
+    public void clearTransientFocus() {
+        requestFocus();
+    }
+
     /** Opens the inline Add Links composer programmatically (also used for demos/tests). */
     public void openAddLinks() {
         openAddLinks.run();
@@ -111,6 +119,18 @@ public final class MainWindow extends StackPane {
     /** Switches to Downloads programmatically (also used for demos/tests). */
     public void showDownloads() {
         showDownloads.run();
+    }
+
+    /** Shows the standard unselected Downloads view for documentation capture. */
+    public void showDownloadsForCapture() {
+        showDownloads.run();
+        downloadsView.clearSelectionForCapture();
+    }
+
+    /** Shows Downloads with an editable sample row selected for documentation capture. */
+    public void showDownloadsWithEditableSelection() {
+        showDownloads.run();
+        downloadsView.selectFirstEditableForCapture();
     }
 
     /** Switches to Settings programmatically (also used for demos/tests). */
@@ -143,9 +163,7 @@ public final class MainWindow extends StackPane {
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
         var clipboard = toggleIcon("paste", "Clipboard monitoring", engine.settings().clipboardMonitoringProperty());
-        var autoReconnect = toggleIcon("reconnect", "Automatic reconnect", engine.settings().autoReconnectProperty());
-        var reconnectNow = Mat.icon("cloud", "Reconnect now");
-        reconnectNow.setOnAction(e -> engine.reconnect());
+        var autoReconnect = toggleIcon("reconnect", "Retry transient HTTP failures", engine.settings().autoReconnectProperty());
 
         var themeToggle = Mat.icon(theme.isDark() ? "sun" : "moon",
                 theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
@@ -171,7 +189,7 @@ public final class MainWindow extends StackPane {
         close.setOnAction(e -> stage.close());
 
         HBox bar = new HBox(12, mark, titleBox, Mat.hSpacer(),
-                clipboard, autoReconnect, reconnectNow, Mat.vSep(), themeToggle, Mat.vSep(),
+                clipboard, autoReconnect, Mat.vSep(), themeToggle, Mat.vSep(),
                 minimize, maximize, close);
         bar.getStyleClass().add("top-app-bar");
         bar.setAlignment(Pos.CENTER_LEFT);

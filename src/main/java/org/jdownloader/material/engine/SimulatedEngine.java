@@ -17,6 +17,7 @@ import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadItem;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.model.LinkAvailability;
 
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -107,7 +110,10 @@ public final class SimulatedEngine implements DownloadEngine {
                     active++;
                 }
             }
-            for (DownloadLink l : all) {
+            List<DownloadLink> candidates = new ArrayList<>(all);
+            candidates.sort(java.util.Comparator.comparingInt(
+                    (DownloadLink link) -> link.priorityProperty().get().weight()).reversed());
+            for (DownloadLink l : candidates) {
                 if (active >= limit) break;
                 if (l.state() == DownloadState.QUEUED && l.enabled().get() && !manuallyStopped.contains(l.id())) {
                     l.setState(DownloadState.RUNNING);
@@ -185,25 +191,34 @@ public final class SimulatedEngine implements DownloadEngine {
 
     // ------------------------------------------------------------- LinkGrabber
     @Override
-    public void addLinks(String text, String packageName, String destination,
-                         boolean autoConfirm, boolean autoStart) {
+    public CompletableFuture<AddLinksResult> addLinks(String text, String packageName, String destination,
+                                                        boolean autoConfirm, boolean autoStart) {
         String source = text == null ? "" : text;
         String requestedName = packageName == null ? "" : packageName.trim();
         String requestedDestination = destination == null ? "" : destination.trim();
         boolean confirmWhenChecked = autoConfirm || settings.autoConfirmProperty().get();
         boolean startWhenConfirmed = autoStart || settings.autoStartProperty().get();
+        CompletableFuture<AddLinksResult> result = new CompletableFuture<>();
 
         // Parsing can be expensive for a large paste. Do it off the FX thread,
         // then add and inspect the resulting links in small UI-thread batches.
-        crawlParser.execute(() -> {
-            List<String> urls = source.lines()
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .toList();
-            if (urls.isEmpty()) return;
-            Platform.runLater(() -> beginCrawl(urls, requestedName, requestedDestination,
-                    confirmWhenChecked, startWhenConfirmed));
-        });
+        try {
+            crawlParser.execute(() -> {
+                List<String> urls = source.lines().map(String::trim).filter(s -> !s.isEmpty()).toList();
+                AddLinksResult summary = new AddLinksResult(urls.size(), urls.size());
+                if (urls.isEmpty()) {
+                    result.complete(summary);
+                    return;
+                }
+                Platform.runLater(() -> {
+                    beginCrawl(urls, requestedName, requestedDestination, confirmWhenChecked, startWhenConfirmed);
+                    result.complete(summary);
+                });
+            });
+        } catch (RejectedExecutionException error) {
+            result.completeExceptionally(error);
+        }
+        return result;
     }
 
     private void beginCrawl(List<String> urls, String requestedName, String destination,
@@ -322,9 +337,11 @@ public final class SimulatedEngine implements DownloadEngine {
         if (links.isEmpty()) return;
         paused.set(false);
         for (DownloadLink link : links) {
-            if (link.state() == DownloadState.FINISHED) continue;
+            if (link.state() == DownloadState.FINISHED || !link.enabled().get()) continue;
             manuallyStopped.remove(link.id());
-            if (link.state() == DownloadState.PAUSED) link.setState(DownloadState.QUEUED);
+            if (link.state() == DownloadState.PAUSED || link.state() == DownloadState.ERROR) {
+                link.setState(DownloadState.QUEUED);
+            }
         }
         running.set(true);
     }
@@ -362,10 +379,32 @@ public final class SimulatedEngine implements DownloadEngine {
     }
 
     @Override
+    public void setEnabled(Collection<DownloadLink> links, boolean enabled) {
+        for (DownloadLink link : links) {
+            link.enabled().set(enabled);
+            manuallyStopped.remove(link.id());
+            if (enabled && link.state() == DownloadState.DISABLED) {
+                link.setState(DownloadState.QUEUED);
+            } else if (!enabled && link.state() != DownloadState.FINISHED) {
+                targetSpeed.remove(link.id());
+                link.speedProp().set(0);
+                link.setState(DownloadState.DISABLED);
+            }
+        }
+        recomputeGlobals(allLinks());
+    }
+
+    @Override
+    public void setPriority(Collection<DownloadLink> links, DownloadPriority priority) {
+        DownloadPriority next = priority == null ? DownloadPriority.NORMAL : priority;
+        for (DownloadLink link : links) link.priorityProperty().set(next);
+    }
+
+    @Override
     public void forceStart(Collection<DownloadLink> links) {
         paused.set(false);
         for (DownloadLink l : links) {
-            if (l.state() != DownloadState.FINISHED) {
+            if (l.state() != DownloadState.FINISHED && l.enabled().get()) {
                 manuallyStopped.remove(l.id());
                 l.setState(DownloadState.RUNNING);
                 targetSpeed.put(l.id(), randomSpeed());
@@ -441,6 +480,7 @@ public final class SimulatedEngine implements DownloadEngine {
         DownloadLink part1 = new DownloadLink("project-backup.part1.rar", "mega.nz", 1_500L * 1024 * 1024);
         DownloadLink part2 = new DownloadLink("project-backup.part2.rar", "mega.nz", 1_500L * 1024 * 1024);
         part2.setState(DownloadState.ERROR);
+        part2.detailProperty().set("Temporary host error — retry is available");
         archive.links().addAll(part1, part2);
 
         downloads.addAll(ubuntu, media, archive);

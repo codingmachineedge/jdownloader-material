@@ -2,23 +2,33 @@ package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXTextField;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.model.DownloadItem;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
+import org.jdownloader.material.ui.component.CompletedFileActions;
 import org.jdownloader.material.ui.component.DownloadCells;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
@@ -36,6 +46,14 @@ public final class DownloadsView extends BorderPane {
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
     private final TreeItem<DownloadItem> root = new TreeItem<>(null);
     private final ListChangeListener<Object> rebuildListener = c -> rebuild();
+    private final VBox properties = new VBox(8);
+    private final TextField editName = new TextField();
+    private final TextField editDestination = new TextField();
+    private final ButtonBase applyProperties = Mat.tonal("Apply changes", "check");
+    private final javafx.scene.control.Label propertiesHint = Mat.label("", "row-desc");
+    private final ChangeListener<DownloadState> propertiesStateListener = (o, was, is) -> refreshProperties();
+    private DownloadItem propertiesItem;
+    private DownloadItem observedPropertiesItem;
     private String filter = "";
 
     public DownloadsView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks) {
@@ -45,6 +63,7 @@ public final class DownloadsView extends BorderPane {
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
+        setBottom(buildProperties());
         wireModel();
         rebuild();
     }
@@ -106,6 +125,8 @@ public final class DownloadsView extends BorderPane {
         tree.setShowRoot(false);
         tree.setRoot(root);
         tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        tree.getSelectionModel().getSelectedItems().addListener(
+                (ListChangeListener<TreeItem<DownloadItem>>) change -> refreshProperties());
         tree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         tree.setPlaceholder(Mat.label("No downloads yet — click “Add Links” to get started.", "empty-table-hint"));
 
@@ -157,6 +178,106 @@ public final class DownloadsView extends BorderPane {
         return tree;
     }
 
+    /**
+     * Queued work can be adjusted directly beneath the table instead of
+     * opening a blocking properties window. Active and completed transfers
+     * intentionally remain read-only: their output path has already been
+     * captured by the transfer or finalized on disk.
+     */
+    private VBox buildProperties() {
+        var title = Mat.label("Selected item", "label-md");
+        editName.setPromptText("Name");
+        editDestination.setPromptText("Destination folder (leave empty for the default)");
+        HBox.setHgrow(editName, Priority.ALWAYS);
+        HBox.setHgrow(editDestination, Priority.ALWAYS);
+        HBox fields = new HBox(10, editName, editDestination, applyProperties);
+        fields.setAlignment(Pos.CENTER_LEFT);
+
+        applyProperties.setOnAction(e -> applyProperties());
+        editName.setOnAction(e -> applyProperties());
+        editDestination.setOnAction(e -> applyProperties());
+
+        properties.getChildren().setAll(title, fields, propertiesHint);
+        properties.setPadding(new Insets(12, 28, 16, 28));
+        properties.getStyleClass().add("inline-properties");
+        properties.setVisible(false);
+        properties.setManaged(false);
+        return properties;
+    }
+
+    private void refreshProperties() {
+        List<DownloadItem> selection = selectedItems();
+        if (selection.size() != 1) {
+            propertiesItem = null;
+            observePropertiesItem(null);
+            properties.setVisible(false);
+            properties.setManaged(false);
+            return;
+        }
+
+        propertiesItem = selection.getFirst();
+        observePropertiesItem(propertiesItem);
+        boolean editable = isEditable(propertiesItem);
+        if (propertiesItem instanceof DownloadLink link) {
+            editName.setText(link.nameProp().get());
+            editDestination.setText(link.destinationProperty().get());
+        } else if (propertiesItem instanceof DownloadPackage pkg) {
+            editName.setText(pkg.nameProp().get());
+            editDestination.setText(pkg.destinationProperty().get());
+        }
+        editName.setDisable(!editable);
+        editDestination.setDisable(!editable);
+        applyProperties.setDisable(!editable);
+        propertiesHint.setText(editable
+                ? "Changes apply before the next start. Leave the destination empty to use the global default."
+                : "Stop an active transfer before changing its name or destination. Completed files stay where they were saved.");
+        properties.setManaged(true);
+        properties.setVisible(true);
+    }
+
+    private void observePropertiesItem(DownloadItem next) {
+        if (observedPropertiesItem == next) return;
+        if (observedPropertiesItem != null) {
+            observedPropertiesItem.stateProperty().removeListener(propertiesStateListener);
+        }
+        observedPropertiesItem = next;
+        if (observedPropertiesItem != null) {
+            observedPropertiesItem.stateProperty().addListener(propertiesStateListener);
+        }
+    }
+
+    private boolean isEditable(DownloadItem item) {
+        if (item instanceof DownloadLink link) return isEditable(link.state());
+        if (item instanceof DownloadPackage pkg) {
+            return pkg.links().stream().allMatch(link -> isEditable(link.state()));
+        }
+        return false;
+    }
+
+    private static boolean isEditable(DownloadState state) {
+        return state == DownloadState.QUEUED || state == DownloadState.ERROR || state == DownloadState.DISABLED;
+    }
+
+    private void applyProperties() {
+        if (propertiesItem == null || !isEditable(propertiesItem)) return;
+        String name = editName.getText() == null ? "" : editName.getText().trim();
+        if (name.isBlank()) {
+            notifier.snack("A download name is required");
+            return;
+        }
+        String destination = editDestination.getText() == null ? "" : editDestination.getText().trim();
+        if (propertiesItem instanceof DownloadLink link) {
+            link.nameProp().set(name);
+            link.destinationProperty().set(destination);
+        } else if (propertiesItem instanceof DownloadPackage pkg) {
+            pkg.nameProp().set(name);
+            pkg.destinationProperty().set(destination);
+            pkg.links().forEach(link -> link.destinationProperty().set(destination));
+        }
+        notifier.snack("Updated selected download");
+        rebuild();
+    }
+
     private ContextMenu buildContextMenu() {
         MenuItem start = new MenuItem("Start");
         start.setOnAction(e -> engine.startLinks(selectedLinks()));
@@ -164,12 +285,52 @@ public final class DownloadsView extends BorderPane {
         force.setOnAction(e -> engine.forceStart(selectedLinks()));
         MenuItem stop = new MenuItem("Stop");
         stop.setOnAction(e -> engine.stopLinks(selectedLinks()));
+        MenuItem enable = new MenuItem("Enable");
+        enable.setOnAction(e -> engine.setEnabled(selectedLinks(), true));
+        MenuItem disable = new MenuItem("Disable");
+        disable.setOnAction(e -> engine.setEnabled(selectedLinks(), false));
+        Menu priority = new Menu("Priority");
+        ToggleGroup priorityGroup = new ToggleGroup();
+        java.util.Map<DownloadPriority, RadioMenuItem> priorityOptions =
+                new java.util.EnumMap<>(DownloadPriority.class);
+        for (DownloadPriority value : DownloadPriority.values()) {
+            RadioMenuItem option = new RadioMenuItem(value.label());
+            option.setToggleGroup(priorityGroup);
+            option.setOnAction(e -> engine.setPriority(selectedLinks(), value));
+            priority.getItems().add(option);
+            priorityOptions.put(value, option);
+        }
+        MenuItem open = new MenuItem("Open completed file");
+        open.setOnAction(e -> firstCompletedLink().ifPresent(CompletedFileActions::openFile));
+        MenuItem folder = new MenuItem("Show in folder");
+        folder.setOnAction(e -> firstCompletedLink().ifPresent(CompletedFileActions::showInFolder));
         MenuItem expand = new MenuItem("Expand / collapse");
         expand.setOnAction(e -> toggleExpandSelected());
         MenuItem remove = new MenuItem("Remove");
         remove.setOnAction(e -> removeSelected());
-        return new ContextMenu(start, force, stop, new SeparatorMenuItem(), expand,
+        ContextMenu menu = new ContextMenu(start, force, stop, new SeparatorMenuItem(), enable, disable, priority,
+                new SeparatorMenuItem(), open, folder, new SeparatorMenuItem(), expand,
                 new SeparatorMenuItem(), remove);
+        menu.setOnShowing(e -> {
+            List<DownloadLink> links = selectedLinks();
+            boolean hasLinks = !links.isEmpty();
+            start.setDisable(!hasLinks);
+            force.setDisable(!hasLinks);
+            stop.setDisable(!hasLinks);
+            enable.setDisable(!hasLinks);
+            disable.setDisable(!hasLinks);
+            priority.setDisable(!hasLinks);
+            remove.setDisable(selectedItems().isEmpty());
+            expand.setDisable(selectedItems().stream().noneMatch(DownloadItem::isPackage));
+            boolean hasCompletedFile = firstCompletedLink().isPresent();
+            open.setDisable(!hasCompletedFile);
+            folder.setDisable(!hasCompletedFile);
+
+            priorityGroup.selectToggle(null);
+            DownloadPriority shared = sharedPriority(links);
+            if (shared != null) priorityOptions.get(shared).setSelected(true);
+        });
+        return menu;
     }
 
     // ----------------------------------------------------------- Model sync
@@ -197,12 +358,45 @@ public final class DownloadsView extends BorderPane {
             }
             root.getChildren().add(pi);
         }
-        // best-effort selection restore
+        // Preserve both package and link selection while asynchronous state
+        // changes refresh the tree, so a user can keep editing the same row.
         if (!selectedBefore.isEmpty()) {
-            for (TreeItem<DownloadItem> pi : root.getChildren()) {
-                if (selectedBefore.contains(pi.getValue())) tree.getSelectionModel().select(pi);
-            }
+            for (TreeItem<DownloadItem> pi : root.getChildren()) restoreSelection(pi, selectedBefore);
         }
+        refreshProperties();
+    }
+
+    private void restoreSelection(TreeItem<DownloadItem> item, List<DownloadItem> selectedBefore) {
+        if (selectedBefore.contains(item.getValue())) tree.getSelectionModel().select(item);
+        for (TreeItem<DownloadItem> child : item.getChildren()) restoreSelection(child, selectedBefore);
+    }
+
+    /** Selects a safely editable leaf for deterministic documentation capture. */
+    public void selectFirstEditableForCapture() {
+        TreeItem<DownloadItem> item = findEditableLeaf(root, true);
+        if (item == null) item = findEditableLeaf(root, false);
+        if (item == null) return;
+        tree.getSelectionModel().clearSelection();
+        tree.getSelectionModel().select(item);
+        int row = tree.getRow(item);
+        if (row >= 0) tree.scrollTo(row);
+    }
+
+    /** Clears table selection for the standard, unselected documentation view. */
+    public void clearSelectionForCapture() {
+        tree.getSelectionModel().clearSelection();
+    }
+
+    private TreeItem<DownloadItem> findEditableLeaf(TreeItem<DownloadItem> parent, boolean errorsFirst) {
+        for (TreeItem<DownloadItem> child : parent.getChildren()) {
+            if (child.getValue() instanceof DownloadLink link && isEditable(link)
+                    && (!errorsFirst || link.state() == DownloadState.ERROR)) {
+                return child;
+            }
+            TreeItem<DownloadItem> nested = findEditableLeaf(child, errorsFirst);
+            if (nested != null) return nested;
+        }
+        return null;
     }
 
     private boolean matchesPackage(DownloadPackage p) {
@@ -268,6 +462,19 @@ public final class DownloadsView extends BorderPane {
             else if (it instanceof DownloadPackage p) out.addAll(p.links());
         }
         return out;
+    }
+
+    private java.util.Optional<DownloadLink> firstCompletedLink() {
+        return selectedLinks().stream()
+                .filter(link -> link.state() == DownloadState.FINISHED)
+                .filter(link -> !link.outputPathProperty().get().isBlank())
+                .findFirst();
+    }
+
+    private static DownloadPriority sharedPriority(List<DownloadLink> links) {
+        if (links.isEmpty()) return null;
+        DownloadPriority first = links.getFirst().priorityProperty().get();
+        return links.stream().allMatch(link -> link.priorityProperty().get() == first) ? first : null;
     }
 
     private enum Move { TOP, UP, DOWN, BOTTOM }

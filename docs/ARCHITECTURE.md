@@ -2,14 +2,14 @@
 
 JDownloader Material keeps the UI dependent on the DownloadEngine interface rather than on a
 particular transfer backend. In a normal launch, the application selects DirectHttpEngine for real
-direct HTTP(S) transfers. SimulatedEngine is selected only for deterministic screenshot/demo
+direct HTTP(S) transfers. SimulatedEngine is selected only for deterministic screenshot-capture
 paths, where reaching the network would make documentation unstable.
 
 ~~~text
 app
   JDMaterialApp
     normal launch ------------------------> DirectHttpEngine
-    screenshot/demo capture -------------> SimulatedEngine
+    screenshot capture ------------------> SimulatedEngine
                                              |
 ui                                           v
   MainWindow ----------------------> DownloadEngine (interface)
@@ -34,17 +34,22 @@ classes directly.
 For the normal application path, DirectHttpEngine provides a small but real direct-file pipeline:
 
 1. Add Links and clipboard input submit direct HTTP(S) URLs without blocking the UI.
-2. Background crawl workers parse the text, create LinkGrabber rows, and probe metadata using
-   HEAD with a ranged GET fallback.
+2. Background crawl workers parse the text and probe metadata using HEAD with a ranged GET
+   fallback; LinkGrabber rows are created in small batches on the JavaFX Application Thread.
 3. The UI receives availability, filename, and size updates on the JavaFX Application Thread.
    Auto-confirm occurs after the probe if requested; auto-start applies to those auto-confirmed
    results.
 4. An AnimationTimer scheduler admits queued links according to the global
    simultaneous-download and per-host connection limits.
 5. Transfer workers stream HTTP responses to target-name .part files, attempt Range resumption,
-   and atomically move completed files into place when the filesystem supports atomic moves.
+   and atomically move completed files into place when the filesystem supports atomic moves. The
+   resolved path is retained for nonblocking file-manager actions.
 6. The scheduler and worker state update observable model properties; tree-table cells and the
    status bar react through bindings instead of polling or modal dialogs.
+
+When Network recovery is enabled, transient network/HTTP failures move the link back to Queue with
+a bounded exponential retry deadline. The scheduler renders that countdown inline and reuses the
+same partial file; permanent failures remain visible for an explicit user retry.
 
 If the server does not honor a range request, the engine restarts the partial stream. File
 collisions are resolved by the configured policy on the worker. In particular, the default Ask
@@ -73,6 +78,9 @@ progress, speed, availability, and state changes do not need a manual refresh.
 - Model mutations that JavaFX observes are marshalled back with Platform.runLater.
 - Link submission is deferred: the inline Add Links composer returns immediately while probing
   proceeds, then auto-confirm / auto-start can continue without a dialog.
+- A single queued/error/disabled Downloads link can be renamed or retargeted in an inline strip;
+  a package needs every child in those safe states. Active and finalized rows stay read-only rather
+  than risking a live stream or existing file.
 - Transfers expose progress, failure detail, and pause state in their rows and the status bar.
   A compact snackbar is reserved for a navigable or reversible UI result, not normal workflow.
 - Settings backup snapshots/applies JavaFX properties on the UI thread while encryption and disk
@@ -80,8 +88,8 @@ progress, speed, availability, and state changes do not need a manual refresh.
 
 ## SimulatedEngine and future JDownloader integration
 
-SimulatedEngine is retained to seed reliable screenshots and demos with no live network traffic.
-It is not the engine normal users run and it is not evidence of a JDownloader-core integration.
+SimulatedEngine is retained to seed reliable documentation screenshots with no live network
+traffic. It is not the engine normal users run and it is not evidence of a JDownloader-core integration.
 
 DirectHttpEngine also is not JDownloader core. It handles only ordinary direct HTTP(S) files.
 JDownloader plugins, hoster-specific logic, container formats, accounts, CAPTCHA, remote

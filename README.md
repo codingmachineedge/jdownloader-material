@@ -5,21 +5,19 @@ desktop downloader inspired by [JDownloader 2](https://jdownloader.org/), styled
 Material Design 3 in both light and dark themes.
 
 Normal launches use `DirectHttpEngine` to download **direct HTTP and HTTPS files**. URLs are
-probed in the background, streamed to resumable `.part` files, and finalized into their target
-names without a blocking confirmation dialog. It is **not** a distribution of, or adapter to,
+probed in the background, streamed to resumable `.part` files, retried after transient network or
+server failures when recovery is enabled, and finalized into their target names without a blocking
+confirmation dialog. It is **not** a distribution of, or adapter to,
 the JDownloader core: JDownloader plugins, containers, accounts, CAPTCHA handling, and the full
 hoster ecosystem are not bundled. The UI talks to a small [engine boundary](docs/ENGINE_API.md)
 so a future core integration can be added without rewriting the views.
-
-![Downloads - light](docs/screenshots/downloads-light.png)
-![Downloads - dark](docs/screenshots/downloads-dark.png)
 
 - **Language:** Java 25 (Temurin), JavaFX 25
 - **UI:** JavaFX 25, MaterialFX components, hand-authored Material 3 stylesheet
 - **Themes:** Material light + dark, switchable at runtime from the app bar
 - **Engine:** a swappable [DownloadEngine](src/main/java/org/jdownloader/material/engine/DownloadEngine.java)
   interface; normal launches use `DirectHttpEngine`, while `SimulatedEngine` is reserved for
-  deterministic screenshots and demos
+  deterministic screenshot capture
 
 ## Visual tour
 
@@ -29,6 +27,10 @@ explains the shell, views, nonblocking flows, and repeatable capture mode.
 | Downloads light | Downloads dark |
 | --- | --- |
 | ![Downloads in the light theme](docs/screenshots/downloads-light.png) | ![Downloads in the dark theme](docs/screenshots/downloads-dark.png) |
+
+| Selected item light | Selected item dark |
+| --- | --- |
+| ![Inline queued-download properties in the light theme](docs/screenshots/downloads-properties-light.png) | ![Inline queued-download properties in the dark theme](docs/screenshots/downloads-properties-dark.png) |
 
 | LinkGrabber light | LinkGrabber dark |
 | --- | --- |
@@ -50,45 +52,56 @@ is the upstream reference inventory, not a claim of full core compatibility.
 
 - **Downloads** - package-to-file tree table with Name, Size, Host, Status, Progress, Speed,
   ETA, and inline Details; Material status chips and progress bars; Add Links, Start, Pause, Stop, ordering,
-  Remove, live search, and a context menu. Direct HTTP(S) files stream to disk for normal runs.
+  Remove, live search, and a context menu. A single queued/error/disabled link—or a package only
+  when every child is in one of those safe states—can be renamed or retargeted in an inline strip;
+  active and completed output paths are intentionally read-only.
+  Direct HTTP(S) files stream to disk for normal runs.
 - **LinkGrabber** - staging tree table with asynchronous direct-URL metadata probes, Paste,
-  Remove, Confirm-to-Downloads, and an inline availability filter (All, Checking, Online, Offline).
+  Remove, Add to Downloads, and an inline availability filter (All, Checking, Online, Offline).
 - **Inline Add Links composer** - paste one or more direct HTTP(S) URLs, optionally name the
   package and set a destination, then choose **Queue in LinkGrabber** or **Queue & Start**.
   Parsing, availability checks, automatic confirmation, and starting are deferred so the user
-  can keep navigating.
+  can keep navigating. Unsupported-only input stays in the composer with an inline result rather
+  than being discarded.
 - **Direct HTTP(S) transfers** - redirect-aware metadata probes; background streaming;
   resumable `.part` files when the server supports byte ranges; atomic finalization where the
-  filesystem supports it; global and per-host transfer limits; and a global speed cap.
+  filesystem supports it; global and per-host transfer limits; a global speed cap; and bounded,
+  inline automatic retry for transient HTTP/network failures.
 - **Nonblocking file collisions** - the default "Ask" policy safely auto-renames instead of
   showing a prompt. Skip, overwrite, and rename policies are selected in Settings and applied by
-  the worker, not by a dialog.
+  the worker, not by a dialog. Completed rows retain their resolved file path and offer
+  nonblocking **Open completed file** and **Show in folder** actions.
 - **Local state recovery** - settings (excluding remote-control credentials), the Downloads
   queue, and LinkGrabber staging data are journaled under `~/.jdownloader-material/`. In-progress
   transfers recover as queued on restart and reuse their `.part` file when started again.
 - **Nonblocking feedback** - ordinary transfer actions expose their state in the view and status
   bar. A compact transient message is reserved for navigable or reversible results such as
   **View** and **Undo**; it never asks the user to dismiss a workflow-blocking prompt.
-- **Settings** - General, Connection, Reconnect, LinkGrabber, Appearance, optional
-  My.JDownloader remote-control credentials, Backup, and About. An account is not required to
-  download.
+- **Settings** - General, Connection, network-recovery retry, LinkGrabber, Appearance,
+  backup compatibility fields, Backup, and About. Router reconnect and remote control remain
+  clearly unavailable in direct HTTP mode; an account is not required to download.
 - **Encrypted settings backup** - inline export/import fields run file and cryptographic work
   asynchronously, preserving access to the rest of the application.
-- **App bar and status bar** - clipboard monitoring, automatic reconnect, reconnect-now,
-  light/dark switch, window controls, global speed, running count, remaining bytes, and
-  reconnect state.
-- **Screenshot/demo engine** - `SimulatedEngine` supplies deterministic sample rows and fake
-  progress only when the opt-in screenshot/demo path is used. It is not the normal downloader.
+- **App bar and status bar** - clipboard monitoring, automatic transient-failure retry,
+  light/dark switch, window controls, global speed, running count, remaining bytes, and a real
+  pending-retry indicator.
+- **Screenshot capture engine** - `SimulatedEngine` supplies deterministic sample rows and fake
+  progress only when the opt-in documentation screenshot path is used. It is not the normal downloader.
 
 ## Installer releases
 
 Every push builds and publishes a new GitHub release with self-contained native
 installers for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. The installers
 include a Java 25 runtime, so users do not need to install Java or Maven separately.
-The release workflow validates and publishes only those four installer uploads.
+Each matrix build uploads its installer directly to that published release—no GitHub Actions
+artifacts are created or retained. The final workflow check keeps exactly those four installer
+uploads as release assets and removes an incomplete release if a platform build fails.
 
 - [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
 - [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
+- [Linux x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-linux-x64.deb)
+- [macOS Apple Silicon installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-macos-arm64.dmg)
+- [macOS Intel installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-macos-x64.dmg)
 
 The release tag and About page include the generated build version. Windows and macOS packages
 are currently unsigned, so SmartScreen or Gatekeeper may display a security warning.

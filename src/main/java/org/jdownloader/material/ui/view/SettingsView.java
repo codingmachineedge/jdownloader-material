@@ -100,8 +100,8 @@ public final class SettingsView extends BorderPane {
                 row("Default download folder", "Where finished files are saved", folderCtl),
                 row("Simultaneous downloads", "How many files download at once",
                         slider(s.maxSimultaneousDownloadsProperty(), 1, 10, 1)),
-                row("Connections per download", "Segments used to speed up a single file",
-                        slider(s.maxChunksPerDownloadProperty(), 1, 20, 1)),
+                row("Connections per download", "Unavailable in direct HTTP mode; downloads use one safe stream",
+                        disabled(slider(s.maxChunksPerDownloadProperty(), 1, 20, 1))),
                 row("If a file already exists", "Collisions resolve inline; the default safely auto-renames", ifExists)
         );
     }
@@ -121,11 +121,12 @@ public final class SettingsView extends BorderPane {
         ComboBox<String> method = new ComboBox<>();
         method.getItems().setAll("External command", "Router (UPnP)", "Modem script", "ClR script");
         method.valueProperty().bindBidirectional(s.reconnectMethodProperty());
+        method.setDisable(true);
         return page(
-                sectionTitle("Reconnect"),
-                row("Automatic reconnect", "Request a new IP when a limit is reached",
+                sectionTitle("Network recovery"),
+                row("Retry transient HTTP failures", "Retry network, 408, 429, and server errors in the background",
                         toggle(s.autoReconnectProperty())),
-                row("Reconnect method", "How JDownloader triggers a reconnect", method)
+                row("Router reconnect", "Unavailable in direct HTTP mode; no network device is controlled", method)
         );
     }
 
@@ -162,10 +163,12 @@ public final class SettingsView extends BorderPane {
         password.textProperty().bindBidirectional(s.myjdPasswordProperty());
         password.setPrefWidth(280);
 
+        email.setDisable(true);
+        password.setDisable(true);
         return page(sectionTitle("My.JDownloader"),
-                Mat.label("Remote control is optional. Downloading works without an account.", "row-desc"),
-                row("Email", "Remote-control account", email),
-                row("Password", "Stored in memory; exported only encrypted", password));
+                Mat.label("Remote control is not available in this direct HTTP build. Downloading works without an account.", "row-desc"),
+                row("Email", "Retained only for encrypted backup compatibility", email),
+                row("Password", "Retained only for encrypted backup compatibility", password));
     }
 
     private Node backupPage() {
@@ -337,8 +340,8 @@ public final class SettingsView extends BorderPane {
         mark.setMaxSize(56, 56);
         var about = new VBox(6,
                 Mat.label("JDownloader Material", "display"),
-                Mat.label("Version " + version + " — a ground-up Material Design GUI for JDownloader.", "body"),
-                Mat.label("JavaFX + MaterialFX front end over the JDownloader core engine.", "row-desc"));
+                Mat.label("Version " + version + " — a ground-up Material Design downloader.", "body"),
+                Mat.label("Standalone direct HTTP(S) engine; JDownloader-core integration remains future work.", "row-desc"));
         HBox head = new HBox(20, mark, about);
         head.setAlignment(Pos.CENTER_LEFT);
         return page(head);
@@ -364,6 +367,11 @@ public final class SettingsView extends BorderPane {
         t.setSelected(prop.get());
         t.selectedProperty().bindBidirectional(prop);
         return t;
+    }
+
+    private static <T extends Node> T disabled(T node) {
+        node.setDisable(true);
+        return node;
     }
 
     private HBox slider(IntegerProperty prop, int min, int max, int step) {

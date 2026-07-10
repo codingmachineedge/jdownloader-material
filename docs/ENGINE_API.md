@@ -8,8 +8,8 @@ JDownloader-core adapter could be added without making views depend on JDownload
 
 | Implementation | Used by | Scope |
 |---|---|---|
-| DirectHttpEngine | Normal application launch | Real direct HTTP(S) probing, queueing, streaming, resume, and local state recovery. |
-| SimulatedEngine | Deterministic screenshot and demo code paths | In-memory sample data and fake progress; it never performs normal-user downloads. |
+| DirectHttpEngine | Normal application launch | Real direct HTTP(S) probing, queueing, streaming, resume, bounded transient retry, and local state recovery. |
+| SimulatedEngine | Deterministic documentation screenshot capture | In-memory sample data and fake progress; it never performs normal-user downloads. |
 
 DirectHttpEngine is deliberately not a JDownloader-core adapter. It has no hoster plugins,
 container crawler, Account Manager, CAPTCHA solver, My.JDownloader backend, or full upstream
@@ -22,10 +22,11 @@ compatibility.
 | downloadPackages() : ObservableList<DownloadPackage> | Exposes the real direct-download queue and its live transfer state. | DownloadController -> FilePackage list |
 | crawledPackages() : ObservableList<CrawledPackage> | Exposes staged direct URLs and asynchronous probe results. | LinkCollector -> CrawledPackage list |
 
-DownloadLink and CrawledLink carry the UI-relevant name, host, URL, destination, size,
-loaded-byte, availability, and state data. A future adapter would listen to JDownloader
-controller events and copy those values into these observable model properties on the JavaFX
-Application Thread.
+DownloadLink carries queued name, host, URL, destination, resolved output path, byte/progress,
+state, priority, and retry data. CrawledLink carries staged name, host, URL, size, and
+availability; its shared destination belongs to CrawledPackage. A future adapter would listen to
+JDownloader controller events and copy those values into these observable model properties on the
+JavaFX Application Thread.
 
 ## Shipped direct HTTP(S) pipeline
 
@@ -42,7 +43,8 @@ Probing first tries a HEAD request and falls back to a ranged GET when metadata 
 available. Redirects are followed; a successful response can update the availability, filename,
 and size shown in LinkGrabber. Submission returns immediately. When explicit arguments or the
 LinkGrabber settings request it, confirmation and starting happen only after the asynchronous
-probe completes, with no confirmation dialog.
+probe completes, with no confirmation dialog. `addLinks(...)` returns an asynchronous acceptance
+summary so the inline composer can retain unsupported-only input rather than clearing it prematurely.
 
 ### Downloads
 
@@ -60,18 +62,32 @@ For each real transfer, the worker:
 3. sends a Range request from the existing partial length when possible and restarts safely if
    the server declines or invalidates range resumption; and
 4. moves the completed partial file to the final name atomically where the filesystem supports
-   atomic moves (with a normal move fallback where it does not).
+   atomic moves (with a normal move fallback where it does not), then retains the resolved output
+   path for nonblocking file actions.
+
+When the Network recovery setting is enabled, `IOException`-class network failures plus HTTP 408,
+429, and 5xx responses are retried with a capped 2/4/8/16-second backoff. The link stays queued,
+its `.part` remains intact, and Details carries the countdown. Filesystem, invalid-URL, and other
+permanent failures remain Error rows.
 
 File-exists behavior is resolved by the worker, not a modal prompt. The default Ask setting is
 intentionally mapped to safe auto-rename; Rename, Skip, and Overwrite also proceed without
 asking the user to dismiss anything.
 
+For a single queued, error, or disabled link, DownloadsView exposes inline name and destination
+fields instead of a properties dialog. A package is editable only when all its children are in
+those same safe states; its edits then apply to each child. These write the persisted
+DownloadLink / DownloadPackage model before the next start. Running, paused, and finished items
+are deliberately read-only: the worker has already captured their output path or finalized a file there.
+
 | Interface | Current direct-engine behavior | Future JDownloader-core concept |
 |---|---|---|
 | start() / pause(boolean) / stop() | Starts, pauses/resumes, or cancels direct transfer workers while preserving queued work and partial files. | DownloadWatchDog controls |
 | forceStart(links) | Requeues selected non-finished direct links and starts the scheduler. | DownloadWatchDog.forceDownload(...) |
+| setEnabled(links, enabled) | Disables queued/active direct links safely or returns them to Queue when re-enabled. | Link enable/disable actions |
+| setPriority(links, priority) | Persists a per-link priority; higher priorities admit ahead of lower normal queued links. | Link priority controls |
 | removeDownloads(items) | Cancels matching workers and removes package/link rows. | DownloadController.removePackage/removeChildren(...) |
-| reconnect() | Updates the current UI reconnect state only; it does not reconnect a router or host connection. | Reconnecter.forceReconnect() |
+| reconnect() | Compatibility hook that can admit an already-due retry; it does not reconnect a router or host connection. | Reconnecter.forceReconnect() |
 
 ## Local state recovery
 
@@ -80,7 +96,8 @@ DirectHttpEngine writes a debounced, best-effort local journal to
 constructor). The journal includes non-secret settings, Downloads packages/links, and
 LinkGrabber packages/links. A link that was running or paused when the process ended is restored
 as queued; when it is started again, its existing .part file can be resumed if the server
-supports byte ranges.
+supports byte ranges. Per-link priority, retry state, resolved output path, and queued inline
+name/destination changes are retained as well.
 
 The ordinary local journal deliberately excludes My.JDownloader email and password. Those
 optional credentials are preserved only through the separately encrypted .jdmbackup
@@ -94,15 +111,16 @@ export/import flow.
 | globalSpeedProperty() | Sum of active direct-transfer speeds. | DownloadWatchDog speed manager |
 | runningCountProperty() | Number of running direct links. | Active SingleDownloadController count |
 | totalRemainingProperty() | Sum of known remaining direct bytes. | Sum of unfinished bytes |
-| reconnectingProperty() | UI reconnect indicator; not an actual network reconnect. | Reconnecter progress |
+| reconnectingProperty() | Legacy-named property, true only while an automatic retry is pending; not an actual network reconnect. | Reconnecter progress |
 
 ## Settings
 
 DirectHttpEngine currently applies the direct-download folder, simultaneous-download limit,
-per-host connection limit, global speed limit, file-exists policy, LinkGrabber auto-confirm /
-auto-start behavior, ordering, and appearance settings. Other Settings pages are UI/configuration
-surfaces rather than proof of JDownloader-core parity. In particular, optional My.JDownloader
-credentials do not connect to a remote-control service in this release.
+per-host connection limit, global speed limit, file-exists policy, transient-failure retry,
+LinkGrabber auto-confirm / auto-start behavior, ordering, and appearance settings. Each direct
+link uses one safe stream; the stored multi-connection/chunk setting is disabled until a proper
+segmented-transfer implementation exists. Router reconnect and My.JDownloader remote control do
+not run in this release.
 
 ## Threading contract
 

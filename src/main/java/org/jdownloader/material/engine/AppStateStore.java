@@ -14,6 +14,7 @@ import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.model.LinkAvailability;
 
@@ -97,11 +98,16 @@ final class AppStateStore {
                 state.setProperty(linkPrefix + "host", link.hostProperty().getValue());
                 state.setProperty(linkPrefix + "url", link.url().get());
                 state.setProperty(linkPrefix + "destination", link.destinationProperty().get());
+                state.setProperty(linkPrefix + "outputPath", link.outputPathProperty().get());
                 state.setProperty(linkPrefix + "total", Long.toString(link.total()));
                 state.setProperty(linkPrefix + "loaded", Long.toString(link.loadedProp().get()));
                 state.setProperty(linkPrefix + "state", link.state().name());
                 state.setProperty(linkPrefix + "enabled", Boolean.toString(link.enabled().get()));
+                state.setProperty(linkPrefix + "priority", link.priorityProperty().get().name());
                 state.setProperty(linkPrefix + "detail", link.detailProperty().get());
+                state.setProperty(linkPrefix + "retryAttempt", Integer.toString(link.retryAttemptProperty().get()));
+                state.setProperty(linkPrefix + "retryAt", Long.toString(link.retryAtEpochMillisProperty().get()));
+                state.setProperty(linkPrefix + "retryReason", link.retryReasonProperty().get());
             }
         }
         state.setProperty("linkgrabber.packageCount", Integer.toString(crawledPackages.size()));
@@ -142,14 +148,23 @@ final class AppStateStore {
                 DownloadLink link = new DownloadLink(linkName, host, total);
                 link.url().set(state.getProperty(linkPrefix + "url", ""));
                 link.destinationProperty().set(state.getProperty(linkPrefix + "destination", destination));
+                link.outputPathProperty().set(state.getProperty(linkPrefix + "outputPath", ""));
                 long loaded = nonNegativeLong(state.getProperty(linkPrefix + "loaded"));
                 link.loadedProp().set(total > 0 ? Math.min(loaded, total) : loaded);
                 link.enabled().set(Boolean.parseBoolean(state.getProperty(linkPrefix + "enabled", "true")));
+                link.priorityProperty().set(parsePriority(state.getProperty(linkPrefix + "priority")));
                 link.detailProperty().set(state.getProperty(linkPrefix + "detail", ""));
+                link.retryAttemptProperty().set(boundedInt(state.getProperty(linkPrefix + "retryAttempt"), 0, 4));
+                link.retryAtEpochMillisProperty().set(nonNegativeLong(state.getProperty(linkPrefix + "retryAt")));
+                link.retryReasonProperty().set(state.getProperty(linkPrefix + "retryReason", ""));
                 DownloadState recovered = parseState(state.getProperty(linkPrefix + "state"));
                 // An active HTTP stream cannot survive process exit. Its .part file is resumed as queued.
-                link.setState(recovered == DownloadState.RUNNING || recovered == DownloadState.PAUSED
-                        ? DownloadState.QUEUED : recovered);
+                if (!link.enabled().get()) {
+                    link.setState(recovered == DownloadState.FINISHED ? DownloadState.FINISHED : DownloadState.DISABLED);
+                } else {
+                    link.setState(recovered == DownloadState.RUNNING || recovered == DownloadState.PAUSED
+                            ? DownloadState.QUEUED : recovered);
+                }
                 pkg.links().add(link);
             }
             if (!pkg.links().isEmpty()) output.add(pkg);
@@ -194,5 +209,9 @@ final class AppStateStore {
 
     private static LinkAvailability parseAvailability(String value) {
         try { return LinkAvailability.valueOf(value); } catch (Exception ignored) { return LinkAvailability.UNKNOWN; }
+    }
+
+    private static DownloadPriority parsePriority(String value) {
+        try { return DownloadPriority.valueOf(value); } catch (Exception ignored) { return DownloadPriority.NORMAL; }
     }
 }

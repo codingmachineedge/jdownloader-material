@@ -1,6 +1,8 @@
 package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXTextField;
+import javafx.animation.PauseTransition;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleLongProperty;
@@ -18,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
@@ -27,7 +30,9 @@ import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.util.Formats;
 
 import java.util.LinkedHashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** The LinkGrabber staging area: crawled packages awaiting confirmation into Downloads. */
@@ -38,7 +43,10 @@ public final class LinkGrabberView extends BorderPane {
     private final Runnable openAddLinks;
     private final TreeTableView<Object> tree = new TreeTableView<>();
     private final TreeItem<Object> root = new TreeItem<>(null);
-    private final javafx.beans.InvalidationListener refresh = o -> rebuild();
+    private final javafx.beans.InvalidationListener refresh = o -> requestRebuild();
+    private final PauseTransition rebuildDelay = new PauseTransition(Duration.millis(80));
+    private final Map<CrawledPackage, ListChangeListener<CrawledLink>> packageLinkListeners = new HashMap<>();
+    private boolean rebuildScheduled;
     private String filter = "";
     private AvailabilityFilter availabilityFilter = AvailabilityFilter.ALL;
 
@@ -49,6 +57,10 @@ public final class LinkGrabberView extends BorderPane {
         getStyleClass().add("content-area");
         setTop(buildHeaderAndToolbar());
         setCenter(buildTree());
+        rebuildDelay.setOnFinished(event -> {
+            rebuildScheduled = false;
+            rebuild();
+        });
         wireModel();
         rebuild();
     }
@@ -64,7 +76,7 @@ public final class LinkGrabberView extends BorderPane {
         availability.setOnAction(e -> {
             availabilityFilter = availabilityFilter.next();
             availability.setText(availabilityFilter.label);
-            rebuild();
+            requestRebuild();
         });
         HBox header = new HBox(12, title, Mat.hSpacer(), availability,
                 org.jdownloader.material.ui.Icons.of("search", 20), search);
@@ -78,7 +90,8 @@ public final class LinkGrabberView extends BorderPane {
 
         var confirm = Mat.filled("Add to Downloads", "check");
         confirm.setOnAction(e -> confirmSelected());
-        var addAll = Mat.outlined("Add all", null);
+        confirm.disableProperty().bind(Bindings.isEmpty(tree.getSelectionModel().getSelectedItems()));
+        var addAll = Mat.outlined("Add all to Downloads", null);
         addAll.setOnAction(e -> {
             engine.confirmAll(engine.settings().autoStartProperty().get());
         });
@@ -175,7 +188,9 @@ public final class LinkGrabberView extends BorderPane {
                     case OFFLINE -> Color.web("#c5352c");
                     case UNKNOWN -> Color.web("#8b8792");
                 });
-                box.getChildren().setAll(dot, new javafx.scene.control.Label(av.label()));
+                var label = new javafx.scene.control.Label(av.label());
+                label.getStyleClass().add("table-content-label");
+                box.getChildren().setAll(dot, label);
                 setGraphic(box);
                 setText(null);
             }
@@ -188,28 +203,58 @@ public final class LinkGrabberView extends BorderPane {
                 for (CrawledPackage p : c.getAddedSubList()) attach(p);
                 for (CrawledPackage p : c.getRemoved()) detach(p);
             }
-            rebuild();
+            requestRebuild();
         });
         for (CrawledPackage p : engine.crawledPackages()) attach(p);
     }
 
     private void attach(CrawledPackage p) {
-        p.links().addListener(refresh);
-        for (CrawledLink l : p.links()) {
-            l.availabilityProperty().addListener(refresh);
-            l.sizeProperty().addListener(refresh);
-        }
+        if (packageLinkListeners.containsKey(p)) return;
+        ListChangeListener<CrawledLink> listener = change -> {
+            while (change.next()) {
+                for (CrawledLink link : change.getAddedSubList()) attachLink(link);
+                for (CrawledLink link : change.getRemoved()) detachLink(link);
+            }
+            requestRebuild();
+        };
+        packageLinkListeners.put(p, listener);
+        p.links().addListener(listener);
+        for (CrawledLink link : p.links()) attachLink(link);
     }
 
     private void detach(CrawledPackage p) {
-        p.links().removeListener(refresh);
-        for (CrawledLink l : p.links()) {
-            l.availabilityProperty().removeListener(refresh);
-            l.sizeProperty().removeListener(refresh);
-        }
+        ListChangeListener<CrawledLink> listener = packageLinkListeners.remove(p);
+        if (listener != null) p.links().removeListener(listener);
+        for (CrawledLink link : p.links()) detachLink(link);
+    }
+
+    private void attachLink(CrawledLink link) {
+        link.availabilityProperty().addListener(refresh);
+        link.sizeProperty().addListener(refresh);
+    }
+
+    private void detachLink(CrawledLink link) {
+        link.availabilityProperty().removeListener(refresh);
+        link.sizeProperty().removeListener(refresh);
+    }
+
+    /**
+     * Probes can complete in dense bursts. Rebuild at most once per short
+     * interval so a large paste does not repeatedly clear and restore the
+     * entire tree on the JavaFX Application Thread.
+     */
+    private void requestRebuild() {
+        if (rebuildScheduled) return;
+        rebuildScheduled = true;
+        rebuildDelay.playFromStart();
     }
 
     private void rebuild() {
+        Set<Object> selectedBefore = new LinkedHashSet<>();
+        for (TreeItem<Object> item : tree.getSelectionModel().getSelectedItems()) {
+            if (item != null && item.getValue() != null) selectedBefore.add(item.getValue());
+        }
+        tree.getSelectionModel().clearSelection();
         root.getChildren().clear();
         for (CrawledPackage pkg : engine.crawledPackages()) {
             boolean pkgMatch = filter.isEmpty() || pkg.name().toLowerCase().contains(filter);
@@ -221,10 +266,6 @@ public final class LinkGrabberView extends BorderPane {
                         || l.name().toLowerCase().contains(filter)
                         || l.host().toLowerCase().contains(filter);
                 if (textMatch && availabilityFilter.matches(l.availability())) {
-                    l.availabilityProperty().removeListener(refresh);
-                    l.availabilityProperty().addListener(refresh);
-                    l.sizeProperty().removeListener(refresh);
-                    l.sizeProperty().addListener(refresh);
                     pi.getChildren().add(new TreeItem<>(l));
                 }
             }
@@ -232,9 +273,17 @@ public final class LinkGrabberView extends BorderPane {
                 root.getChildren().add(pi);
             }
         }
+        if (!selectedBefore.isEmpty()) restoreSelection(root, selectedBefore);
         // Package rows derive text (online counts, sizes) at render time from
         // non-observable values; force visible cells to re-render.
         tree.refresh();
+    }
+
+    private void restoreSelection(TreeItem<Object> parent, Set<Object> selected) {
+        for (TreeItem<Object> child : parent.getChildren()) {
+            if (selected.contains(child.getValue())) tree.getSelectionModel().select(child);
+            restoreSelection(child, selected);
+        }
     }
 
     private Set<CrawledPackage> selectedPackageRows() {
@@ -299,12 +348,8 @@ public final class LinkGrabberView extends BorderPane {
         Set<CrawledPackage> selectedPackages = selectedPackageRows();
         Set<CrawledLink> selectedLinks = selectedLinkRows(selectedPackages);
         boolean autoStart = engine.settings().autoStartProperty().get();
-        if (selectedPackages.isEmpty() && selectedLinks.isEmpty()) {
-            engine.confirmAll(engine.settings().autoStartProperty().get());
-        } else {
-            if (!selectedPackages.isEmpty()) engine.confirmToDownloads(selectedPackages, autoStart);
-            if (!selectedLinks.isEmpty()) engine.confirmLinksToDownloads(selectedLinks, autoStart);
-        }
+        if (!selectedPackages.isEmpty()) engine.confirmToDownloads(selectedPackages, autoStart);
+        if (!selectedLinks.isEmpty()) engine.confirmLinksToDownloads(selectedLinks, autoStart);
     }
 
     private void pasteFromClipboard() {

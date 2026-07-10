@@ -9,8 +9,10 @@ import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.DownloadItem;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadPriority;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Contract between the Material GUI and a download backend.
@@ -31,19 +33,25 @@ public interface DownloadEngine {
 
     // ---- LinkGrabber ------------------------------------------------------
     /**
-     * Crawls the given text (one URL per line) into the LinkGrabber. Confirmation
-     * and starting are asynchronous, so callers never need to wait on a dialog.
+     * Crawls the given text (one URL per line) into the LinkGrabber. The result
+     * resolves after background validation has accepted or rejected the input;
+     * probing, confirmation, and starting continue asynchronously afterward.
      */
-    void addLinks(String text, String packageName, String destination,
-                  boolean autoConfirm, boolean autoStart);
+    CompletableFuture<AddLinksResult> addLinks(String text, String packageName, String destination,
+                                                boolean autoConfirm, boolean autoStart);
 
-    /** Moves the selected crawled packages into the Downloads list. */
+    /** Summary of one nonblocking LinkGrabber submission. */
+    record AddLinksResult(int submittedLines, int acceptedLinks) {
+        public int ignoredLines() { return Math.max(0, submittedLines - acceptedLinks); }
+    }
+
+    /** Moves online links from the selected crawled packages into the Downloads list. */
     void confirmToDownloads(Collection<CrawledPackage> packages, boolean autoStart);
 
-    /** Moves only the selected crawled links into Downloads, preserving their siblings. */
+    /** Moves selected online crawled links into Downloads, preserving their siblings. */
     void confirmLinksToDownloads(Collection<CrawledLink> links, boolean autoStart);
 
-    /** Moves every crawled package into the Downloads list. */
+    /** Moves every currently online crawled link into the Downloads list. */
     void confirmAll(boolean autoStart);
 
     /** Removes crawled packages from the staging area. */
@@ -68,13 +76,19 @@ public interface DownloadEngine {
     /** Stops only the selected links and returns them to the queue. */
     void stopLinks(Collection<DownloadLink> links);
 
+    /** Enables or disables selected queue links without a confirmation dialog. */
+    void setEnabled(Collection<DownloadLink> links, boolean enabled);
+
+    /** Applies a durable queue priority to selected links. */
+    void setPriority(Collection<DownloadLink> links, DownloadPriority priority);
+
     /** Forces the given links to start immediately. */
     void forceStart(Collection<DownloadLink> links);
 
     /** Removes the given items (packages or links) from the Downloads list. */
     void removeDownloads(Collection<DownloadItem> items);
 
-    /** Triggers a reconnect of the internet connection. */
+    /** Compatibility hook; direct HTTP mode cannot reconnect network equipment. */
     void reconnect();
 
     // ---- Global observable state -----------------------------------------

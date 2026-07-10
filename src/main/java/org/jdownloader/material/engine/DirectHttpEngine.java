@@ -6,12 +6,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.net.http.HttpClient;
+import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.FileSystemException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -20,6 +24,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -29,10 +34,12 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +64,7 @@ import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadItem;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
+import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.model.LinkAvailability;
 
@@ -73,6 +81,9 @@ public final class DirectHttpEngine implements DownloadEngine {
     private static final long TICK_MS = 120;
     private static final int LINK_BATCH_SIZE = 128;
     private static final int BUFFER_SIZE = 64 * 1024;
+    private static final int MAX_AUTO_RETRIES = 4;
+    private static final long INITIAL_RETRY_DELAY_MILLIS = 2_000;
+    private static final long MAX_RETRY_DELAY_MILLIS = 30_000;
 
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
@@ -144,24 +155,35 @@ public final class DirectHttpEngine implements DownloadEngine {
 
     // ------------------------------------------------------------- LinkGrabber
     @Override
-    public void addLinks(String text, String packageName, String destination,
-                         boolean autoConfirm, boolean autoStart) {
+    public CompletableFuture<AddLinksResult> addLinks(String text, String packageName, String destination,
+                                                        boolean autoConfirm, boolean autoStart) {
         String source = text == null ? "" : text;
         String requestedName = packageName == null ? "" : packageName.trim();
         String requestedDestination = destination == null || destination.isBlank()
                 ? settings.downloadFolderProperty().get() : destination.trim();
         boolean confirmWhenReady = autoConfirm || settings.autoConfirmProperty().get();
         boolean startWhenConfirmed = autoStart || settings.autoStartProperty().get();
+        CompletableFuture<AddLinksResult> result = new CompletableFuture<>();
 
-        crawlWorkers.execute(() -> {
-            List<String> urls = source.lines()
-                    .map(String::trim)
-                    .filter(DirectHttpEngine::isDirectHttpUrl)
-                    .toList();
-            if (urls.isEmpty()) return;
-            fx(() -> beginCrawl(urls, requestedName, requestedDestination,
-                    confirmWhenReady, startWhenConfirmed));
-        });
+        try {
+            crawlWorkers.execute(() -> {
+                List<String> submitted = source.lines().map(String::trim)
+                        .filter(line -> !line.isEmpty()).toList();
+                List<String> urls = submitted.stream().filter(DirectHttpEngine::isDirectHttpUrl).toList();
+                AddLinksResult summary = new AddLinksResult(submitted.size(), urls.size());
+                if (urls.isEmpty()) {
+                    result.complete(summary);
+                    return;
+                }
+                fx(() -> {
+                    beginCrawl(urls, requestedName, requestedDestination, confirmWhenReady, startWhenConfirmed);
+                    result.complete(summary);
+                });
+            });
+        } catch (RejectedExecutionException error) {
+            result.completeExceptionally(error);
+        }
+        return result;
     }
 
     private void beginCrawl(List<String> urls, String requestedName, String destination,
@@ -305,6 +327,7 @@ public final class DirectHttpEngine implements DownloadEngine {
     // --------------------------------------------------------- Download queue
     private void scheduleQueue() {
         List<DownloadLink> all = allLinks();
+        refreshRetryCountdowns(all, System.currentTimeMillis());
         if (pauseRequested) {
             for (DirectTransfer transfer : activeTransfers.values()) {
                 DownloadLink link = transfer.link;
@@ -331,7 +354,10 @@ public final class DirectHttpEngine implements DownloadEngine {
         int limit = Math.max(1, settings.maxSimultaneousDownloadsProperty().get());
         int hostLimit = Math.max(1, settings.maxConnectionsPerHostProperty().get());
         Map<String, Integer> activeByHost = activeByHost();
-        for (DownloadLink link : all) {
+        List<DownloadLink> candidates = new ArrayList<>(all);
+        candidates.sort(Comparator.comparingInt((DownloadLink link) -> link.priorityProperty().get().weight())
+                .reversed());
+        for (DownloadLink link : candidates) {
             if (active >= limit) break;
             if (!isNormallyEligible(link)) continue;
             String host = normalizedHost(link);
@@ -358,7 +384,9 @@ public final class DirectHttpEngine implements DownloadEngine {
                 selectedStartRequests.remove(link.id());
                 continue;
             }
-            if (link.state() == DownloadState.QUEUED && startTransfer(link)) {
+            // A Force Start launched manually overrides queue limits, but an
+            // automatic retry must still honor its short backoff window.
+            if (link.state() == DownloadState.QUEUED && retryEligible(link) && startTransfer(link)) {
                 selectedStartRequests.remove(link.id());
                 started++;
             }
@@ -371,7 +399,30 @@ public final class DirectHttpEngine implements DownloadEngine {
                 || manuallyStopped.contains(link.id()) || forceStartRequests.contains(link.id())) {
             return false;
         }
-        return running.get() || selectedStartRequests.contains(link.id());
+        return retryEligible(link) && (running.get() || selectedStartRequests.contains(link.id()));
+    }
+
+    private boolean retryEligible(DownloadLink link) {
+        long retryAt = link.retryAtEpochMillisProperty().get();
+        return retryAt <= 0 || (settings.autoReconnectProperty().get()
+                && retryAt <= System.currentTimeMillis());
+    }
+
+    private void refreshRetryCountdowns(List<DownloadLink> links, long now) {
+        boolean retryScheduled = false;
+        for (DownloadLink link : links) {
+            long retryAt = link.retryAtEpochMillisProperty().get();
+            if (link.state() != DownloadState.QUEUED || retryAt <= now
+                    || !settings.autoReconnectProperty().get()) continue;
+            retryScheduled = true;
+            long seconds = Math.max(1, (retryAt - now + 999) / 1_000);
+            String detail = retryDetail(link.retryAttemptProperty().get(), seconds,
+                    link.retryReasonProperty().get());
+            if (!detail.equals(link.detailProperty().get())) link.detailProperty().set(detail);
+        }
+        // This legacy-named observable now reflects real automatic recovery
+        // work rather than a simulated router reconnect.
+        reconnecting.set(retryScheduled);
     }
 
     private int activeTransferCount() {
@@ -420,6 +471,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 settings.ifFileExistsProperty().get(), transferSequence.incrementAndGet());
         activeTransfers.put(link.id(), transfer);
         transferEpochs.put(link.id(), transfer.epoch);
+        link.retryAtEpochMillisProperty().set(0);
         link.detailProperty().set("");
         link.setState(DownloadState.RUNNING);
         try {
@@ -449,12 +501,13 @@ public final class DirectHttpEngine implements DownloadEngine {
     public void startLinks(Collection<DownloadLink> links) {
         if (links.isEmpty()) return;
         for (DownloadLink link : links) {
-            if (link.state() == DownloadState.FINISHED) continue;
+            if (link.state() == DownloadState.FINISHED || !link.enabled().get()) continue;
             manuallyStopped.remove(link.id());
             if (!activeTransfers.containsKey(link.id())
                     && (link.state() == DownloadState.PAUSED || link.state() == DownloadState.ERROR)) {
                 link.setState(DownloadState.QUEUED);
             }
+            resetRetry(link);
             selectedStartRequests.add(link.id());
         }
         // A selected Start must not resume unrelated queued work or clear a global pause.
@@ -491,6 +544,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 link.setState(DownloadState.QUEUED);
                 link.speedProp().set(0);
             }
+            resetRetry(link);
         }
         synchronized (pauseMonitor) { pauseMonitor.notifyAll(); }
         recomputeGlobals(allLinks());
@@ -506,17 +560,50 @@ public final class DirectHttpEngine implements DownloadEngine {
             cancelTransfer(link);
             link.speedProp().set(0);
             link.setState(DownloadState.QUEUED);
+            resetRetry(link);
         }
         recomputeGlobals(allLinks());
     }
 
     @Override
+    public void setEnabled(Collection<DownloadLink> links, boolean enabled) {
+        for (DownloadLink link : links) {
+            link.enabled().set(enabled);
+            if (enabled) {
+                manuallyStopped.remove(link.id());
+                if (link.state() == DownloadState.DISABLED) {
+                    resetRetry(link);
+                    link.setState(DownloadState.QUEUED);
+                }
+                continue;
+            }
+            selectedStartRequests.remove(link.id());
+            forceStartRequests.remove(link.id());
+            manuallyStopped.remove(link.id());
+            resetRetry(link);
+            if (link.state() != DownloadState.FINISHED) {
+                cancelTransfer(link);
+                link.speedProp().set(0);
+                link.setState(DownloadState.DISABLED);
+            }
+        }
+        recomputeGlobals(allLinks());
+    }
+
+    @Override
+    public void setPriority(Collection<DownloadLink> links, DownloadPriority priority) {
+        DownloadPriority next = priority == null ? DownloadPriority.NORMAL : priority;
+        for (DownloadLink link : links) link.priorityProperty().set(next);
+    }
+
+    @Override
     public void forceStart(Collection<DownloadLink> links) {
         for (DownloadLink link : links) {
-            if (link.state() != DownloadState.FINISHED) {
+            if (link.state() != DownloadState.FINISHED && link.enabled().get()) {
                 link.detailProperty().set("");
                 manuallyStopped.remove(link.id());
                 if (!activeTransfers.containsKey(link.id())) link.setState(DownloadState.QUEUED);
+                resetRetry(link);
                 selectedStartRequests.add(link.id());
                 forceStartRequests.add(link.id());
             }
@@ -557,11 +644,9 @@ public final class DirectHttpEngine implements DownloadEngine {
 
     @Override
     public void reconnect() {
-        if (reconnecting.get()) return;
-        reconnecting.set(true);
-        PauseTransition wait = new PauseTransition(javafx.util.Duration.seconds(2));
-        wait.setOnFinished(e -> reconnecting.set(false));
-        wait.play();
+        // Direct HTTP mode cannot reconnect a router. Keep the compatibility
+        // hook side-effect free except for admitting any retry that is already due.
+        scheduleQueue();
     }
 
     // -------------------------------------------------------------- Transfer
@@ -600,7 +685,7 @@ public final class DirectHttpEngine implements DownloadEngine {
                 }
                 stream(output);
             } catch (Exception error) {
-                if (!cancelled.get()) finishFailed(this, readableError(error));
+                if (!cancelled.get()) finishFailed(this, error);
             } finally {
                 closeQuietly(openInput);
                 closeQuietly(openOutput);
@@ -636,7 +721,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             int status = response.statusCode();
             if (!(status == 200 || status == 206)) {
                 closeQuietly(response.body());
-                throw new IOException("HTTP " + status);
+                throw new HttpStatusException(status);
             }
             boolean append = existing > 0 && status == 206;
             if (append && rangeStart(response) != existing) {
@@ -713,7 +798,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             if (cancelled.get()) return;
             moveCompleted(partial, output.path);
             Files.deleteIfExists(partialIdentityPath(partial));
-            fx(() -> finishCompleted(this, completed));
+            fx(() -> finishCompleted(this, completed, output.path));
         }
 
         private void waitWhilePaused() {
@@ -751,7 +836,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         link.speedProp().set(Math.max(0, speed));
     }
 
-    private void finishCompleted(DirectTransfer transfer, long loaded) {
+    private void finishCompleted(DirectTransfer transfer, long loaded, Path output) {
         DownloadLink link = transfer.link;
         if (!isCurrent(transfer)) return;
         // Never inflate the displayed byte count: a completed stream is exactly
@@ -759,7 +844,11 @@ public final class DirectHttpEngine implements DownloadEngine {
         link.totalProp().set(loaded);
         link.loadedProp().set(loaded);
         link.speedProp().set(0);
-        link.detailProperty().set("");
+        link.outputPathProperty().set(output.toString());
+        String requested = sanitizeFileName(transfer.requestedName);
+        String resolved = output.getFileName() == null ? output.toString() : output.getFileName().toString();
+        link.detailProperty().set(requested.equals(resolved) ? "" : "Saved as " + resolved);
+        resetRetry(link);
         link.setState(DownloadState.FINISHED);
         clearTransferEpoch(transfer);
     }
@@ -775,27 +864,118 @@ public final class DirectHttpEngine implements DownloadEngine {
             } catch (IOException ignored) {
             }
             link.speedProp().set(0);
+            link.outputPathProperty().set(output.toString());
             link.detailProperty().set("Existing file kept");
+            resetRetry(link);
             link.setState(DownloadState.FINISHED);
             clearTransferEpoch(transfer);
         });
     }
 
-    private void finishFailed(DirectTransfer transfer, String message) {
+    private void finishFailed(DirectTransfer transfer, Exception error) {
         fx(() -> {
             DownloadLink link = transfer.link;
             if (!isCurrent(transfer)) return;
+            String message = readableError(error);
             link.speedProp().set(0);
-            link.detailProperty().set(message);
-            link.setState(DownloadState.ERROR);
-            clearTransferEpoch(transfer);
+            if (shouldAutoRetry(link, error)) {
+                int attempt = link.retryAttemptProperty().get() + 1;
+                long delay = retryDelayMillis(attempt);
+                long retryAt = System.currentTimeMillis() + delay;
+                boolean preserveForceStart = forceStartRequests.contains(link.id());
+                link.retryAttemptProperty().set(attempt);
+                link.retryAtEpochMillisProperty().set(retryAt);
+                link.retryReasonProperty().set(message);
+                link.detailProperty().set(retryDetail(attempt, Math.max(1, delay / 1_000), message));
+                link.setState(DownloadState.QUEUED);
+                // A forced retry continues to bypass the global pause once
+                // its own backoff expires; normal retries clear the one-shot
+                // selection request as before.
+                clearTransferEpoch(transfer, !preserveForceStart);
+                // Retrying a selected-only start must not wake unrelated queue items.
+                if (!running.get() && !preserveForceStart) selectedStartRequests.add(link.id());
+            } else {
+                boolean exhausted = settings.autoReconnectProperty().get()
+                        && link.retryAttemptProperty().get() >= MAX_AUTO_RETRIES
+                        && isTransientFailure(error);
+                link.detailProperty().set(exhausted
+                        ? "Failed after " + MAX_AUTO_RETRIES + " retries: " + message : message);
+                resetRetry(link);
+                link.setState(DownloadState.ERROR);
+                clearTransferEpoch(transfer);
+            }
         });
     }
 
     private void fail(DownloadLink link, String message) {
         link.speedProp().set(0);
         link.detailProperty().set(message);
+        resetRetry(link);
         link.setState(DownloadState.ERROR);
+    }
+
+    private boolean shouldAutoRetry(DownloadLink link, Exception error) {
+        return settings.autoReconnectProperty().get()
+                && link.retryAttemptProperty().get() < MAX_AUTO_RETRIES
+                && isTransientFailure(error);
+    }
+
+    private static long retryDelayMillis(int attempt) {
+        int exponent = Math.max(0, Math.min(attempt - 1, 4));
+        return Math.min(MAX_RETRY_DELAY_MILLIS, INITIAL_RETRY_DELAY_MILLIS << exponent);
+    }
+
+    private static String retryDetail(int attempt, long seconds, String reason) {
+        String suffix = reason == null || reason.isBlank() ? "" : ": " + reason;
+        return "Retrying in " + seconds + "s (attempt " + attempt + "/" + MAX_AUTO_RETRIES + ")" + suffix;
+    }
+
+    private static boolean isTransientFailure(Exception error) {
+        Throwable root = rootCause(error);
+        if (root instanceof HttpStatusException status) {
+            return status.statusCode == 408 || status.statusCode == 429
+                    || status.statusCode >= 500 && status.statusCode <= 599;
+        }
+        if (root instanceof HttpTimeoutException || root instanceof SocketTimeoutException
+                || root instanceof ConnectException) return true;
+        if (root instanceof FileSystemException) return false;
+        if (root instanceof IOException io) {
+            String message = io.getMessage() == null ? "" : io.getMessage();
+            return !message.startsWith("Partial file has no safe resume identity")
+                    && !message.startsWith("Server returned an invalid resume range")
+                    && !message.startsWith("Remote file changed during resume");
+        }
+        return false;
+    }
+
+    private static Throwable rootCause(Throwable error) {
+        Throwable current = error;
+        while ((current instanceof ExecutionException || current instanceof CompletionException)
+                && current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private static void resetRetry(DownloadLink link) {
+        link.retryAttemptProperty().set(0);
+        link.retryAtEpochMillisProperty().set(0);
+        link.retryReasonProperty().set("");
+    }
+
+    /** Stops countdowns immediately when automatic recovery is switched off. */
+    private void cancelPendingRetries() {
+        for (DownloadLink link : allLinks()) {
+            if (link.state() != DownloadState.QUEUED || link.retryAtEpochMillisProperty().get() <= 0) continue;
+            String reason = link.retryReasonProperty().get();
+            resetRetry(link);
+            link.detailProperty().set(reason == null || reason.isBlank()
+                    ? "Automatic retry cancelled"
+                    : "Automatic retry cancelled: " + reason);
+            link.setState(DownloadState.ERROR);
+            clearStartRequests(link);
+        }
+        reconnecting.set(false);
     }
 
     private boolean isCurrent(DirectTransfer transfer) {
@@ -805,8 +985,12 @@ public final class DirectHttpEngine implements DownloadEngine {
     }
 
     private void clearTransferEpoch(DirectTransfer transfer) {
+        clearTransferEpoch(transfer, true);
+    }
+
+    private void clearTransferEpoch(DirectTransfer transfer, boolean clearRequests) {
         transferEpochs.remove(transfer.link.id(), transfer.epoch);
-        clearStartRequests(transfer.link);
+        if (clearRequests) clearStartRequests(transfer.link);
     }
 
     private void clearStartRequests(DownloadLink link) {
@@ -868,7 +1052,10 @@ public final class DirectHttpEngine implements DownloadEngine {
             scheduleStateSave();
         });
         settings.maxConnectionsPerHostProperty().addListener(stateDirty);
-        settings.autoReconnectProperty().addListener(stateDirty);
+        settings.autoReconnectProperty().addListener((o, wasEnabled, enabled) -> {
+            if (!enabled) cancelPendingRetries();
+            scheduleStateSave();
+        });
         settings.reconnectMethodProperty().addListener(stateDirty);
         settings.darkThemeProperty().addListener(stateDirty);
         settings.speedInTitleProperty().addListener(stateDirty);
@@ -965,12 +1152,17 @@ public final class DirectHttpEngine implements DownloadEngine {
         link.hostProperty().addListener(stateDirty);
         link.url().addListener(stateDirty);
         link.destinationProperty().addListener(stateDirty);
+        link.outputPathProperty().addListener(stateDirty);
         link.detailProperty().addListener(stateDirty);
+        link.retryReasonProperty().addListener(stateDirty);
+        link.retryAttemptProperty().addListener(stateDirty);
+        link.retryAtEpochMillisProperty().addListener(stateDirty);
         link.loadedProp().addListener(stateDirty);
         link.totalProp().addListener(stateDirty);
         link.speedProp().addListener(stateDirty);
         link.stateProp().addListener(stateDirty);
         link.enabled().addListener(stateDirty);
+        link.priorityProperty().addListener(stateDirty);
     }
 
     private void detachLink(DownloadLink link) {
@@ -978,12 +1170,17 @@ public final class DirectHttpEngine implements DownloadEngine {
         link.hostProperty().removeListener(stateDirty);
         link.url().removeListener(stateDirty);
         link.destinationProperty().removeListener(stateDirty);
+        link.outputPathProperty().removeListener(stateDirty);
         link.detailProperty().removeListener(stateDirty);
+        link.retryReasonProperty().removeListener(stateDirty);
+        link.retryAttemptProperty().removeListener(stateDirty);
+        link.retryAtEpochMillisProperty().removeListener(stateDirty);
         link.loadedProp().removeListener(stateDirty);
         link.totalProp().removeListener(stateDirty);
         link.speedProp().removeListener(stateDirty);
         link.stateProp().removeListener(stateDirty);
         link.enabled().removeListener(stateDirty);
+        link.priorityProperty().removeListener(stateDirty);
     }
 
     private void scheduleStateSave() {
@@ -1263,7 +1460,8 @@ public final class DirectHttpEngine implements DownloadEngine {
     }
 
     private static String readableError(Exception error) {
-        String message = error.getMessage();
+        Throwable root = rootCause(error);
+        String message = root.getMessage();
         return message == null || message.isBlank() ? "Download failed" : message;
     }
 
@@ -1324,6 +1522,15 @@ public final class DirectHttpEngine implements DownloadEngine {
 
     private record Probe(boolean online, long size, String fileName) {
         private static Probe offline() { return new Probe(false, -1, ""); }
+    }
+
+    private static final class HttpStatusException extends IOException {
+        private final int statusCode;
+
+        private HttpStatusException(int statusCode) {
+            super("HTTP " + statusCode);
+            this.statusCode = statusCode;
+        }
     }
 
     private record OutputPlan(Path path, Path partial, boolean skip, boolean resume) {

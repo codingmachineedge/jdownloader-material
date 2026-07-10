@@ -25,6 +25,7 @@ public final class DownloadCells {
             private final Label label = new Label();
             private final HBox box = new HBox(8);
             {
+                label.getStyleClass().add("table-content-label");
                 box.setAlignment(Pos.CENTER_LEFT);
                 setGraphic(box);
                 setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
@@ -42,9 +43,7 @@ public final class DownloadCells {
                     label.setText(name + "  (" + n + ")");
                     label.setStyle("-fx-font-weight: 600;");
                 } else {
-                    String detail = item instanceof org.jdownloader.material.model.DownloadLink link
-                            ? link.detailProperty().get() : "";
-                    label.setText(detail == null || detail.isBlank() ? name : name + " — " + detail);
+                    label.setText(name);
                     label.setStyle("");
                 }
                 setGraphic(box);

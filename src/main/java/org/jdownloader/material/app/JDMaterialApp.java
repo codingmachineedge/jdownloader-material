@@ -115,15 +115,17 @@ public class JDMaterialApp extends Application {
         List<ScreenshotStep> steps = List.of(
                 new ScreenshotStep("downloads-light.png", () -> {
                     if (theme.isDark()) theme.toggle();
-                    window.showDownloads();
+                    window.showDownloadsForCapture();
                 }),
+                new ScreenshotStep("downloads-properties-light.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-light.png", window::showSettings),
                 new ScreenshotStep("add-links-light.png", window::openAddLinks),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
-                    window.showDownloads();
+                    window.showDownloadsForCapture();
                 }),
+                new ScreenshotStep("downloads-properties-dark.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-dark.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-dark.png", window::showSettings),
                 new ScreenshotStep("add-links-dark.png", window::openAddLinks));
@@ -133,6 +135,7 @@ public class JDMaterialApp extends Application {
     private void captureStep(Scene scene, MainWindow window, List<ScreenshotStep> steps, Path directory, int index) {
         ScreenshotStep step = steps.get(index);
         step.prepare().run();
+        window.clearTransientFocus();
         PauseTransition delay = new PauseTransition(Duration.millis(350));
         delay.setOnFinished(event -> scene.snapshot(result -> {
             try {

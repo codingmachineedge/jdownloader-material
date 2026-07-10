@@ -31,8 +31,9 @@ public final class StatusBar extends HBox {
                         () -> Formats.bytes(engine.totalRemainingProperty().get()),
                         engine.totalRemainingProperty()));
 
-        // reconnect indicator, visible only while reconnecting
-        HBox reconnect = new HBox(6, Icons.of("reconnect", 14, "icon-primary"), new Label("Reconnecting…"));
+        // Direct HTTP mode uses this legacy-named property for a real retry
+        // countdown, not a pretend router reconnect.
+        HBox reconnect = new HBox(6, Icons.of("reconnect", 14, "icon-primary"), new Label("Retry scheduled"));
         reconnect.setAlignment(Pos.CENTER_LEFT);
         reconnect.visibleProperty().bind(engine.reconnectingProperty());
         reconnect.managedProperty().bind(engine.reconnectingProperty());

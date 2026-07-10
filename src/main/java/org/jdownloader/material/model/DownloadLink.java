@@ -2,9 +2,11 @@ package org.jdownloader.material.model;
 
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.LongProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -21,13 +23,21 @@ public final class DownloadLink extends DownloadItem {
     private final StringProperty host = new SimpleStringProperty(this, "host", "");
     private final StringProperty url = new SimpleStringProperty(this, "url", "");
     private final StringProperty destination = new SimpleStringProperty(this, "destination", "");
+    private final StringProperty outputPath = new SimpleStringProperty(this, "outputPath", "");
     private final StringProperty detail = new SimpleStringProperty(this, "detail", "");
+    private final StringProperty retryReason = new SimpleStringProperty(this, "retryReason", "");
     private final LongProperty bytesTotal = new SimpleLongProperty(this, "bytesTotal", 0);
     private final LongProperty bytesLoaded = new SimpleLongProperty(this, "bytesLoaded", 0);
     private final LongProperty speed = new SimpleLongProperty(this, "speed", 0);
     private final ObjectProperty<DownloadState> state =
             new SimpleObjectProperty<>(this, "state", DownloadState.QUEUED);
+    private final ObjectProperty<DownloadPriority> priority =
+            new SimpleObjectProperty<>(this, "priority", DownloadPriority.NORMAL);
     private final BooleanProperty enabled = new SimpleBooleanProperty(this, "enabled", true);
+    /** Number of automatic transient-failure retries already scheduled. */
+    private final IntegerProperty retryAttempt = new SimpleIntegerProperty(this, "retryAttempt", 0);
+    /** Epoch-millis deadline for the next automatic retry, or zero when none is pending. */
+    private final LongProperty retryAtEpochMillis = new SimpleLongProperty(this, "retryAtEpochMillis", 0);
     private final ObservableValue<Number> progress;
 
     public DownloadLink(String name, String host, long bytesTotal) {
@@ -45,6 +55,9 @@ public final class DownloadLink extends DownloadItem {
         return id;
     }
 
+    /** Writable name used for queued-item inline rename. */
+    public StringProperty nameProp() { return name; }
+
     @Override public ObservableValue<String> nameProperty()   { return name; }
     @Override public ObservableValue<String> hostProperty()   { return host; }
     @Override public ObservableValue<Number> bytesTotalProperty()  { return bytesTotal; }
@@ -59,12 +72,19 @@ public final class DownloadLink extends DownloadItem {
     public LongProperty totalProp()    { return bytesTotal; }
     public LongProperty speedProp()    { return speed; }
     public ObjectProperty<DownloadState> stateProp() { return state; }
+    public ObjectProperty<DownloadPriority> priorityProperty() { return priority; }
     public BooleanProperty enabled()   { return enabled; }
     public StringProperty url()        { return url; }
     /** Per-link destination captured from its package at confirmation time. */
     public StringProperty destinationProperty() { return destination; }
+    /** Resolved completed-file path, including any collision-safe rename. */
+    public StringProperty outputPathProperty() { return outputPath; }
     /** Inline status detail such as an HTTP or filesystem failure. */
     public StringProperty detailProperty() { return detail; }
+    /** Stable cause text used to render a changing automatic-retry countdown. */
+    public StringProperty retryReasonProperty() { return retryReason; }
+    public IntegerProperty retryAttemptProperty() { return retryAttempt; }
+    public LongProperty retryAtEpochMillisProperty() { return retryAtEpochMillis; }
     public long total()                { return bytesTotal.get(); }
 
     public void setState(DownloadState s) { state.set(s); }

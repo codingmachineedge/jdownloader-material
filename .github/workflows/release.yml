@@ -11,11 +11,63 @@ env:
   REF_NAME: ${{ github.ref_name }}
 
 jobs:
+  prepare-release:
+    name: Create published release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create or refresh the published release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${APP_VERSION}"
+          short_sha="${GITHUB_SHA::12}"
+          title="JDownloader Material ${APP_VERSION} (${short_sha})"
+          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
+          cat > release-notes.md <<EOF
+          Automated installer release for commit [\`${short_sha}\`](${commit_url}) on \`${REF_NAME}\`.
+
+          The installers are self-contained and include the Java runtime. Windows and macOS
+          packages are currently unsigned, so the operating system may display a security warning.
+          EOF
+
+          expected=(
+            "JDownloader-Material-linux-x64.deb"
+            "JDownloader-Material-macos-arm64.dmg"
+            "JDownloader-Material-macos-x64.dmg"
+            "JDownloader-Material-windows-x64.exe"
+          )
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Reruns replace expected installers and remove any hand-added assets.
+            while IFS= read -r asset; do
+              keep=false
+              for expected_asset in "${expected[@]}"; do
+                if [[ "$asset" == "$expected_asset" ]]; then keep=true; break; fi
+              done
+              if [[ "$keep" != true ]]; then
+                gh release delete-asset "$tag" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "$title" \
+              --notes-file release-notes.md --draft=false
+          else
+            # gh release create is published by default: never make this a draft.
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "$title" --notes-file release-notes.md
+          fi
+
   build-installer:
     name: Build ${{ matrix.platform }} installer
+    needs: prepare-release
     runs-on: ${{ matrix.runner }}
     permissions:
-      contents: read
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +98,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-          cache: maven
 
       - name: Build and stage runtime files
         shell: pwsh
@@ -149,72 +200,51 @@ jobs:
             throw "Installer is unexpectedly small: $assetPath"
           }
 
-      - name: Upload installer for release job
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-${{ matrix.platform }}
-          path: target/release/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
-  release:
-    name: Publish GitHub release
-    needs: build-installer
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-
-    steps:
-      - name: Download installers
-        uses: actions/download-artifact@v8
-        with:
-          pattern: installer-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Validate release assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
-          if [[ ${#assets[@]} -ne 4 ]]; then
-            printf 'Expected 4 installer assets, found %s:\n' "${#assets[@]}" >&2
-            printf '  %s\n' "${assets[@]:-<none>}" >&2
-            exit 1
-          fi
-
-          expected=(
-            "JDownloader-Material-linux-x64.deb"
-            "JDownloader-Material-macos-arm64.dmg"
-            "JDownloader-Material-macos-x64.dmg"
-            "JDownloader-Material-windows-x64.exe"
-          )
-          for asset in "${expected[@]}"; do
-            test -s "release-assets/$asset" || {
-              echo "Missing or empty release asset: $asset" >&2
-              exit 1
-            }
-          done
-
-      - name: Create or update release
-        shell: bash
+      - name: Upload installer directly to the published release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $assets = @(Get-ChildItem -LiteralPath (Join-Path $PWD "target/release") -File)
+          if ($assets.Count -ne 1) {
+            throw "Expected exactly one installer to upload, found $($assets.Count)."
+          }
+          & gh release upload "v$env:APP_VERSION" $assets[0].FullName `
+            --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Direct release upload failed with exit code $LASTEXITCODE."
+          }
+
+  release:
+    name: Validate published release
+    if: always()
+    needs: [prepare-release, build-installer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate or remove the published release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARE_RESULT: ${{ needs.prepare-release.result }}
+          BUILD_RESULT: ${{ needs.build-installer.result }}
+        run: |
           set -euo pipefail
           tag="v${APP_VERSION}"
-          short_sha="${GITHUB_SHA::12}"
-          title="JDownloader Material ${APP_VERSION} (${short_sha})"
-          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
 
-          cat > release-notes.md <<EOF
-          Automated installer release for commit [\`${short_sha}\`](${commit_url}) on \`${REF_NAME}\`.
+          remove_incomplete_release() {
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+          }
 
-          The installers are self-contained and include the Java runtime. Windows and macOS
-          packages are currently unsigned, so the operating system may display a security warning.
-          EOF
+          if [[ "$PREPARE_RESULT" != "success" || "$BUILD_RESULT" != "success" ]]; then
+            remove_incomplete_release
+            echo "Installer build did not complete; removed the incomplete release." >&2
+            exit 1
+          fi
 
           expected=(
             "JDownloader-Material-linux-x64.deb"
@@ -222,42 +252,17 @@ jobs:
             "JDownloader-Material-macos-x64.dmg"
             "JDownloader-Material-windows-x64.exe"
           )
-
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # A rerun must not leave manually-added or stale assets attached to
-            # what is documented as an installer-only release.
-            while IFS= read -r asset; do
-              keep=false
-              for expected_asset in "${expected[@]}"; do
-                if [[ "$asset" == "$expected_asset" ]]; then keep=true; break; fi
-              done
-              if [[ "$keep" != true ]]; then
-                gh release delete-asset "$tag" "$asset" --repo "$GITHUB_REPOSITORY" --yes
-              fi
-            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-            gh release upload "$tag" release-assets/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
-            gh release edit "$tag" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$title" \
-              --notes-file release-notes.md
-          else
-            gh release create "$tag" release-assets/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$title" \
-              --notes-file release-notes.md
-          fi
-
-          mapfile -t published < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort)
+          mapfile -t published < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' | sort)
           if [[ ${#published[@]} -ne ${#expected[@]} ]]; then
+            remove_incomplete_release
             printf 'Release has unexpected asset count: %s\n' "${#published[@]}" >&2
             exit 1
           fi
-          for expected_asset in "${expected[@]}"; do
-            printf '%s\n' "${published[@]}" | grep -Fx -- "$expected_asset" >/dev/null || {
-              echo "Release is missing expected installer asset: $expected_asset" >&2
+          for asset in "${expected[@]}"; do
+            printf '%s\n' "${published[@]}" | grep -Fx -- "$asset" >/dev/null || {
+              remove_incomplete_release
+              echo "Release is missing expected installer asset: $asset" >&2
               exit 1
             }
           done

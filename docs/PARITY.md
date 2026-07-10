@@ -3,7 +3,7 @@
 Tracks the Material application against the upstream reference inventory in
 [FEATURE_SPEC.md](FEATURE_SPEC.md). It distinguishes the shipped direct HTTP(S) engine from a
 future JDownloader-core adapter: normal releases use DirectHttpEngine, while SimulatedEngine is
-only for deterministic screenshots and demos.
+only for deterministic screenshot capture.
 
 Legend: **Done**; **Partial**; **Not started**
 
@@ -11,9 +11,9 @@ Legend: **Done**; **Partial**; **Not started**
 
 - **Done** Main window: app bar, navigation rail, content, and status bar
 - **Done** Light/dark Material themes with runtime switch
-- **Done** App-bar controls: clipboard monitoring, automatic-reconnect setting, reconnect-now,
-  theme, and custom window controls
-- **Done** Status bar: global speed, running count, remaining bytes, reconnect indicator
+- **Done** App-bar controls: clipboard monitoring, automatic transient-failure retry, theme,
+  and custom window controls
+- **Done** Status bar: global speed, running count, remaining bytes, pending-retry indicator
 - **Done** Window-title speed setting
 - **Done** Inline Add Links workflow and compact nonblocking feedback for undo/navigation; no
   workflow-blocking action cards or floating form panels
@@ -30,7 +30,8 @@ Legend: **Done**; **Partial**; **Not started**
 - **Done** Material state-colored progress bars
 - **Done** Toolbar: Add Links, Start, Pause, Stop, move top/up/down/bottom, Remove
 - **Done** Live search filter
-- **Done** Right-click context menu: start/force/stop/expand/remove
+- **Done** Right-click context menu: start/force/stop, enable/disable, priority, open completed
+  file, show in folder, expand, and remove
 - **Done** DirectHttpEngine streams normal direct HTTP(S) files to disk and reports live
   progress, speed, pause state, errors, and completion in the same rows
 - **Done** Global simultaneous-download and per-host connection limits are enforced by the
@@ -39,22 +40,28 @@ Legend: **Done**; **Partial**; **Not started**
   where supported by the filesystem
 - **Done** File-exists policy is nonblocking: the default Ask policy auto-renames safely rather
   than showing a prompt
+- **Done** Completed links retain their resolved output path, including collision-safe renames
+- **Done** Bounded background retry of transient direct HTTP/network failures with an inline
+  countdown; permanent failures remain visible as Error rows
+- **Done** Per-link durable priority orders normal scheduler admission without overriding Force Start
+- **Done** Inline queued-item rename and destination editing below the table; a package is editable
+  only when every child is queued/error/disabled, while active and completed transfers stay read-only
+  so an existing stream or finalized file is never silently retargeted
 - **Partial** Aggregate package rows: size/loaded/speed/state roll-up is complete; ETA/priority
   columns are not
-- **Not started** Extra columns: connections, account, dates, comment, checksum, priority,
-  stop-sign
+- **Not started** Extra columns: connections, account, dates, comment, checksum, stop-sign
 - **Not started** Overview strip; drag/drop reorder of links; merge/split packages
-- **Not started** Inline rename, per-item priority, download-folder editing
 
 ## LinkGrabber view
 
 - **Done** Staging tree table: Name, Availability, Host, Size, URL
 - **Done** DirectHttpEngine probes staged HTTP(S) URLs asynchronously with HEAD and ranged-GET
   fallback, then exposes online/offline state, filename, and known size
-- **Done** Add Links, Paste, Confirm-to-Downloads, Add-all, Remove
+- **Done** Add Links, Paste, Add to Downloads, Add-all, Remove
 - **Done** Auto-confirm continues newly submitted or clipboard direct links after availability
   work; Auto-start begins those auto-confirmed results without a dialog
 - **Done** LinkGrabber packages and links are included in the local state journal
+- **Done** Background availability updates preserve existing table selection and package expansion
 - **Partial** Inline availability filter cycles **All links**, **Checking**, **Online**, and
   **Offline**; hoster/type quick-filter sidebars are not implemented
 - **Not started** Variant selector, inline editing, cleanup submenu
@@ -76,13 +83,14 @@ Legend: **Done**; **Partial**; **Not started**
 - **Done** Page rail with General, Connection, Reconnect, LinkGrabber, Appearance, Accounts,
   Backup, and About
 - **Partial** Live-bound controls: DirectHttpEngine applies the direct download folder,
-  simultaneous-download limit, per-host limit, speed limit, collision policy, and LinkGrabber
-  flow settings; not every JDownloader setting has a corresponding backend feature
+  simultaneous-download limit, per-host limit, speed limit, collision policy, transient-failure
+  retry, and LinkGrabber flow settings. Multi-connection segmentation is disabled because direct
+  mode currently uses one safe stream per file.
 - **Done** Full settings export/import including optional credentials, encrypted as AES-256-GCM
   .jdmbackup files; the page performs file work asynchronously
 - **Done** Non-secret settings, Download queue, and LinkGrabber staging state are journaled
   locally; running/paused links recover as queued after restart and can reuse .part files
-- **Partial** Optional My.JDownloader credentials can be entered and encrypted in backups, but
+- **Partial** Optional My.JDownloader values are retained only for encrypted backup compatibility;
   there is no remote-control service or real Account Manager
 - **Not started** Plugins, CAPTCHA, filters, Packagizer, advanced searchable settings
 - **Not started** Extension manager
@@ -101,10 +109,11 @@ Legend: **Done**; **Partial**; **Not started**
 - **Done** DownloadEngine interface: control, model, statistics, and settings
 - **Done** DirectHttpEngine: real direct HTTP(S) files, asynchronous probing, nonblocking
   auto-confirm/auto-start, queued scheduling, per-host/global limits, resumable .part files,
-  atomic completion, collision policies, and state persistence
-- **Done** SimulatedEngine: deterministic fake progress and demo rows for screenshot/demo work,
+  atomic completion, collision policies, bounded transient retry, resolved output paths, and state persistence
+- **Done** SimulatedEngine: deterministic fake progress and sample rows for screenshot capture,
   not the normal user downloader
-- **Partial** Reconnect control exposes UI state only; it is not a router or host reconnect
+- **Partial** Direct mode retries transient HTTP/network failures; it does not reconnect a router
+  or host connection
 - **Not started** Real JDownloader-core adapter; this repository does not contain JDownloader
   plugins, containers, accounts, CAPTCHA, or full upstream compatibility (see
   [ENGINE_API.md](ENGINE_API.md))

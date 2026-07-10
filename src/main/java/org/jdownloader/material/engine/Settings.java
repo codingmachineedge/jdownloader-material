@@ -45,7 +45,7 @@ public final class Settings {
     private final IntegerProperty speedLimitKbps = new SimpleIntegerProperty(this, "speedLimitKbps", 2000);
     private final IntegerProperty maxConnectionsPerHost = new SimpleIntegerProperty(this, "maxConnectionsPerHost", 8);
 
-    // Reconnect
+    // Network recovery (the historic property names remain backup-compatible).
     private final BooleanProperty autoReconnect = new SimpleBooleanProperty(this, "autoReconnect", false);
     private final StringProperty reconnectMethod = new SimpleStringProperty(this, "reconnectMethod", "External command");
 
