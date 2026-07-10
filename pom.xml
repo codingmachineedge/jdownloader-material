@@ -36,6 +36,13 @@
             <artifactId>materialfx</artifactId>
             <version>${materialfx.version}</version>
         </dependency>
+        <!-- Embedded, private Git history. This is bundled with the app so the
+             history manager never depends on a separately installed Git client. -->
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit</artifactId>
+            <version>7.7.0.202606012155-r</version>
+        </dependency>
     </dependencies>
 
     <build>

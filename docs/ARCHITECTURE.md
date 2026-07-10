@@ -15,14 +15,14 @@ ui                                           v
   MainWindow / I18n ---------------> DownloadEngine (interface)
     DownloadsView                      Settings / SettingsIO
     LinkGrabberView                          |
-    AddLinksView                             v
-    SettingsView                    AppStateStore (local journal)
-    StatusBar / NotificationCenter            |
-          |                                   v
-          +-------------------------------> model
-                                      DownloadItem -> DownloadPackage -> DownloadLink
-                                      CrawledPackage -> CrawledLink
-                                      DownloadState, LinkAvailability
+    HistoryView                              +---------------------> AppStateStore (local journal)
+    AddLinksView                             |                         GitHistoryService (embedded JGit)
+    SettingsView                             |                           settings / download-lists / manifest
+    StatusBar / NotificationCenter            v
+          |                               model
+          +---------------------------> DownloadItem -> DownloadPackage -> DownloadLink
+                                          CrawledPackage -> CrawledLink
+                                          DownloadState, LinkAvailability
 ~~~
 
 The UI consumes observable packages, link properties, settings, and global statistics through
@@ -70,6 +70,39 @@ their remaining .part file is available for the next direct transfer to resume. 
 credentials are deliberately omitted from this ordinary journal. The encrypted Backup page is
 the route for carrying those optional credentials between machines.
 
+## Local append-only history
+
+Alongside the recovery journal, DirectHttpEngine owns GitHistoryService. It uses bundled JGit,
+not a system Git executable, and creates three private repositories below
+`~/.jdownloader-material/history/`:
+
+- `settings` stores the canonical non-secret settings snapshot;
+- `download-lists` stores separate canonical Downloads and LinkGrabber snapshots; and
+- `manifest` stores immutable prepare and completion records that link each visible timeline entry
+  to the matching commits in the first two repositories.
+
+Every semantic history event snapshots all three state files, even though its scope identifies
+whether Settings, Downloads, LinkGrabber, or a combined list operation caused it. The manifest is
+the cross-repository timeline: it commits canonical snapshot copies in a durable prepare record,
+then records the event ID, worker-assigned sequence, timestamp, operation, summary, and both
+snapshot commit IDs as completion. Startup idempotently completes a prepared record after a crash
+between repositories. The service configures its repositories for append-only use and never
+invokes reset, rebase, remove, pruning, or garbage collection.
+
+Undo, redo, and restore load a selected immutable snapshot, apply it to the JavaFX model, and
+append a new history event. They never rewrite or delete the older event. A newer change after a
+restore therefore remains an alternate path in the timeline rather than erasing the restored one.
+Restoring stops active transfers and replaces only in-memory list/settings state; completed files
+and resumable `.part` data are not deleted or versioned.
+
+History snapshots remove My.JDownloader credentials before a Git object is created. Direct-link
+URLs remain intact so a restored list stays usable, so the local-only history directory must be
+treated as private device data. History snapshots omit active-transfer telemetry such as byte
+progress, speed, retry timing, and live details, while retaining final byte/path/outcome metadata
+for finished rows and final error details for error rows. The persisted queue intent, LinkGrabber
+content, and non-secret settings remain sufficient for reversible user-facing list/settings
+operations without recording a commit for every transfer tick.
+
 ## Nonblocking work and UI state
 
 The model uses JavaFX observable properties. Views bind table cells and labels directly, so
@@ -87,6 +120,11 @@ progress, speed, availability, and state changes do not need a manual refresh.
   A compact snackbar is reserved for a navigable or reversible UI result, not normal workflow.
 - Settings backup snapshots/applies JavaFX properties on the UI thread while encryption and disk
   work stay in a JavaFX Task.
+- History snapshots are captured and restored on the JavaFX Application Thread. JGit repository
+  loading, commit creation, storage measurement, and snapshot reads run through one dedicated
+  history worker; HistoryView observes its entries and asynchronous status without blocking input.
+  On normal close, a non-daemon flusher lets already accepted append-only writes finish without
+  keeping the JavaFX window open.
 
 ## SimulatedEngine and future JDownloader integration
 

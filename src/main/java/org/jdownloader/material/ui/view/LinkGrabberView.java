@@ -23,6 +23,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.engine.history.HistoryScope;
 import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
@@ -392,6 +393,7 @@ public final class LinkGrabberView extends BorderPane {
                     }
                 }
             }
+            engine.recordHistory(HistoryScope.LINKGRABBER, i18n.text("action.undo"));
         });
     }
 

@@ -4,6 +4,8 @@ import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyIntegerProperty;
 import javafx.beans.property.ReadOnlyLongProperty;
 import javafx.collections.ObservableList;
+import org.jdownloader.material.engine.history.HistoryScope;
+import org.jdownloader.material.engine.history.HistoryService;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.DownloadItem;
@@ -90,6 +92,13 @@ public interface DownloadEngine {
 
     /** Compatibility hook; direct HTTP mode cannot reconnect network equipment. */
     void reconnect();
+
+    // ---- Local append-only history ---------------------------------------
+    /** Local-only history for durable queue, LinkGrabber, and non-secret settings changes. */
+    HistoryService history();
+
+    /** Records one completed semantic change without blocking the JavaFX thread. */
+    void recordHistory(HistoryScope scope, String summary);
 
     // ---- Global observable state -----------------------------------------
     ReadOnlyBooleanProperty runningProperty();

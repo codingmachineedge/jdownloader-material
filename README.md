@@ -24,7 +24,8 @@ so a future core integration can be added without rewriting the views.
 ## Visual tour
 
 The gallery is captured from the running application. The [UI guide](docs/UI_GUIDE.md)
-explains the shell, views, nonblocking flows, and repeatable capture mode.
+explains the shell, views, nonblocking flows, and repeatable capture mode. The
+[History Manager guide](docs/HISTORY.md) explains the local, append-only timeline.
 
 | Downloads light | Downloads dark |
 | --- | --- |
@@ -49,6 +50,10 @@ explains the shell, views, nonblocking flows, and repeatable capture mode.
 | LinkGrabber light | LinkGrabber dark |
 | --- | --- |
 | ![LinkGrabber in the light theme](docs/screenshots/linkgrabber-light.png) | ![LinkGrabber in the dark theme](docs/screenshots/linkgrabber-dark.png) |
+
+| History light | History dark | Bilingual History |
+| --- | --- | --- |
+| ![History Manager in the light theme](docs/screenshots/history-light.png) | ![History Manager in the dark theme](docs/screenshots/history-dark.png) | ![History Manager in bilingual English and Hong Kong Cantonese](docs/screenshots/history-bilingual.png) |
 
 | Settings light | Settings dark |
 | --- | --- |
@@ -88,6 +93,11 @@ is the upstream reference inventory, not a claim of full core compatibility.
 - **Local state recovery** - settings (excluding remote-control credentials), the Downloads
   queue, and LinkGrabber staging data are journaled under `~/.jdownloader-material/`. In-progress
   transfers recover as queued on restart and reuse their `.part` file when started again.
+- **Local History Manager** - Downloads, LinkGrabber, and non-secret Settings changes are recorded
+  in separate local Git timelines, with a private manifest prepare/recovery protocol that
+  survives a crash between repositories. Undo, redo, and restore append a new record instead of
+  deleting an older one; history work runs off the UI thread. See [docs/HISTORY.md](docs/HISTORY.md) for
+  scope, storage, and recovery limits.
 - **Nonblocking feedback** - ordinary transfer actions expose their state in the view and status
   bar. A compact transient message is reserved for navigable or reversible results such as
   **View** and **Undo**; it never asks the user to dismiss a workflow-blocking prompt.

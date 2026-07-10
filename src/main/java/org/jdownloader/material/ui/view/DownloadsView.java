@@ -24,6 +24,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.DownloadEngine;
+import org.jdownloader.material.engine.history.HistoryScope;
 import org.jdownloader.material.model.DownloadItem;
 import org.jdownloader.material.model.DownloadLink;
 import org.jdownloader.material.model.DownloadPackage;
@@ -306,6 +307,7 @@ public final class DownloadsView extends BorderPane {
             pkg.destinationProperty().set(destination);
             pkg.links().forEach(link -> link.destinationProperty().set(destination));
         }
+        engine.recordHistory(HistoryScope.DOWNLOADS, i18n.text("properties.updated"));
         notifier.snack(i18n.text("properties.updated"));
         rebuild();
     }
@@ -496,6 +498,7 @@ public final class DownloadsView extends BorderPane {
                     }
                 }
             }
+            engine.recordHistory(HistoryScope.DOWNLOADS, i18n.text("action.undo"));
         });
     }
 
@@ -545,12 +548,25 @@ public final class DownloadsView extends BorderPane {
         if (sel == null) return;
         int i = packages.indexOf(sel);
         if (i < 0) return;
-        switch (dir) {
-            case TOP -> { if (i > 0) { packages.remove(i); packages.add(0, sel); } }
-            case UP -> { if (i > 0) { packages.remove(i); packages.add(i - 1, sel); } }
-            case DOWN -> { if (i < packages.size() - 1) { packages.remove(i); packages.add(i + 1, sel); } }
-            case BOTTOM -> { if (i < packages.size() - 1) { packages.remove(i); packages.add(sel); } }
-        }
+        boolean moved = switch (dir) {
+            case TOP -> {
+                if (i > 0) { packages.remove(i); packages.add(0, sel); yield true; }
+                yield false;
+            }
+            case UP -> {
+                if (i > 0) { packages.remove(i); packages.add(i - 1, sel); yield true; }
+                yield false;
+            }
+            case DOWN -> {
+                if (i < packages.size() - 1) { packages.remove(i); packages.add(i + 1, sel); yield true; }
+                yield false;
+            }
+            case BOTTOM -> {
+                if (i < packages.size() - 1) { packages.remove(i); packages.add(sel); yield true; }
+                yield false;
+            }
+        };
+        if (moved) engine.recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.reordered_downloads"));
     }
 
     private DownloadPackage parentOf(DownloadItem link) {

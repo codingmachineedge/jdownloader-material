@@ -27,6 +27,7 @@ import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.ui.component.StatusBar;
 import org.jdownloader.material.ui.view.AddLinksView;
 import org.jdownloader.material.ui.view.DownloadsView;
+import org.jdownloader.material.ui.view.HistoryView;
 import org.jdownloader.material.ui.view.LinkGrabberView;
 import org.jdownloader.material.ui.view.SettingsView;
 import org.jdownloader.material.util.Formats;
@@ -41,7 +42,7 @@ import java.util.List;
  */
 public final class MainWindow extends StackPane {
 
-    private enum Page { DOWNLOADS, LINKGRABBER, SETTINGS, ADD_LINKS }
+    private enum Page { DOWNLOADS, LINKGRABBER, HISTORY, SETTINGS, ADD_LINKS }
 
     private final DownloadEngine engine;
     private final ThemeManager theme;
@@ -56,10 +57,12 @@ public final class MainWindow extends StackPane {
     private ToggleGroup navGroup;
     private DownloadsView downloadsView;
     private LinkGrabberView linkgrabberView;
+    private HistoryView historyView;
     private SettingsView settingsView;
     private AddLinksView addLinksView;
     private ToggleButton downloadsTab;
     private ToggleButton linkgrabberTab;
+    private ToggleButton historyTab;
     private ToggleButton settingsTab;
     private Page currentPage = Page.DOWNLOADS;
     private double dragOffsetX;
@@ -89,17 +92,19 @@ public final class MainWindow extends StackPane {
 
         downloadsView = new DownloadsView(engine, notifier, this::openAddLinks, i18n);
         linkgrabberView = new LinkGrabberView(engine, notifier, this::openAddLinks, i18n);
+        historyView = new HistoryView(engine.history(), i18n);
         settingsView = new SettingsView(engine.settings(), i18n, selectedSettingsTab);
         addLinksView = new AddLinksView(engine, this::showDownloads, this::showLinkGrabber, i18n);
         addLinksView.restoreDraft(addLinksDraft);
 
-        downloadsTab = navItem("download", "nav.downloads", downloadsView);
-        linkgrabberTab = navItem("link", "nav.linkgrabber", linkgrabberView);
-        settingsTab = navItem("settings", "nav.settings", settingsView);
+        downloadsTab = navItem("download", "nav.downloads", Page.DOWNLOADS);
+        linkgrabberTab = navItem("link", "nav.linkgrabber", Page.LINKGRABBER);
+        historyTab = navItem("history", "nav.history", Page.HISTORY);
+        settingsTab = navItem("settings", "nav.settings", Page.SETTINGS);
 
-        VBox rail = new VBox(6, downloadsTab, linkgrabberTab, Mat.hSpacer(), settingsTab);
+        VBox rail = new VBox(6, downloadsTab, linkgrabberTab, historyTab, Mat.hSpacer(), settingsTab);
         rail.getStyleClass().add("nav-rail");
-        VBox.setVgrow(rail.getChildren().get(2), Priority.ALWAYS);
+        VBox.setVgrow(rail.getChildren().get(3), Priority.ALWAYS);
 
         BorderPane shell = new BorderPane();
         shell.getStyleClass().add("app-shell");
@@ -123,9 +128,11 @@ public final class MainWindow extends StackPane {
     private void disposeShell() {
         if (downloadsView != null) downloadsView.dispose();
         if (linkgrabberView != null) linkgrabberView.dispose();
+        if (historyView != null) historyView.dispose();
         if (addLinksView != null) addLinksView.dispose();
         downloadsView = null;
         linkgrabberView = null;
+        historyView = null;
         settingsView = null;
         addLinksView = null;
         shellDisposers.forEach(Runnable::run);
@@ -150,6 +157,11 @@ public final class MainWindow extends StackPane {
     /** Switches to Downloads programmatically (also used for demos/tests). */
     public void showDownloads() {
         show(Page.DOWNLOADS);
+    }
+
+    /** Switches to the local, append-only History manager. */
+    public void showHistory() {
+        show(Page.HISTORY);
     }
 
     /** Shows the standard unselected Downloads view for documentation capture. */
@@ -195,6 +207,10 @@ public final class MainWindow extends StackPane {
             case LINKGRABBER -> {
                 linkgrabberTab.setSelected(true);
                 content.getChildren().setAll(linkgrabberView);
+            }
+            case HISTORY -> {
+                historyTab.setSelected(true);
+                content.getChildren().setAll(historyView);
             }
             case SETTINGS -> {
                 settingsTab.setSelected(true);
@@ -318,7 +334,7 @@ public final class MainWindow extends StackPane {
     }
 
     // -------------------------------------------------------------- Nav rail
-    private ToggleButton navItem(String icon, String textKey, Node page) {
+    private ToggleButton navItem(String icon, String textKey, Page page) {
         StackPane glyph = new StackPane(Icons.of(icon, 22));
         glyph.getStyleClass().add("nav-glyph");
         Label label = new Label(i18n.text(textKey));
@@ -338,9 +354,7 @@ public final class MainWindow extends StackPane {
         tab.setUserData(page);
         tab.setOnAction(e -> {
             tab.setSelected(true); // never allow deselect-to-empty
-            if (page == downloadsView) show(Page.DOWNLOADS);
-            else if (page == linkgrabberView) show(Page.LINKGRABBER);
-            else show(Page.SETTINGS);
+            show(page);
         });
         return tab;
     }

@@ -15,8 +15,9 @@ containers, accounts, CAPTCHA handling, or full crawler.
   controls. The app actions pair icons with text labels; only the familiar native-style window
   controls remain compact icons. Drag an unused portion of the bar to move the window;
   double-click it to maximize or restore it.
-- **Navigation rail** - switches between Downloads, LinkGrabber, and Settings while preserving
-  the shell and status bar. Add Links opens as its own inline view from the transfer screens.
+- **Navigation rail** - switches between Downloads, LinkGrabber, History, and Settings while
+  preserving the shell and status bar. Add Links opens as its own inline view from the transfer
+  screens.
 - **Status bar** - reports global transfer speed, active download count, remaining bytes, and
   a pending automatic-retry indicator.
 - **Light and dark themes** - switch from the app bar. Every surface, table, chip, and inline
@@ -43,6 +44,31 @@ blocking prompt while the language is changed.
 | English language setting | Bilingual language setting |
 | --- | --- |
 | ![Appearance settings showing the English selector](screenshots/settings-appearance-light.png) | ![Appearance settings showing the bilingual selector](screenshots/settings-appearance-bilingual.png) |
+
+## History
+
+**History** is a local, nonblocking browser for the append-only Downloads/LinkGrabber and
+non-secret Settings timeline. Search and the scope selector narrow entries by Downloads,
+LinkGrabber, Settings, or all activity. Selecting an entry reveals its operation, scope, time,
+status, related revision, and any storage error; the header shows the local history size.
+
+**Undo**, **Redo**, and **Restore** run asynchronously and add a new timeline entry instead of
+deleting or rewriting a prior one. That lets an undo be undone and keeps a newer path after a
+restore visible as an alternate timeline path. The controls are unavailable only while the selected
+action is unavailable or a history task is working; they do not open a confirmation dialog.
+
+History stores list/settings snapshots only. It excludes My.JDownloader credentials, completed
+files, `.part` files, active byte-progress/speed telemetry, retry timing, and live transfer
+details. A finished row retains its final byte count, output path, and outcome detail; a final
+error retains its reason. Direct-link URLs remain intact for a faithful restore, including signed parameters,
+so the local-only history folder must be treated as private device data. Restoring safely stops
+active transfers and changes only the application model; it does not delete, overwrite, or roll
+back a file on disk. See [History Manager](HISTORY.md) for
+storage and archive caveats.
+
+| History light | History dark | Bilingual History |
+| --- | --- | --- |
+| ![History Manager light](screenshots/history-light.png) | ![History Manager dark](screenshots/history-dark.png) | ![History Manager bilingual](screenshots/history-bilingual.png) |
 
 ## Downloads
 
@@ -139,6 +165,11 @@ Starting it again can reuse its .part file. Optional My.JDownloader credentials 
 from this normal local journal; use the encrypted Backup page to move those credentials between
 machines.
 
+The separate History Manager keeps append-only, local JGit repositories for reversible model
+changes. It complements the restart journal rather than replacing it: the journal restores the
+most recent normal-run state, while History lets the user browse and restore older list/settings
+points without versioning downloaded files.
+
 ## Feedback and settings work
 
 Normal actions do not open workflow-blocking overlays or acknowledgement dialogs. Visible state in
@@ -148,6 +179,10 @@ may appear for a reversible or navigable result such as **Undo** or **View**; it
 The Backup page keeps export/import inputs inline. Encryption and disk work run asynchronously,
 and completion or failure is shown in the page, so backup activity does not interrupt the
 download workflow.
+
+History capture, Git storage, and history restore status use the same nonblocking pattern. The
+timeline remains interactive while ordinary transfers and navigation continue; a restore waits
+only for its own local history task and updates the model on the UI thread.
 
 The recovery setting retries transient direct HTTP/network failures only. It does not attempt a
 router, modem, or IP reconnect.
@@ -167,7 +202,7 @@ segmentation are labelled unavailable rather than silently pretending to run.
 ## Regenerating the gallery
 
 The application has an opt-in documentation capture mode. It selects SimulatedEngine, seeds
-deterministic sample rows, renders sixteen scene snapshots, and exits when they are written.
+deterministic sample rows, renders nineteen scene snapshots, and exits when they are written.
 Ordinary launches are unaffected and continue to select DirectHttpEngine.
 
 From PowerShell with JDK 25 available:
@@ -177,5 +212,5 @@ $env:JD_SCREENSHOT_DIR = (Resolve-Path "docs/screenshots").Path
 .\mvnw.cmd javafx:run
 ~~~
 
-This refreshes Downloads, LinkGrabber, Settings, and Add Links in both light and dark themes,
-plus Cantonese and bilingual captures across the main transfer flows.
+This refreshes Downloads, LinkGrabber, History, Settings, and Add Links in both light and dark
+themes, plus Cantonese and bilingual captures across the main transfer flows.

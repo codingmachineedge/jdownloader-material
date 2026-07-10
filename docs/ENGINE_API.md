@@ -8,8 +8,8 @@ JDownloader-core adapter could be added without making views depend on JDownload
 
 | Implementation | Used by | Scope |
 |---|---|---|
-| DirectHttpEngine | Normal application launch | Real direct HTTP(S) probing, queueing, streaming, resume, bounded transient retry, and local state recovery. |
-| SimulatedEngine | Deterministic documentation screenshot capture | In-memory sample data and fake progress; it never performs normal-user downloads. |
+| DirectHttpEngine | Normal application launch | Real direct HTTP(S) probing, queueing, streaming, resume, bounded transient retry, local state recovery, and local embedded-JGit history. |
+| SimulatedEngine | Deterministic documentation screenshot capture | In-memory sample data, fake progress, and an in-memory HistoryService; it never performs normal-user downloads. |
 
 DirectHttpEngine is deliberately not a JDownloader-core adapter. It has no hoster plugins,
 container crawler, Account Manager, CAPTCHA solver, My.JDownloader backend, or full upstream
@@ -103,6 +103,41 @@ The ordinary local journal deliberately excludes My.JDownloader email and passwo
 optional credentials are preserved only through the separately encrypted .jdmbackup
 export/import flow.
 
+## Local append-only History API
+
+History is exposed by DownloadEngine so the shell and future adapters do not need to depend on
+DirectHttpEngine or JGit directly.
+
+| DownloadEngine API | Current behavior | Adapter requirement |
+|---|---|---|
+| `history()` | Returns a local HistoryService with observable entries, busy/status, undo/redo availability, and measured storage bytes. | Supply an append-only, local HistoryService or an equivalent implementation. |
+| `recordHistory(HistoryScope, summary)` | Captures one completed semantic model change on the JavaFX thread, then commits it asynchronously. | Call after a completed user-meaningful mutation; do not call for every transfer telemetry tick. |
+
+HistoryService exposes `CompletableFuture`-returning `undo()`, `redo()`, and `restore(entryId)`
+operations. Each applies a full model snapshot on the JavaFX Application Thread and appends a
+new `UNDO`, `REDO`, or `RESTORE` event. It never resets a branch, overwrites an old event, or
+deletes a revision. HistoryScope labels an event as `SETTINGS`, `DOWNLOADS`, `LINKGRABBER`, or
+`DOWNLOAD_LISTS`; the snapshot itself still contains all durable list/settings state so one
+operation can be restored coherently.
+
+DirectHttpEngine uses bundled JGit to maintain these private repositories under
+`~/.jdownloader-material/history/` (or under the supplied portable/test state directory):
+
+- `settings` contains canonical non-secret `settings.properties` snapshots;
+- `download-lists` contains canonical `downloads.properties` and `linkgrabber.properties` snapshots;
+- `manifest` contains immutable prepare records with canonical snapshot copies, followed by
+  completion metadata that points to the exact commits in the first two repositories.
+
+JGit runs with append-only retention settings: the service does not use reset, rebase, deletion,
+pruning, or garbage collection. My.JDownloader fields are removed before a history snapshot enters
+Git. Direct-link URLs are retained exactly for a faithful restore, so the local-only history
+directory is private device data and has no configured remote. Completed files and `.part` files
+never enter HistoryService. Volatile active-transfer data—loaded bytes, speed, retry timing, and
+live details—is omitted, while a finished row retains its final byte count/path/outcome detail
+and an error row retains its final reason. The manifest assigns a monotonic worker sequence and
+can finish a durable prepare after a crash between its three local repositories. History records
+durable intent, not a filesystem backup or a high-frequency transfer log.
+
 ## Global state (observable)
 
 | Interface | Shipped direct-engine behavior | Future JDownloader-core concept |
@@ -125,10 +160,13 @@ exists. Router reconnect and My.JDownloader remote control do not run in this re
 
 ## Threading contract
 
-Network probing, HTTP streaming, state-file writing, backup encryption, and disk I/O run outside
-the JavaFX Application Thread. JavaFX observable-model updates are marshalled back to that thread
-with Platform.runLater; views bind directly to those properties. This keeps URL submission,
-queue controls, backup fields, and collision handling responsive without a blocking dialog.
+Network probing, HTTP streaming, state-file writing, backup encryption, JGit history storage, and
+disk I/O run outside the JavaFX Application Thread. JavaFX observable-model updates, history
+snapshot capture, and history snapshot restoration are marshalled back to that thread with
+Platform.runLater; views bind directly to those properties. HistoryService serializes JGit work
+on its own worker and completes its undo/redo/restore futures only after the matching FX apply
+has run. This keeps URL submission, queue controls, history controls, backup fields, and collision
+handling responsive without a blocking dialog.
 
 A future JDownloader adapter must preserve the same boundary: backend callbacks may arrive on
 background threads, but every mutation observed by the JavaFX UI must arrive on the JavaFX

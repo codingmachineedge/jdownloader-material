@@ -13,6 +13,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.util.Duration;
 import org.jdownloader.material.i18n.I18n;
+import org.jdownloader.material.engine.history.HistoryScope;
+import org.jdownloader.material.engine.history.HistoryService;
+import org.jdownloader.material.engine.history.HistorySnapshot;
+import org.jdownloader.material.engine.history.MemoryHistoryService;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.DownloadItem;
@@ -27,12 +31,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A self-contained, in-memory engine that makes the GUI fully interactive
@@ -48,11 +54,15 @@ public final class SimulatedEngine implements DownloadEngine {
     private static final long TICK_MS = 150;
     private static final long KIB = 1024;
     private static final int CRAWL_BATCH_SIZE = 128;
+    private static final String HISTORY_QUEUE_RUNNING = "history.queue.running";
+    private static final String HISTORY_QUEUE_PAUSED = "history.queue.paused";
+    private static final String HISTORY_QUEUE_MANUALLY_STOPPED = "history.queue.manuallyStopped";
 
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
     private final Settings settings = new Settings();
     private final I18n i18n = new I18n(settings.languageProperty());
+    private final HistoryService history;
 
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
     private final ReadOnlyBooleanWrapper paused = new ReadOnlyBooleanWrapper(false);
@@ -64,8 +74,12 @@ public final class SimulatedEngine implements DownloadEngine {
     /** Per-link target throughput assigned on promotion to RUNNING. */
     private final Map<String, Long> targetSpeed = new HashMap<>();
     private final Set<String> manuallyStopped = new java.util.HashSet<>();
+    /** Invalidates deferred crawler callbacks when an in-memory history restore wins. */
+    private final AtomicLong modelEpoch = new AtomicLong();
     private long lastTick = 0;
     private DownloadLink demoRetryLink;
+    private boolean restoringHistory;
+    private boolean shutdown;
     private final AnimationTimer timer;
     private final ExecutorService crawlParser = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "link-crawl-parser");
@@ -74,6 +88,7 @@ public final class SimulatedEngine implements DownloadEngine {
     });
 
     public SimulatedEngine() {
+        history = new MemoryHistoryService(this::captureHistorySnapshot, this::applyHistorySnapshot);
         settings.languageProperty().addListener((observable, previous, current) -> refreshDemoLocalizedCopy());
         timer = new AnimationTimer() {
             @Override public void handle(long now) {
@@ -202,6 +217,7 @@ public final class SimulatedEngine implements DownloadEngine {
         String requestedDestination = destination == null ? "" : destination.trim();
         boolean confirmWhenChecked = autoConfirm || settings.autoConfirmProperty().get();
         boolean startWhenConfirmed = autoStart || settings.autoStartProperty().get();
+        long requestEpoch = modelEpoch.get();
         CompletableFuture<AddLinksResult> result = new CompletableFuture<>();
 
         // Parsing can be expensive for a large paste. Do it off the FX thread,
@@ -215,8 +231,13 @@ public final class SimulatedEngine implements DownloadEngine {
                     return;
                 }
                 Platform.runLater(() -> {
-                    beginCrawl(urls, requestedName, requestedDestination, confirmWhenChecked, startWhenConfirmed);
-                    result.complete(summary);
+                    if (isCurrentModelEpoch(requestEpoch)) {
+                        beginCrawl(urls, requestedName, requestedDestination, confirmWhenChecked, startWhenConfirmed,
+                                requestEpoch);
+                        result.complete(summary);
+                    } else {
+                        result.complete(new AddLinksResult(urls.size(), 0));
+                    }
                 });
             });
         } catch (RejectedExecutionException error) {
@@ -226,39 +247,49 @@ public final class SimulatedEngine implements DownloadEngine {
     }
 
     private void beginCrawl(List<String> urls, String requestedName, String destination,
-                            boolean autoConfirm, boolean autoStart) {
+                            boolean autoConfirm, boolean autoStart, long epoch) {
+        if (!isCurrentModelEpoch(epoch)) return;
         String name = requestedName.isBlank()
                 ? i18n.text("engine.new_package", crawled.size() + 1) : requestedName;
         CrawledPackage pkg = new CrawledPackage(name, destination);
         crawled.add(pkg);
-        appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart);
+        appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart, epoch);
     }
 
     private void appendCrawledLinks(CrawledPackage pkg, List<String> urls, int offset,
-                                    boolean autoConfirm, boolean autoStart) {
+                                    boolean autoConfirm, boolean autoStart, long epoch) {
         // A user may remove or manually confirm this package while background work is pending.
-        if (!crawled.contains(pkg)) return;
+        if (!isCurrentModelEpoch(epoch) || !crawled.contains(pkg)) return;
         int end = Math.min(offset + CRAWL_BATCH_SIZE, urls.size());
         for (int i = offset; i < end; i++) {
             String url = urls.get(i);
             pkg.links().add(new CrawledLink(fileNameOf(url), hostOf(url), url, 0));
         }
         if (end < urls.size()) {
-            Platform.runLater(() -> appendCrawledLinks(pkg, urls, end, autoConfirm, autoStart));
+            Platform.runLater(() -> appendCrawledLinks(pkg, urls, end, autoConfirm, autoStart, epoch));
         } else {
-            simulateAvailabilityCheck(pkg, autoConfirm, autoStart);
+            recordHistory(HistoryScope.LINKGRABBER,
+                    i18n.text("history.summary.added_links", urls.size()));
+            simulateAvailabilityCheck(pkg, autoConfirm, autoStart, epoch, true);
         }
     }
 
     private void simulateAvailabilityCheck(CrawledPackage pkg, boolean autoConfirm, boolean autoStart) {
+        simulateAvailabilityCheck(pkg, autoConfirm, autoStart, modelEpoch.get(), false);
+    }
+
+    private void simulateAvailabilityCheck(CrawledPackage pkg, boolean autoConfirm, boolean autoStart, long epoch,
+                                           boolean recordProbeResult) {
+        if (!isCurrentModelEpoch(epoch)) return;
         PauseTransition delay = new PauseTransition(Duration.millis(900));
-        delay.setOnFinished(e -> updateAvailability(pkg, autoConfirm, autoStart, 0));
+        delay.setOnFinished(e -> updateAvailability(pkg, autoConfirm, autoStart, 0, epoch, recordProbeResult));
         delay.play();
     }
 
-    private void updateAvailability(CrawledPackage pkg, boolean autoConfirm, boolean autoStart, int offset) {
+    private void updateAvailability(CrawledPackage pkg, boolean autoConfirm, boolean autoStart, int offset,
+                                    long epoch, boolean recordProbeResult) {
         // Make the deferred result idempotent: it must never resurrect a removed package.
-        if (!crawled.contains(pkg)) return;
+        if (!isCurrentModelEpoch(epoch) || !crawled.contains(pkg)) return;
         int end = Math.min(offset + CRAWL_BATCH_SIZE, pkg.links().size());
         for (int i = offset; i < end; i++) {
             CrawledLink link = pkg.links().get(i);
@@ -269,9 +300,14 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         if (end < pkg.links().size()) {
-            Platform.runLater(() -> updateAvailability(pkg, autoConfirm, autoStart, end));
-        } else if (autoConfirm && crawled.contains(pkg)) {
+            Platform.runLater(() -> updateAvailability(pkg, autoConfirm, autoStart, end, epoch, recordProbeResult));
+        } else if (autoConfirm && isCurrentModelEpoch(epoch) && crawled.contains(pkg)) {
+            if (recordProbeResult) {
+                recordHistory(HistoryScope.LINKGRABBER, i18n.text("history.summary.probed_links"));
+            }
             confirmToDownloads(List.of(pkg), autoStart);
+        } else if (recordProbeResult && isCurrentModelEpoch(epoch) && crawled.contains(pkg)) {
+            recordHistory(HistoryScope.LINKGRABBER, i18n.text("history.summary.probed_links"));
         }
     }
 
@@ -309,7 +345,10 @@ public final class SimulatedEngine implements DownloadEngine {
             if (cp.links().isEmpty()) crawled.remove(cp);
             moved = true;
         }
-        if (moved && autoStart) start();
+        if (moved) {
+            recordHistory(HistoryScope.DOWNLOAD_LISTS, i18n.text("history.summary.confirmed"));
+            if (autoStart) start();
+        }
     }
 
     @Override
@@ -319,27 +358,40 @@ public final class SimulatedEngine implements DownloadEngine {
 
     @Override
     public void removeCrawled(Collection<CrawledPackage> packages) {
-        crawled.removeAll(packages);
+        if (packages == null || packages.isEmpty()) return;
+        if (crawled.removeAll(packages)) {
+            recordHistory(HistoryScope.LINKGRABBER, i18n.text("history.summary.removed_linkgrabber_items"));
+        }
     }
 
     @Override
     public void removeCrawledLinks(Collection<CrawledLink> links) {
+        if (links == null || links.isEmpty()) return;
+        boolean removed = false;
         for (CrawledLink link : new ArrayList<>(links)) {
             for (CrawledPackage pkg : new ArrayList<>(crawled)) {
-                if (pkg.links().remove(link) && pkg.links().isEmpty()) {
-                    crawled.remove(pkg);
+                if (pkg.links().remove(link)) {
+                    removed = true;
+                    if (pkg.links().isEmpty()) crawled.remove(pkg);
                     break;
                 }
             }
         }
+        if (removed) recordHistory(HistoryScope.LINKGRABBER, i18n.text("history.summary.removed_linkgrabber_links"));
     }
 
     // --------------------------------------------------------- Download control
-    @Override public void start() { manuallyStopped.clear(); paused.set(false); running.set(true); }
+    @Override
+    public void start() {
+        manuallyStopped.clear();
+        paused.set(false);
+        running.set(true);
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.started_queue"));
+    }
 
     @Override
     public void startLinks(Collection<DownloadLink> links) {
-        if (links.isEmpty()) return;
+        if (links == null || links.isEmpty()) return;
         paused.set(false);
         for (DownloadLink link : links) {
             if (link.state() == DownloadState.FINISHED || !link.enabled().get()) continue;
@@ -349,12 +401,15 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         running.set(true);
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.started_selected"));
     }
 
     @Override
     public void pause(boolean p) {
         paused.set(p);
         if (p) running.set(true);
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text(p
+                ? "history.summary.paused_queue" : "history.summary.resumed_queue"));
     }
 
     @Override
@@ -368,10 +423,12 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         recomputeGlobals(allLinks());
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.stopped_queue"));
     }
 
     @Override
     public void stopLinks(Collection<DownloadLink> links) {
+        if (links == null || links.isEmpty()) return;
         for (DownloadLink link : links) {
             if (link.state() == DownloadState.FINISHED) continue;
             manuallyStopped.add(link.id());
@@ -381,10 +438,12 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         recomputeGlobals(allLinks());
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.stopped_selected"));
     }
 
     @Override
     public void setEnabled(Collection<DownloadLink> links, boolean enabled) {
+        if (links == null || links.isEmpty()) return;
         for (DownloadLink link : links) {
             link.enabled().set(enabled);
             manuallyStopped.remove(link.id());
@@ -397,16 +456,21 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         recomputeGlobals(allLinks());
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text(enabled
+                ? "history.summary.enabled_downloads" : "history.summary.disabled_downloads"));
     }
 
     @Override
     public void setPriority(Collection<DownloadLink> links, DownloadPriority priority) {
+        if (links == null || links.isEmpty()) return;
         DownloadPriority next = priority == null ? DownloadPriority.NORMAL : priority;
         for (DownloadLink link : links) link.priorityProperty().set(next);
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.changed_priority"));
     }
 
     @Override
     public void forceStart(Collection<DownloadLink> links) {
+        if (links == null || links.isEmpty()) return;
         paused.set(false);
         for (DownloadLink l : links) {
             if (l.state() != DownloadState.FINISHED && l.enabled().get()) {
@@ -416,23 +480,30 @@ public final class SimulatedEngine implements DownloadEngine {
             }
         }
         running.set(true);
+        recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.force_started"));
     }
 
     @Override
     public void removeDownloads(Collection<DownloadItem> items) {
+        if (items == null || items.isEmpty()) return;
+        boolean changed = false;
         for (DownloadItem it : new ArrayList<>(items)) {
             if (it instanceof DownloadPackage p) {
                 p.links().forEach(link -> manuallyStopped.remove(link.id()));
-                downloads.remove(p);
+                changed |= downloads.remove(p);
             } else if (it instanceof DownloadLink l) {
                 manuallyStopped.remove(l.id());
                 for (DownloadPackage p : downloads) {
-                    if (p.links().remove(l)) break;
+                    if (p.links().remove(l)) {
+                        changed = true;
+                        break;
+                    }
                 }
             }
         }
-        downloads.removeIf(p -> p.links().isEmpty());
+        changed |= downloads.removeIf(p -> p.links().isEmpty());
         recomputeGlobals(allLinks());
+        if (changed) recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.removed_downloads"));
     }
 
     @Override
@@ -454,11 +525,69 @@ public final class SimulatedEngine implements DownloadEngine {
     @Override public ReadOnlyLongProperty totalRemainingProperty() { return totalRemaining.getReadOnlyProperty(); }
     @Override public ReadOnlyBooleanProperty reconnectingProperty() { return reconnecting.getReadOnlyProperty(); }
     @Override public Settings settings() { return settings; }
+    @Override public HistoryService history() { return history; }
+
+    @Override
+    public void recordHistory(HistoryScope scope, String summary) {
+        if (shutdown || restoringHistory) return;
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> recordHistory(scope, summary));
+            return;
+        }
+        HistoryScope safeScope = scope == null ? HistoryScope.DOWNLOAD_LISTS : scope;
+        String safeSummary = summary == null || summary.isBlank() ? "Changed " + safeScope.storageKey() : summary;
+        history.record(safeScope, safeSummary, captureHistorySnapshot());
+    }
+
+    private HistorySnapshot captureHistorySnapshot() {
+        Properties state = AppStateStore.snapshot(settings, new ArrayList<>(downloads), new ArrayList<>(crawled));
+        state.setProperty(HISTORY_QUEUE_RUNNING, Boolean.toString(running.get()));
+        state.setProperty(HISTORY_QUEUE_PAUSED, Boolean.toString(paused.get()));
+        state.setProperty(HISTORY_QUEUE_MANUALLY_STOPPED, linkPositions(manuallyStopped));
+        return HistorySnapshot.fromState(state);
+    }
+
+    private void applyHistorySnapshot(HistorySnapshot snapshot) {
+        if (shutdown) throw new IllegalStateException("History restore cancelled while the engine is closing");
+        modelEpoch.incrementAndGet();
+        restoringHistory = true;
+        timer.stop();
+        try {
+            Properties state = new Properties();
+            state.putAll(snapshot.settingsProperties());
+            state.putAll(snapshot.downloadsProperties());
+            state.putAll(snapshot.linkGrabberProperties());
+            boolean restoreRunning = Boolean.parseBoolean(state.getProperty(HISTORY_QUEUE_RUNNING));
+            boolean restorePaused = Boolean.parseBoolean(state.getProperty(HISTORY_QUEUE_PAUSED));
+            String manuallyStoppedPositions = state.getProperty(HISTORY_QUEUE_MANUALLY_STOPPED, "");
+            downloads.clear();
+            crawled.clear();
+            targetSpeed.clear();
+            manuallyStopped.clear();
+            AppStateStore.restore(state, settings, downloads, crawled);
+            for (CrawledPackage pkg : new ArrayList<>(crawled)) {
+                if (pkg.links().stream().anyMatch(link -> link.availability() == LinkAvailability.UNKNOWN)) {
+                    simulateAvailabilityCheck(pkg, false, false);
+                }
+            }
+            demoRetryLink = null;
+            restoreLinkPositions(manuallyStoppedPositions, manuallyStopped);
+            running.set(restoreRunning);
+            paused.set(restorePaused);
+            recomputeGlobals(allLinks());
+        } finally {
+            restoringHistory = false;
+            if (!shutdown) timer.start();
+        }
+    }
 
     @Override
     public void shutdown() {
+        shutdown = true;
+        modelEpoch.incrementAndGet();
         timer.stop();
         crawlParser.shutdownNow();
+        history.shutdown();
     }
 
     // ------------------------------------------------------------- Demo data
@@ -501,6 +630,10 @@ public final class SimulatedEngine implements DownloadEngine {
         crawled.add(staged);
 
         Platform.runLater(() -> downloads.forEach(DownloadPackage::recompute));
+        HistorySnapshot snapshot = captureHistorySnapshot();
+        history.seedIfEmpty(i18n.text("history.summary.demo_initial"), snapshot);
+        history.record(HistoryScope.DOWNLOADS, i18n.text("history.summary.demo_downloads"), snapshot);
+        history.record(HistoryScope.LINKGRABBER, i18n.text("history.summary.demo_linkgrabber"), snapshot);
     }
 
     private void refreshDemoLocalizedCopy() {
@@ -515,6 +648,40 @@ public final class SimulatedEngine implements DownloadEngine {
             return h == null ? "unknown" : h.replaceFirst("^www\\.", "");
         } catch (Exception e) {
             return "unknown";
+        }
+    }
+
+    private boolean isCurrentModelEpoch(long epoch) {
+        return modelEpoch.get() == epoch;
+    }
+
+    private String linkPositions(Set<String> ids) {
+        if (ids.isEmpty()) return "";
+        List<String> positions = new ArrayList<>();
+        for (int packageIndex = 0; packageIndex < downloads.size(); packageIndex++) {
+            List<DownloadLink> links = downloads.get(packageIndex).links();
+            for (int linkIndex = 0; linkIndex < links.size(); linkIndex++) {
+                if (ids.contains(links.get(linkIndex).id())) positions.add(packageIndex + ":" + linkIndex);
+            }
+        }
+        return String.join(",", positions);
+    }
+
+    private void restoreLinkPositions(String encoded, Set<String> target) {
+        if (encoded == null || encoded.isBlank()) return;
+        for (String position : encoded.split(",")) {
+            String[] parts = position.split(":", 2);
+            if (parts.length != 2) continue;
+            try {
+                int packageIndex = Integer.parseInt(parts[0]);
+                int linkIndex = Integer.parseInt(parts[1]);
+                if (packageIndex >= 0 && packageIndex < downloads.size()) {
+                    List<DownloadLink> links = downloads.get(packageIndex).links();
+                    if (linkIndex >= 0 && linkIndex < links.size()) target.add(links.get(linkIndex).id());
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore a malformed private-history token and restore the remaining model.
+            }
         }
     }
 

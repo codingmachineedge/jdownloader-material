@@ -121,6 +121,7 @@ public class JDMaterialApp extends Application {
                 }),
                 new ScreenshotStep("downloads-properties-light.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
+                new ScreenshotStep("history-light.png", window::showHistory),
                 new ScreenshotStep("settings-light.png", window::showSettings),
                 new ScreenshotStep("settings-appearance-light.png", window::showSettingsAppearanceForCapture),
                 new ScreenshotStep("add-links-light.png", window::openAddLinks),
@@ -130,6 +131,7 @@ public class JDMaterialApp extends Application {
                 }),
                 new ScreenshotStep("downloads-properties-dark.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-dark.png", window::showLinkGrabber),
+                new ScreenshotStep("history-dark.png", window::showHistory),
                 new ScreenshotStep("settings-dark.png", window::showSettings),
                 new ScreenshotStep("add-links-dark.png", window::openAddLinks),
                 new ScreenshotStep("downloads-cantonese.png", () -> {
@@ -142,6 +144,7 @@ public class JDMaterialApp extends Application {
                     engine.settings().languageProperty().set(LanguageMode.BILINGUAL);
                     window.showDownloadsForCapture();
                 }),
+                new ScreenshotStep("history-bilingual.png", window::showHistory),
                 new ScreenshotStep("add-links-bilingual.png", window::openAddLinks),
                 new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture));
         captureStep(scene, window, steps, directory, 0);

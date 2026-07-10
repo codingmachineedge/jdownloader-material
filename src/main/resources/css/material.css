@@ -401,6 +401,55 @@
 .settings-row .row-title { -fx-font-size: 14px; -fx-font-weight: 500; -fx-text-fill: -md-on-surface; }
 .row-desc { -fx-font-size: 12px; -fx-text-fill: -md-on-surface-variant; }
 
+/* ---------------------------------------------------------- Local history */
+.history-toolbar {
+    -fx-background-color: -md-surface-container-low;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.history-pane {
+    -fx-background-color: -md-surface-container-low;
+    -fx-min-width: 330;
+}
+.history-split { -fx-background-color: -md-background; }
+.history-split > .split-pane-divider { -fx-background-color: -md-outline-variant; -fx-padding: 0 0.5 0 0.5; }
+.history-timeline {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.history-timeline > .virtual-flow > .clipped-container > .sheet { -fx-background-color: transparent; }
+.history-timeline .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 3 0 3 0;
+}
+.history-timeline .list-cell:filled:hover .history-entry { -fx-background-color: -md-hover-overlay; }
+.history-timeline .list-cell:filled:selected .history-entry { -fx-background-color: -md-secondary-container; }
+.history-entry {
+    -fx-background-color: -md-surface;
+    -fx-background-radius: 14;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-radius: 14;
+    -fx-padding: 11 12 10 12;
+}
+.history-entry .subtitle { -fx-font-weight: 600; }
+.history-storage-chip { -fx-background-color: -md-tertiary-container; -fx-text-fill: -md-on-surface; }
+.history-scope-chip { -fx-background-color: -md-primary-container; -fx-text-fill: -md-on-primary-container; }
+.history-status-chip { -fx-background-color: -md-surface-variant; -fx-text-fill: -md-on-surface-variant; }
+.history-preview { -fx-background-color: -md-background; }
+.history-summary { -fx-text-fill: -md-on-surface-variant; -fx-font-size: 14px; }
+.history-detail-row {
+    -fx-padding: 9 0 9 0;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.history-error-row {
+    -fx-padding: 10;
+    -fx-background-color: -md-error-container;
+    -fx-background-radius: 10;
+}
+.history-error-row .label-md, .history-error-row .row-desc { -fx-text-fill: -md-on-error-container; }
+
 /* --------------------------------------------------------------- Dialogs */
 .md-dialog {
     -fx-background-color: -md-surface-container-high;
