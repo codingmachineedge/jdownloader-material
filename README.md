@@ -19,6 +19,27 @@ clean [engine boundary](docs/ENGINE_API.md), rather than reimplementing the down
   interface. Ships with a fully interactive in-memory `SimulatedEngine`; the real
   JDownloader-core adapter drops in behind the same interface.
 
+## Visual tour
+
+The gallery below is captured from the running application. See the [UI guide](docs/UI_GUIDE.md)
+for how the shell, views, controls, and screenshot capture mode fit together.
+
+| Downloads light | Downloads dark |
+| --- | --- |
+| ![Downloads in the light theme](docs/screenshots/downloads-light.png) | ![Downloads in the dark theme](docs/screenshots/downloads-dark.png) |
+
+| LinkGrabber light | LinkGrabber dark |
+| --- | --- |
+| ![LinkGrabber in the light theme](docs/screenshots/linkgrabber-light.png) | ![LinkGrabber in the dark theme](docs/screenshots/linkgrabber-dark.png) |
+
+| Settings light | Settings dark |
+| --- | --- |
+| ![Settings in the light theme](docs/screenshots/settings-light.png) | ![Settings in the dark theme](docs/screenshots/settings-dark.png) |
+
+| In-app snackbar | Add Links panel |
+| --- | --- |
+| ![Dark Downloads view with snackbar feedback](docs/screenshots/snackbar-dark.png) | ![Dark Downloads view with the Add Links in-app panel](docs/screenshots/add-links-panel-dark.png) |
+
 ## Status
 
 Front-end scaffold and core screens are in place and interactive. See
@@ -41,8 +62,8 @@ Implemented so far:
 - **App bar** — clipboard-monitor and auto-reconnect toggles, reconnect-now, light/dark switch.
 - **Status bar** — global speed, running count, remaining bytes, reconnect indicator.
 
-![Add Links as an in-app panel](docs/screenshots/add-links-panel.png)
-![Snackbar notifications](docs/screenshots/snackbar.png)
+![Add Links as an in-app panel](docs/screenshots/add-links-panel-dark.png)
+![Snackbar notifications](docs/screenshots/snackbar-dark.png)
 - A **simulated engine** that schedules queued links up to the concurrency limit, advances
   downloads live, honors the global speed limit, and simulates availability checks/reconnects.
 
@@ -105,7 +126,7 @@ src/main/java/org/jdownloader/material/
 src/main/resources/css/
   theme-light.css / theme-dark.css   Material 3 color tokens
   material.css                       component stylesheet
-docs/        FEATURE_SPEC, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE_API
+docs/        UI_GUIDE, FEATURE_SPEC, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE_API
 ```
 
 ## Relationship to JDownloader

@@ -54,6 +54,12 @@ public final class NotificationCenter extends StackPane {
         snack(message, null, null);
     }
 
+    /** Clears transient notifications; used by visual documentation capture between states. */
+    public void clear() {
+        cardStack.getChildren().clear();
+        snackStack.getChildren().clear();
+    }
+
     /** A snackbar with an optional trailing action (e.g. "View", "Undo"). */
     public void snack(String message, String actionLabel, Runnable action) {
         HBox bar = new HBox(12);

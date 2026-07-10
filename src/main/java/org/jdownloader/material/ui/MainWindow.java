@@ -41,7 +41,9 @@ public final class MainWindow extends StackPane {
     private final StackPane content = new StackPane();
     private final ToggleGroup navGroup = new ToggleGroup();
     private final Runnable openAddLinks;
+    private final Runnable showDownloads;
     private final Runnable showLinkGrabber;
+    private final Runnable showSettings;
     private final ClipboardMonitor clipboardMonitor;
     @SuppressWarnings("unused") // holds listener registrations for the window's lifetime
     private final DownloadNotifications transferNotifications;
@@ -64,8 +66,10 @@ public final class MainWindow extends StackPane {
         ToggleButton downloadsTab = navItem("download", "Downloads", downloads);
         ToggleButton linkgrabberTab = navItem("link", "LinkGrabber", linkgrabber);
         ToggleButton settingsTab = navItem("settings", "Settings", settings);
+        this.showDownloads = () -> { downloadsTab.setSelected(true); content.getChildren().setAll(downloads); };
         navToLinkGrabber[0] = () -> { linkgrabberTab.setSelected(true); content.getChildren().setAll(linkgrabber); };
         this.showLinkGrabber = navToLinkGrabber[0];
+        this.showSettings = () -> { settingsTab.setSelected(true); content.getChildren().setAll(settings); };
 
         VBox rail = new VBox(6, downloadsTab, linkgrabberTab, Mat.hSpacer(), settingsTab);
         rail.getStyleClass().add("nav-rail");
@@ -77,8 +81,7 @@ public final class MainWindow extends StackPane {
         shell.setCenter(content);
         shell.setBottom(new StatusBar(engine));
 
-        content.getChildren().setAll(downloads);
-        downloadsTab.setSelected(true);
+        showDownloads.run();
 
         getChildren().addAll(shell, notifier);
 
@@ -106,9 +109,24 @@ public final class MainWindow extends StackPane {
         showLinkGrabber.run();
     }
 
+    /** Switches to Downloads programmatically (also used for demos/tests). */
+    public void showDownloads() {
+        showDownloads.run();
+    }
+
+    /** Switches to Settings programmatically (also used for demos/tests). */
+    public void showSettings() {
+        showSettings.run();
+    }
+
     /** Fires a representative snackbar (used by the demo hook and future tests). */
     public void demoSnack() {
         notifier.snack("3 links added to LinkGrabber", "View", () -> { });
+    }
+
+    /** Clears transient overlay content before a deterministic visual capture. */
+    public void clearNotifications() {
+        notifier.clear();
     }
 
     // ------------------------------------------------------------- App bar
