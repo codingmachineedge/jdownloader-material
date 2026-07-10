@@ -202,6 +202,8 @@
     -fx-cursor: hand;
 }
 .text-button:hover { -fx-background-color: -md-hover-overlay; }
+.text-button.danger { -fx-text-fill: -md-error; -mfx-text-fill: -md-error; }
+.text-button.danger .mat-icon { -fx-background-color: -md-error; }
 
 .icon-button {
     -fx-background-color: transparent;
@@ -221,6 +223,12 @@
 .icon-button.danger .mat-icon { -fx-background-color: -md-error; }
 .icon-button.active { -fx-background-color: -md-secondary-container; }
 .icon-button.active .mat-icon { -fx-background-color: -md-on-secondary-container; }
+.text-button.active {
+    -fx-background-color: -md-secondary-container;
+    -fx-text-fill: -md-on-secondary-container;
+    -mfx-text-fill: -md-on-secondary-container;
+}
+.text-button.active .mat-icon { -fx-background-color: -md-on-secondary-container; }
 
 /* ------------------------------------------------------------- Toolbar */
 .action-toolbar {

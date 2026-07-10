@@ -96,7 +96,8 @@ public final class LinkGrabberView extends BorderPane {
             engine.confirmAll(engine.settings().autoStartProperty().get());
         });
 
-        var remove = Mat.icon("delete", "Remove selected");
+        var remove = Mat.text("Remove", "delete");
+        Mat.tip(remove, "Remove selected");
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 

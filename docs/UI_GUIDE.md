@@ -12,8 +12,9 @@ containers, accounts, CAPTCHA handling, or full crawler.
 
 - **Top app bar** - identifies the application and holds clipboard monitoring, the
   automatic transient-failure retry setting, theme, minimize, maximize/restore, and close
-  controls. Drag an unused portion of the bar to move the window; double-click it to maximize or
-  restore it.
+  controls. The app actions pair icons with text labels; only the familiar native-style window
+  controls remain compact icons. Drag an unused portion of the bar to move the window;
+  double-click it to maximize or restore it.
 - **Navigation rail** - switches between Downloads, LinkGrabber, and Settings while preserving
   the shell and status bar. Add Links opens as its own inline view from the transfer screens.
 - **Status bar** - reports global transfer speed, active download count, remaining bytes, and
@@ -27,7 +28,8 @@ Downloads is a package-to-file tree with Name, Size, Host, Status, Progress, Spe
 inline Details for a direct-transfer error or collision result.
 Package rows aggregate their children. The toolbar holds the transfer and ordering actions, and
 search filters the tree live. Start, pause, stop, and state changes appear directly in the table
-and status bar rather than requiring acknowledgement.
+and status bar rather than requiring acknowledgement. Each toolbar action pairs its icon with a
+short visible label, so users do not have to infer controls from artwork alone.
 
 For direct HTTP(S) files, the engine streams bytes in background workers. The scheduler honors the
 global simultaneous-download setting and the per-host connection setting. Pause holds active

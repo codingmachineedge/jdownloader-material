@@ -162,15 +162,19 @@ public final class MainWindow extends StackPane {
         VBox titleBox = new VBox(-2, title);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
-        var clipboard = toggleIcon("paste", "Clipboard monitoring", engine.settings().clipboardMonitoringProperty());
-        var autoReconnect = toggleIcon("reconnect", "Retry transient HTTP failures", engine.settings().autoReconnectProperty());
+        var clipboard = toggleAction("paste", "Clipboard", "Clipboard monitoring",
+                engine.settings().clipboardMonitoringProperty());
+        var autoReconnect = toggleAction("reconnect", "Auto retry", "Retry transient HTTP failures",
+                engine.settings().autoReconnectProperty());
 
-        var themeToggle = Mat.icon(theme.isDark() ? "sun" : "moon",
-                theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
+        var themeToggle = Mat.text(theme.isDark() ? "Light theme" : "Dark theme",
+                theme.isDark() ? "sun" : "moon");
         Runnable updateThemeToggle = () -> {
+            themeToggle.setText(theme.isDark() ? "Light theme" : "Dark theme");
             themeToggle.setGraphic(Icons.of(theme.isDark() ? "sun" : "moon", 20));
             Mat.tip(themeToggle, theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
         };
+        updateThemeToggle.run();
         themeToggle.setOnAction(e -> theme.toggle());
         theme.darkProperty().addListener((o, wasDark, isDark) -> updateThemeToggle.run());
 
@@ -229,9 +233,10 @@ public final class MainWindow extends StackPane {
         return false;
     }
 
-    /** A 40dp icon button that reflects and toggles a boolean setting. */
-    private MFXButton toggleIcon(String icon, String tip, BooleanProperty prop) {
-        MFXButton b = Mat.icon(icon, tip);
+    /** A labelled app-bar action that reflects and toggles a boolean setting. */
+    private MFXButton toggleAction(String icon, String text, String tip, BooleanProperty prop) {
+        MFXButton b = Mat.text(text, icon);
+        Mat.tip(b, tip);
         Runnable restyle = () -> {
             b.getStyleClass().remove("active");
             if (prop.get()) b.getStyleClass().add("active");

@@ -19,6 +19,7 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -84,34 +85,42 @@ public final class DownloadsView extends BorderPane {
         var addLinks = Mat.filled("Add Links", "add");
         addLinks.setOnAction(e -> openAddLinks.run());
 
-        var start = Mat.icon("play", "Start downloads");
+        var start = Mat.text("Start", "play");
+        Mat.tip(start, "Start downloads");
         start.setOnAction(e -> engine.start());
-        var pause = Mat.icon("pause", "Pause");
+        var pause = Mat.text("Pause", "pause");
         pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
         Runnable updatePause = () -> {
             boolean isPaused = engine.pausedProperty().get();
+            pause.setText(isPaused ? "Resume" : "Pause");
             pause.setGraphic(org.jdownloader.material.ui.Icons.of(isPaused ? "play" : "pause", 20));
             Mat.tip(pause, isPaused ? "Resume downloads" : "Pause downloads");
         };
         updatePause.run();
         engine.pausedProperty().addListener((o, wasPaused, isPaused) -> updatePause.run());
-        var stop = Mat.icon("stop", "Stop all");
+        var stop = Mat.text("Stop", "stop");
+        Mat.tip(stop, "Stop all downloads");
         stop.setOnAction(e -> engine.stop());
 
-        var top = Mat.icon("top", "Move to top");
+        var top = Mat.text("Top", "top");
+        Mat.tip(top, "Move selected package to top");
         top.setOnAction(e -> move(Move.TOP));
-        var up = Mat.icon("up", "Move up");
+        var up = Mat.text("Up", "up");
+        Mat.tip(up, "Move selected package up");
         up.setOnAction(e -> move(Move.UP));
-        var down = Mat.icon("down", "Move down");
+        var down = Mat.text("Down", "down");
+        Mat.tip(down, "Move selected package down");
         down.setOnAction(e -> move(Move.DOWN));
-        var bottom = Mat.icon("bottom", "Move to bottom");
+        var bottom = Mat.text("Bottom", "bottom");
+        Mat.tip(bottom, "Move selected package to bottom");
         bottom.setOnAction(e -> move(Move.BOTTOM));
 
-        var remove = Mat.icon("delete", "Remove selected");
+        var remove = Mat.text("Remove", "delete");
+        Mat.tip(remove, "Remove selected");
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 
-        HBox bar = new HBox(6, addLinks, Mat.vSep(), start, pause, stop, Mat.vSep(),
+        FlowPane bar = new FlowPane(6, 4, addLinks, Mat.vSep(), start, pause, stop, Mat.vSep(),
                 top, up, down, bottom, Mat.vSep(), remove);
         bar.getStyleClass().add("action-toolbar");
         bar.setAlignment(Pos.CENTER_LEFT);
