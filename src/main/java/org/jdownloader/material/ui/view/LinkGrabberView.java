@@ -72,9 +72,7 @@ public final class LinkGrabberView extends BorderPane {
         confirm.setOnAction(e -> confirmSelected());
         var addAll = Mat.outlined("Add all", null);
         addAll.setOnAction(e -> {
-            int n = engine.crawledPackages().stream().mapToInt(p -> p.links().size()).sum();
-            engine.confirmAll(false);
-            if (n > 0) notifier.snack("Added " + n + (n == 1 ? " link" : " links") + " to Downloads");
+            engine.confirmAll(engine.settings().autoStartProperty().get());
         });
 
         var remove = Mat.icon("delete", "Remove selected");
@@ -237,10 +235,7 @@ public final class LinkGrabberView extends BorderPane {
     /** Immediate remove with additive Undo — no confirm dialog. */
     private void removeSelected() {
         Set<CrawledPackage> sel = selectedPackages();
-        if (sel.isEmpty()) {
-            notifier.snack("Nothing selected to remove");
-            return;
-        }
+        if (sel.isEmpty()) return;
         var packages = engine.crawledPackages();
         var indices = new java.util.LinkedHashMap<CrawledPackage, Integer>();
         for (CrawledPackage p : sel) indices.put(p, packages.indexOf(p));
@@ -259,26 +254,18 @@ public final class LinkGrabberView extends BorderPane {
 
     private void confirmSelected() {
         Set<CrawledPackage> sel = selectedPackages();
-        int n;
         if (sel.isEmpty()) {
-            n = engine.crawledPackages().stream().mapToInt(p -> p.links().size()).sum();
-            engine.confirmAll(false);
+            engine.confirmAll(engine.settings().autoStartProperty().get());
         } else {
-            n = sel.stream().mapToInt(p -> p.links().size()).sum();
-            engine.confirmToDownloads(sel, false);
+            engine.confirmToDownloads(sel, engine.settings().autoStartProperty().get());
         }
-        if (n > 0) notifier.snack("Added " + n + (n == 1 ? " link" : " links") + " to Downloads");
     }
 
     private void pasteFromClipboard() {
         try {
             String s = javafx.scene.input.Clipboard.getSystemClipboard().getString();
             if (s != null && !s.isBlank()) {
-                long n = s.lines().map(String::trim).filter(x -> !x.isEmpty()).count();
-                engine.addLinks(s, null, false);
-                notifier.snack(n + (n == 1 ? " link" : " links") + " added to LinkGrabber");
-            } else {
-                notifier.snack("Clipboard has no links to paste");
+                engine.addLinks(s, null, false, false);
             }
         } catch (Exception ignored) {
         }

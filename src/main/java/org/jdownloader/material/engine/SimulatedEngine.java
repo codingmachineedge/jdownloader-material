@@ -25,6 +25,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -40,6 +42,7 @@ public final class SimulatedEngine implements DownloadEngine {
 
     private static final long TICK_MS = 150;
     private static final long KIB = 1024;
+    private static final int CRAWL_BATCH_SIZE = 128;
 
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
@@ -56,6 +59,11 @@ public final class SimulatedEngine implements DownloadEngine {
     private final Map<String, Long> targetSpeed = new HashMap<>();
     private long lastTick = 0;
     private final AnimationTimer timer;
+    private final ExecutorService crawlParser = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "link-crawl-parser");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public SimulatedEngine() {
         timer = new AnimationTimer() {
@@ -75,9 +83,28 @@ public final class SimulatedEngine implements DownloadEngine {
     private void tick(double dt) {
         List<DownloadLink> all = allLinks();
 
+        if (paused.get()) {
+            for (DownloadLink link : all) {
+                if (link.state() == DownloadState.RUNNING) {
+                    link.setState(DownloadState.PAUSED);
+                    link.speedProp().set(0);
+                }
+            }
+            recomputeGlobals(all);
+            return;
+        }
+
         if (running.get()) {
             int limit = Math.max(1, settings.maxSimultaneousDownloadsProperty().get());
             int active = (int) all.stream().filter(l -> l.state() == DownloadState.RUNNING).count();
+            // Resume paused work before admitting fresh queued links.
+            for (DownloadLink l : all) {
+                if (active >= limit) break;
+                if (l.state() == DownloadState.PAUSED && l.enabled().get()) {
+                    l.setState(DownloadState.RUNNING);
+                    active++;
+                }
+            }
             for (DownloadLink l : all) {
                 if (active >= limit) break;
                 if (l.state() == DownloadState.QUEUED && l.enabled().get()) {
@@ -97,7 +124,6 @@ public final class SimulatedEngine implements DownloadEngine {
             long base = targetSpeed.getOrDefault(l.id(), randomSpeed());
             // small jitter so the speedmeter looks alive
             long spd = (long) (base * (0.85 + ThreadLocalRandom.current().nextDouble() * 0.3));
-            if (paused.get()) spd = (long) (spd * 0.04);
             speeds.put(l.id(), spd);
             assigned += spd;
         }
@@ -156,40 +182,77 @@ public final class SimulatedEngine implements DownloadEngine {
 
     // ------------------------------------------------------------- LinkGrabber
     @Override
-    public void addLinks(String text, String packageName, boolean autoConfirm) {
-        List<String> urls = text.lines()
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-        if (urls.isEmpty()) return;
-        String name = (packageName == null || packageName.isBlank())
-                ? "New Package " + (crawled.size() + 1) : packageName.trim();
-        CrawledPackage pkg = new CrawledPackage(name);
-        for (String url : urls) {
-            pkg.links().add(new CrawledLink(fileNameOf(url), hostOf(url), url, 0));
-        }
-        crawled.add(pkg);
-        simulateAvailabilityCheck(pkg, autoConfirm);
+    public void addLinks(String text, String packageName, boolean autoConfirm, boolean autoStart) {
+        String source = text == null ? "" : text;
+        String requestedName = packageName == null ? "" : packageName.trim();
+        boolean confirmWhenChecked = autoConfirm || settings.autoConfirmProperty().get();
+        boolean startWhenConfirmed = autoStart || settings.autoStartProperty().get();
+
+        // Parsing can be expensive for a large paste. Do it off the FX thread,
+        // then add and inspect the resulting links in small UI-thread batches.
+        crawlParser.execute(() -> {
+            List<String> urls = source.lines()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+            if (urls.isEmpty()) return;
+            Platform.runLater(() -> beginCrawl(urls, requestedName, confirmWhenChecked, startWhenConfirmed));
+        });
     }
 
-    private void simulateAvailabilityCheck(CrawledPackage pkg, boolean autoConfirm) {
+    private void beginCrawl(List<String> urls, String requestedName,
+                            boolean autoConfirm, boolean autoStart) {
+        String name = requestedName.isBlank() ? "New Package " + (crawled.size() + 1) : requestedName;
+        CrawledPackage pkg = new CrawledPackage(name);
+        crawled.add(pkg);
+        appendCrawledLinks(pkg, urls, 0, autoConfirm, autoStart);
+    }
+
+    private void appendCrawledLinks(CrawledPackage pkg, List<String> urls, int offset,
+                                    boolean autoConfirm, boolean autoStart) {
+        // A user may remove or manually confirm this package while background work is pending.
+        if (!crawled.contains(pkg)) return;
+        int end = Math.min(offset + CRAWL_BATCH_SIZE, urls.size());
+        for (int i = offset; i < end; i++) {
+            String url = urls.get(i);
+            pkg.links().add(new CrawledLink(fileNameOf(url), hostOf(url), url, 0));
+        }
+        if (end < urls.size()) {
+            Platform.runLater(() -> appendCrawledLinks(pkg, urls, end, autoConfirm, autoStart));
+        } else {
+            simulateAvailabilityCheck(pkg, autoConfirm, autoStart);
+        }
+    }
+
+    private void simulateAvailabilityCheck(CrawledPackage pkg, boolean autoConfirm, boolean autoStart) {
         PauseTransition delay = new PauseTransition(Duration.millis(900));
-        delay.setOnFinished(e -> {
-            for (CrawledLink l : pkg.links()) {
-                boolean online = ThreadLocalRandom.current().nextInt(100) < 90;
-                l.availabilityProperty().set(online ? LinkAvailability.ONLINE : LinkAvailability.OFFLINE);
-                if (online) {
-                    l.sizeProperty().set((long) (30 + ThreadLocalRandom.current().nextInt(1500)) * 1024 * 1024);
-                }
-            }
-            if (autoConfirm) confirmToDownloads(List.of(pkg), settings.autoStartProperty().get());
-        });
+        delay.setOnFinished(e -> updateAvailability(pkg, autoConfirm, autoStart, 0));
         delay.play();
+    }
+
+    private void updateAvailability(CrawledPackage pkg, boolean autoConfirm, boolean autoStart, int offset) {
+        // Make the deferred result idempotent: it must never resurrect a removed package.
+        if (!crawled.contains(pkg)) return;
+        int end = Math.min(offset + CRAWL_BATCH_SIZE, pkg.links().size());
+        for (int i = offset; i < end; i++) {
+            CrawledLink link = pkg.links().get(i);
+            boolean online = ThreadLocalRandom.current().nextInt(100) < 90;
+            link.availabilityProperty().set(online ? LinkAvailability.ONLINE : LinkAvailability.OFFLINE);
+            if (online) {
+                link.sizeProperty().set((long) (30 + ThreadLocalRandom.current().nextInt(1500)) * 1024 * 1024);
+            }
+        }
+        if (end < pkg.links().size()) {
+            Platform.runLater(() -> updateAvailability(pkg, autoConfirm, autoStart, end));
+        } else if (autoConfirm && crawled.contains(pkg)) {
+            confirmToDownloads(List.of(pkg), autoStart);
+        }
     }
 
     @Override
     public void confirmToDownloads(Collection<CrawledPackage> packages, boolean autoStart) {
         for (CrawledPackage cp : new ArrayList<>(packages)) {
+            if (!crawled.contains(cp)) continue;
             DownloadPackage dp = new DownloadPackage(cp.name());
             for (CrawledLink cl : cp.links()) {
                 if (cl.availability() != LinkAvailability.OFFLINE) {
@@ -239,6 +302,7 @@ public final class SimulatedEngine implements DownloadEngine {
 
     @Override
     public void forceStart(Collection<DownloadLink> links) {
+        paused.set(false);
         for (DownloadLink l : links) {
             if (l.state() != DownloadState.FINISHED) {
                 l.setState(DownloadState.RUNNING);
@@ -286,6 +350,7 @@ public final class SimulatedEngine implements DownloadEngine {
     @Override
     public void shutdown() {
         timer.stop();
+        crawlParser.shutdownNow();
     }
 
     // ------------------------------------------------------------- Demo data

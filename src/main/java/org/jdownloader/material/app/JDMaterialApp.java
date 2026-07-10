@@ -70,7 +70,7 @@ public class JDMaterialApp extends Application {
             return;
         }
 
-        // Optional demo hook. JD_DEMO=panel opens the Add Links panel; JD_DEMO=snack
+        // Optional demo hook. JD_DEMO=panel opens the Add Links composer; JD_DEMO=snack
         // re-shows a snackbar on a timer so it can be observed/screenshotted.
         String demo = System.getenv("JD_DEMO");
         if (demo != null) {
@@ -112,21 +112,14 @@ public class JDMaterialApp extends Application {
                 }),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-light.png", window::showSettings),
+                new ScreenshotStep("add-links-light.png", window::openAddLinks),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
                     window.showDownloads();
                 }),
                 new ScreenshotStep("linkgrabber-dark.png", window::showLinkGrabber),
                 new ScreenshotStep("settings-dark.png", window::showSettings),
-                new ScreenshotStep("snackbar-dark.png", () -> {
-                    window.showDownloads();
-                    window.demoSnack();
-                }),
-                new ScreenshotStep("add-links-panel-dark.png", () -> {
-                    window.showDownloads();
-                    window.clearNotifications();
-                    window.openAddLinks();
-                }));
+                new ScreenshotStep("add-links-dark.png", window::openAddLinks));
         captureStep(scene, window, steps, directory, 0);
     }
 

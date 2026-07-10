@@ -1,56 +1,64 @@
 # Architecture
 
-JDownloader Material is a JavaFX application split into three layers with a strict dependency
-direction: **UI → engine interface → model**. The UI never depends on a concrete engine.
+JDownloader Material has a strict dependency direction: **UI -> engine interface -> model**.
+Views never depend on a concrete engine implementation.
 
-```
-        ┌────────────────────────── ui ──────────────────────────┐
-        │  JDMaterialApp → MainWindow                            │
-        │    ├─ view/DownloadsView   ├─ view/LinkGrabberView     │
-        │    ├─ view/SettingsView    ├─ dialog/AddLinksPanel     │
-        │    ├─ component/{Mat, DownloadCells, StatusBar}        │
-        │    └─ ThemeManager, Icons                              │
-        └───────────────┬───────────────────────────────────────┘
-                        │ depends only on
-        ┌───────────────▼──────────── engine ───────────────────┐
-        │  DownloadEngine (interface)   Settings                 │
-        │  SimulatedEngine (impl)  ◄── swap for JD-core adapter  │
-        └───────────────┬───────────────────────────────────────┘
-                        │ observes
-        ┌───────────────▼──────────── model ────────────────────┐
-        │  DownloadItem ─┬─ DownloadPackage (aggregates)         │
-        │                └─ DownloadLink                         │
-        │  CrawledPackage → CrawledLink                          │
-        │  DownloadState, LinkAvailability                       │
-        └────────────────────────────────────────────────────────┘
-```
+~~~text
+ui
+  JDMaterialApp -> MainWindow
+    view/DownloadsView   view/LinkGrabberView   view/AddLinksView   view/SettingsView
+    component/{Mat, DownloadCells, StatusBar, NotificationCenter}
+    ThemeManager, Icons
+              |
+              v
+engine
+  DownloadEngine (interface)   Settings   SettingsIO
+  SimulatedEngine (current implementation)
+              |
+              v
+model
+  DownloadItem -> DownloadPackage -> DownloadLink
+  CrawledPackage -> CrawledLink
+  DownloadState, LinkAvailability
+~~~
 
-## Data flow
+SimulatedEngine is the only bundled engine implementation. It makes the UI demonstrable but
+does not contain the JDownloader crawler, plugin system, or production download controller. A
+JDownloader-core adapter is a future integration point, not code that is present in this
+repository.
 
-The model is built from JavaFX **observable properties**. The engine mutates model properties
-(bytes loaded, speed, state); the views bind table cells and labels directly to those
-properties, so the UI updates reactively with no manual refresh calls.
+## Data flow and nonblocking work
 
-- `DownloadPackage` listens to its children and re-aggregates size / loaded / speed / state /
-  progress whenever a child or the child list changes.
-- `SimulatedEngine` runs an `AnimationTimer` on the JavaFX pulse (~150 ms cadence): it promotes
-  queued links up to the concurrency limit, advances running links, applies the global speed
-  cap, and republishes `globalSpeed` / `runningCount` / `totalRemaining`.
-- Views keep their tree-tables in sync via `ListChangeListener`s on the engine's observable
-  package lists; per-row live values come from cell value factories bound to item properties.
+The model uses JavaFX observable properties. The engine changes bytes loaded, speed, and state;
+views bind table cells and labels directly to those properties, so updates do not require a
+manual refresh.
+
+- DownloadPackage observes its children and re-aggregates size, loaded bytes, speed, state,
+  and progress when a child or child list changes.
+- SimulatedEngine uses an AnimationTimer on the JavaFX pulse (roughly a 150 ms cadence) to
+  admit queued links to the configured concurrency limit, advance active work, honor the speed
+  cap, and publish global speed, running count, and remaining bytes.
+- Link submission is deliberately deferred: addLinks immediately puts work in LinkGrabber,
+  availability checking completes later, and auto-confirm/auto-start applies after that check.
+  The inline Add Links composer therefore never waits on a confirmation dialog.
+- The views keep their tree tables synchronized with ListChangeListeners on the engine's
+  observable package lists; row values come from property-bound cell value factories.
+- Settings backup takes a settings snapshot on the JavaFX thread, then performs encryption and
+  file I/O in a JavaFX Task; imported properties are applied back on the JavaFX thread. The
+  Backup page reports progress inline rather than opening a blocking form.
 
 ## Theming
 
-`ThemeManager` installs two stylesheets on the scene: a **token file**
-(`theme-light.css` or `theme-dark.css`) that defines the `-md-*` Material 3 color roles, and the
-shared `material.css` that styles every component using only those tokens. Toggling the theme
-swaps the token file, so all lookups re-resolve and the whole UI re-themes instantly. See
-[`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
+ThemeManager installs a token stylesheet (theme-light.css or theme-dark.css) and the shared
+material.css stylesheet. The token file defines the -md-* Material 3 color roles; switching
+themes swaps that token file, so controls re-resolve their colors together. See
+[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md).
 
 ## Why an engine interface
 
-JDownloader's real value is its core: the link crawler, the hoster/plugin ecosystem, and the
-download controller. Reimplementing those would be a decade of work and a maintenance sink.
-Instead the GUI talks to a small [`DownloadEngine`](ENGINE_API.md) contract. `SimulatedEngine`
-makes the UI fully demonstrable today; a thin adapter over the JD core replaces it without any
-change to the views.
+The engine boundary makes UI development independent of download-backend integration. The
+current SimulatedEngine supplies predictable interactive behavior for the application and the
+documentation screenshots. A future adapter can map the same
+[DownloadEngine](ENGINE_API.md) contract onto JDownloader core classes, provided it marshals
+backend updates to the JavaFX Application Thread. Until that adapter exists, releases should be
+understood as a simulated front-end experience rather than a full JDownloader client.

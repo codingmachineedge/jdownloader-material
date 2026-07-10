@@ -65,15 +65,11 @@ public final class DownloadsView extends BorderPane {
         addLinks.setOnAction(e -> openAddLinks.run());
 
         var start = Mat.icon("play", "Start downloads");
-        start.setOnAction(e -> { engine.start(); notifier.snack("Downloads started"); });
+        start.setOnAction(e -> engine.start());
         var pause = Mat.icon("pause", "Pause");
-        pause.setOnAction(e -> {
-            boolean willPause = !engine.pausedProperty().get();
-            engine.pause(willPause);
-            notifier.snack(willPause ? "Downloads paused" : "Downloads resumed");
-        });
+        pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
         var stop = Mat.icon("stop", "Stop all");
-        stop.setOnAction(e -> { engine.stop(); notifier.snack("Downloads stopped"); });
+        stop.setOnAction(e -> engine.stop());
 
         var top = Mat.icon("top", "Move to top");
         top.setOnAction(e -> move(Move.TOP));
@@ -214,10 +210,7 @@ public final class DownloadsView extends BorderPane {
      */
     private void removeSelected() {
         List<DownloadItem> selection = selectedItems();
-        if (selection.isEmpty()) {
-            notifier.snack("Nothing selected to remove");
-            return;
-        }
+        if (selection.isEmpty()) return;
         // Snapshot the full structure so Undo can restore packages emptied
         // (and auto-dropped) as a side effect of removing their last links.
         var packages = engine.downloadPackages();

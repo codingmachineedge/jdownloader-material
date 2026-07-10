@@ -1,60 +1,69 @@
 # Engine API
 
 The GUI depends only on
-[`DownloadEngine`](../src/main/java/org/jdownloader/material/engine/DownloadEngine.java). The
-bundled `SimulatedEngine` implements it in memory; a real adapter over the JDownloader core
-implements the same interface. This document maps each interface member to the JD-core concept
-it corresponds to, so the adapter is a mechanical bridge rather than a redesign.
+[DownloadEngine](../src/main/java/org/jdownloader/material/engine/DownloadEngine.java).
+The bundled implementation is the in-memory SimulatedEngine. No real JDownloader-core adapter
+is included in this repository; the mappings below describe the intended target for a future
+adapter, not a currently active integration.
 
 ## Model exposure
 
-| Interface | JD core equivalent | Notes |
+| Interface | Future JDownloader-core concept | Notes |
 |---|---|---|
-| `downloadPackages() : ObservableList<DownloadPackage>` | `DownloadController` → `FilePackage` list | Wrap FilePackages; push updates on the FX thread |
-| `crawledPackages() : ObservableList<CrawledPackage>` | `LinkCollector` → `CrawledPackage` list | LinkGrabber staging tree |
+| downloadPackages() : ObservableList<DownloadPackage> | DownloadController -> FilePackage list | Wrap file packages and publish updates on the FX thread. |
+| crawledPackages() : ObservableList<CrawledPackage> | LinkCollector -> CrawledPackage list | Exposes the LinkGrabber staging tree. |
 
-`DownloadLink` / `CrawledLink` mirror JD's `DownloadLink` / `CrawledLink`. The adapter listens
-to JD's `DownloadControllerListener` / `LinkCollectorListener` and copies bytes-loaded, speed,
-and state into the observable model properties (marshalled onto the JavaFX thread).
+DownloadLink and CrawledLink mirror the UI-relevant state of JD's DownloadLink and CrawledLink.
+A future adapter would listen to DownloadControllerListener and LinkCollectorListener, then copy
+loaded bytes, speed, and state into the observable model properties on the JavaFX Application
+Thread.
 
 ## LinkGrabber
 
-| Interface | JD core equivalent |
+| Interface | Future JDownloader-core concept |
 |---|---|
-| `addLinks(text, packageName, autoConfirm)` | `LinkCollector.addCrawlerJob(...)` / `LinkCrawler` |
-| `confirmToDownloads(packages, autoStart)` | `LinkCollector.moveLinksToDownloadList(...)` |
-| `confirmAll(autoStart)` | confirm the whole collector |
-| `removeCrawled(packages)` | `LinkCollector.removePackage(...)` |
+| addLinks(text, packageName, autoConfirm, autoStart) | LinkCollector.addCrawlerJob(...) / LinkCrawler |
+| confirmToDownloads(packages, autoStart) | LinkCollector.moveLinksToDownloadList(...) |
+| confirmAll(autoStart) | Confirm the collector contents. |
+| removeCrawled(packages) | LinkCollector.removePackage(...) |
+
+addLinks is a nonblocking workflow contract. It adds submitted URLs to the staging model and
+returns without waiting for a confirmation prompt. Availability work completes later; if either
+the explicit arguments or the corresponding settings request it, the engine then confirms the
+new package and starts it. SimulatedEngine demonstrates that deferred behavior. A future adapter
+must preserve it while delegating actual crawling to the JD core.
 
 ## Download control
 
-| Interface | JD core equivalent |
+| Interface | Future JDownloader-core concept |
 |---|---|
-| `start()` | `DownloadWatchDog.startDownloads()` |
-| `pause(boolean)` | `DownloadWatchDog.pauseDownloadWatchDog(true/false)` |
-| `stop()` | `DownloadWatchDog.stopDownloads()` |
-| `forceStart(links)` | `DownloadWatchDog.forceDownload(links)` |
-| `removeDownloads(items)` | `DownloadController.removePackage/removeChildren(...)` |
-| `reconnect()` | `Reconnecter.forceReconnect()` |
+| start() | DownloadWatchDog.startDownloads() |
+| pause(boolean) | DownloadWatchDog.pauseDownloadWatchDog(true/false) |
+| stop() | DownloadWatchDog.stopDownloads() |
+| forceStart(links) | DownloadWatchDog.forceDownload(links) |
+| removeDownloads(items) | DownloadController.removePackage/removeChildren(...) |
+| reconnect() | Reconnecter.forceReconnect() |
 
 ## Global state (observable)
 
-| Interface | JD core equivalent |
+| Interface | Future JDownloader-core concept |
 |---|---|
-| `runningProperty()` / `pausedProperty()` | `DownloadWatchDog` state machine |
-| `globalSpeedProperty()` | `DownloadWatchDog.getDownloadSpeedManager()` |
-| `runningCountProperty()` | active `SingleDownloadController` count |
-| `totalRemainingProperty()` | sum of unfinished bytes |
-| `reconnectingProperty()` | `Reconnecter` progress |
+| runningProperty() / pausedProperty() | DownloadWatchDog state machine |
+| globalSpeedProperty() | DownloadWatchDog.getDownloadSpeedManager() |
+| runningCountProperty() | Active SingleDownloadController count |
+| totalRemainingProperty() | Sum of unfinished bytes |
+| reconnectingProperty() | Reconnecter progress |
 
 ## Settings
 
-`Settings` maps to JD's config interfaces (`GeneralSettings`, `InternetConnectionSettings`,
-`GraphicalUserInterfaceSettings`, `LinkgrabberSettings`, `ReconnectConfig`). The adapter binds
-each property to the corresponding `org.appwork.storage.config` key.
+Settings has properties corresponding to portions of JD configuration such as general,
+connection, GUI, LinkGrabber, and reconnect settings. In a future adapter, each property would
+bind to the appropriate org.appwork.storage.config key. The current settings object belongs to
+the simulated front end and is not a live view of a JDownloader installation.
 
 ## Threading contract
 
-JD-core callbacks arrive on background threads; all model mutations the GUI observes **must** be
-applied on the JavaFX Application Thread (`Platform.runLater`). The adapter is the single place
-that crosses that boundary — the views assume every observable changes on the FX thread.
+Backend callbacks can arrive on background threads; all mutations observed by the JavaFX UI
+must be made on the JavaFX Application Thread (Platform.runLater). The adapter is the single
+place that crosses that boundary. Likewise, expensive backup encryption and file I/O belong in a
+background task, while UI properties are snapshotted and applied on the JavaFX thread.

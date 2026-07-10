@@ -59,7 +59,7 @@ public final class ClipboardMonitor {
                 .toList();
         if (urls.isEmpty()) return;
 
-        engine.addLinks(String.join("\n", urls), null, false);
+        engine.addLinks(String.join("\n", urls), null, false, false);
         notifier.snack(urls.size() + (urls.size() == 1 ? " link" : " links")
                 + " grabbed from clipboard", "View", viewLinkGrabber);
     }

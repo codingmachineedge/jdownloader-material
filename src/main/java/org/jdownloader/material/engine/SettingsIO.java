@@ -46,6 +46,11 @@ public final class SettingsIO {
     // ---------------------------------------------------------------- Export
     public static void exportTo(Path file, Settings s, char[] passphrase)
             throws IOException, GeneralSecurityException {
+        exportTo(file, snapshot(s), passphrase);
+    }
+
+    /** Captures settings on the JavaFX thread before background encryption begins. */
+    public static Properties snapshot(Settings s) {
         Properties p = new Properties();
         p.setProperty("downloadFolder", s.downloadFolderProperty().get());
         p.setProperty("maxSimultaneousDownloads", Integer.toString(s.maxSimultaneousDownloadsProperty().get()));
@@ -65,7 +70,12 @@ public final class SettingsIO {
         // Secrets — protected by the whole-file encryption below.
         p.setProperty("myjdEmail", s.myjdEmailProperty().get());
         p.setProperty("myjdPassword", s.myjdPasswordProperty().get());
+        return p;
+    }
 
+    /** Encrypts a previously captured settings snapshot without touching JavaFX state. */
+    public static void exportTo(Path file, Properties p, char[] passphrase)
+            throws IOException, GeneralSecurityException {
         ByteArrayOutputStream plain = new ByteArrayOutputStream();
         p.store(plain, "JDownloader Material settings backup");
 
@@ -90,6 +100,12 @@ public final class SettingsIO {
     // ---------------------------------------------------------------- Import
     public static void importFrom(Path file, Settings s, char[] passphrase)
             throws IOException, BackupException {
+        apply(importFrom(file, passphrase), s);
+    }
+
+    /** Decrypts a backup without mutating JavaFX settings from a worker thread. */
+    public static Properties importFrom(Path file, char[] passphrase)
+            throws IOException, BackupException {
         byte[] blob = Files.readAllBytes(file);
         if (blob.length < MAGIC.length + SALT_LEN + IV_LEN + 16
                 || !Arrays.equals(Arrays.copyOf(blob, MAGIC.length), MAGIC)) {
@@ -110,7 +126,11 @@ public final class SettingsIO {
 
         Properties p = new Properties();
         p.load(new ByteArrayInputStream(plain));
+        return p;
+    }
 
+    /** Applies a decoded backup on the JavaFX application thread. */
+    public static void apply(Properties p, Settings s) {
         apply(p, "downloadFolder", v -> s.downloadFolderProperty().set(v));
         applyInt(p, "maxSimultaneousDownloads", v -> s.maxSimultaneousDownloadsProperty().set(v));
         applyInt(p, "maxChunksPerDownload", v -> s.maxChunksPerDownloadProperty().set(v));

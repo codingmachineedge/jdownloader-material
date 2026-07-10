@@ -28,8 +28,11 @@ public interface DownloadEngine {
     ObservableList<CrawledPackage> crawledPackages();
 
     // ---- LinkGrabber ------------------------------------------------------
-    /** Crawls the given text (one URL per line) into the LinkGrabber. */
-    void addLinks(String text, String packageName, boolean autoConfirm);
+    /**
+     * Crawls the given text (one URL per line) into the LinkGrabber. Confirmation
+     * and starting are asynchronous, so callers never need to wait on a dialog.
+     */
+    void addLinks(String text, String packageName, boolean autoConfirm, boolean autoStart);
 
     /** Moves the selected crawled packages into the Downloads list. */
     void confirmToDownloads(Collection<CrawledPackage> packages, boolean autoStart);
@@ -44,7 +47,7 @@ public interface DownloadEngine {
     /** Starts / resumes the download queue. */
     void start();
 
-    /** Pauses (throttles) all active downloads without dequeuing them. */
+    /** Pauses all active downloads without dequeuing them. */
     void pause(boolean paused);
 
     /** Stops all downloads and returns them to the queue. */

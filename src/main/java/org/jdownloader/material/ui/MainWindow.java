@@ -18,19 +18,18 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.ui.component.ClipboardMonitor;
-import org.jdownloader.material.ui.component.DownloadNotifications;
 import org.jdownloader.material.ui.component.Mat;
 import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.ui.component.StatusBar;
-import org.jdownloader.material.ui.dialog.AddLinksPanel;
+import org.jdownloader.material.ui.view.AddLinksView;
 import org.jdownloader.material.ui.view.DownloadsView;
 import org.jdownloader.material.ui.view.LinkGrabberView;
 import org.jdownloader.material.ui.view.SettingsView;
 
 /**
  * Assembles the whole window: top app bar, navigation rail, content and status
- * bar in a shell, with a {@link NotificationCenter} overlay on top so all
- * feedback and former dialogs render as in-app notifications.
+ * bar in a shell, with one optional {@link NotificationCenter} snackbar lane
+ * for Undo and navigation actions. Forms stay in normal content views.
  */
 public final class MainWindow extends StackPane {
 
@@ -45,8 +44,6 @@ public final class MainWindow extends StackPane {
     private final Runnable showLinkGrabber;
     private final Runnable showSettings;
     private final ClipboardMonitor clipboardMonitor;
-    @SuppressWarnings("unused") // holds listener registrations for the window's lifetime
-    private final DownloadNotifications transferNotifications;
     private double dragOffsetX;
     private double dragOffsetY;
 
@@ -57,11 +54,11 @@ public final class MainWindow extends StackPane {
 
         // "View" snack actions navigate to the LinkGrabber; resolved after nav is built.
         Runnable[] navToLinkGrabber = {() -> { }};
-        this.openAddLinks = () -> AddLinksPanel.open(notifier, engine, () -> navToLinkGrabber[0].run());
+        Runnable[] openComposer = {() -> { }};
 
-        Node downloads = new DownloadsView(engine, notifier, openAddLinks);
-        Node linkgrabber = new LinkGrabberView(engine, notifier, openAddLinks);
-        Node settings = new SettingsView(engine.settings(), notifier);
+        Node downloads = new DownloadsView(engine, notifier, () -> openComposer[0].run());
+        Node linkgrabber = new LinkGrabberView(engine, notifier, () -> openComposer[0].run());
+        Node settings = new SettingsView(engine.settings());
 
         ToggleButton downloadsTab = navItem("download", "Downloads", downloads);
         ToggleButton linkgrabberTab = navItem("link", "LinkGrabber", linkgrabber);
@@ -70,6 +67,9 @@ public final class MainWindow extends StackPane {
         navToLinkGrabber[0] = () -> { linkgrabberTab.setSelected(true); content.getChildren().setAll(linkgrabber); };
         this.showLinkGrabber = navToLinkGrabber[0];
         this.showSettings = () -> { settingsTab.setSelected(true); content.getChildren().setAll(settings); };
+        Node addLinks = new AddLinksView(engine, showDownloads, showLinkGrabber);
+        this.openAddLinks = () -> content.getChildren().setAll(addLinks);
+        openComposer[0] = this.openAddLinks;
 
         VBox rail = new VBox(6, downloadsTab, linkgrabberTab, Mat.hSpacer(), settingsTab);
         rail.getStyleClass().add("nav-rail");
@@ -85,13 +85,9 @@ public final class MainWindow extends StackPane {
 
         getChildren().addAll(shell, notifier);
 
-        // Live behaviors surfaced as in-app notifications.
+        // Clipboard capture offers one optional View action; no work opens a dialog.
         clipboardMonitor = new ClipboardMonitor(engine, notifier, () -> navToLinkGrabber[0].run());
         clipboardMonitor.start();
-        transferNotifications = new DownloadNotifications(engine, notifier);
-        engine.reconnectingProperty().addListener((o, was, is) -> {
-            if (was && !is) notifier.snack("Reconnect complete — new IP assigned");
-        });
     }
 
     /** Stops timers owned by the window (called on application shutdown). */
@@ -99,7 +95,7 @@ public final class MainWindow extends StackPane {
         clipboardMonitor.stop();
     }
 
-    /** Opens the in-app Add Links panel programmatically (also used for demos/tests). */
+    /** Opens the inline Add Links composer programmatically (also used for demos/tests). */
     public void openAddLinks() {
         openAddLinks.run();
     }
@@ -140,10 +136,7 @@ public final class MainWindow extends StackPane {
         var clipboard = toggleIcon("paste", "Clipboard monitoring", engine.settings().clipboardMonitoringProperty());
         var autoReconnect = toggleIcon("reconnect", "Automatic reconnect", engine.settings().autoReconnectProperty());
         var reconnectNow = Mat.icon("cloud", "Reconnect now");
-        reconnectNow.setOnAction(e -> {
-            engine.reconnect();
-            notifier.info("Reconnect", "Requesting a new IP address…");
-        });
+        reconnectNow.setOnAction(e -> engine.reconnect());
 
         var themeToggle = Mat.icon(theme.isDark() ? "sun" : "moon",
                 theme.isDark() ? "Switch to light theme" : "Switch to dark theme");
@@ -219,7 +212,6 @@ public final class MainWindow extends StackPane {
         b.setOnAction(e -> {
             prop.set(!prop.get());
             restyle.run();
-            notifier.snack((prop.get() ? "Enabled" : "Disabled") + " " + tip.toLowerCase());
         });
         prop.addListener((o, a, v) -> restyle.run());
         return b;
