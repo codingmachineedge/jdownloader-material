@@ -1,25 +1,26 @@
 package org.jdownloader.material.ui.view;
 
-import io.github.palexdev.materialfx.controls.MFXTextField;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.ButtonBase;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -38,8 +39,10 @@ import org.jdownloader.material.ui.component.ActivityStatus;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,11 +51,9 @@ public final class DownloadsView extends BorderPane {
 
     private final DownloadEngine engine;
     private final ActivityStatus activity;
-    private final Runnable openAddLinks;
     private final I18n i18n;
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
     private final TreeItem<DownloadItem> root = new TreeItem<>(null);
-    private final ListChangeListener<DownloadLink> rebuildListener = c -> rebuild();
     private final ListChangeListener<DownloadPackage> downloadPackagesListener = c -> {
         while (c.next()) {
             for (DownloadPackage p : c.getAddedSubList()) attachPackage(p);
@@ -63,6 +64,13 @@ public final class DownloadsView extends BorderPane {
     private final ListChangeListener<TreeItem<DownloadItem>> selectionListener = change -> refreshProperties();
     private final Set<DownloadPackage> observedPackages =
             Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<DownloadLink> observedLinks =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Map<DownloadPackage, ListChangeListener<DownloadLink>> packageLinkListeners = new HashMap<>();
+    private StateFilter stateFilter = StateFilter.ALL;
+    private final javafx.beans.InvalidationListener stateFilterListener = observable -> {
+        if (stateFilter != StateFilter.ALL) rebuild();
+    };
     private final VBox properties = new VBox(8);
     private final TextField editName = new TextField();
     private final TextField editDestination = new TextField();
@@ -71,83 +79,90 @@ public final class DownloadsView extends BorderPane {
     private final ChangeListener<DownloadState> propertiesStateListener = (o, was, is) -> refreshProperties();
     private DownloadItem propertiesItem;
     private DownloadItem observedPropertiesItem;
-    private ChangeListener<Boolean> pausedListener;
     private volatile boolean disposed;
     private String filter = "";
 
-    public DownloadsView(DownloadEngine engine, ActivityStatus activity, Runnable openAddLinks, I18n i18n) {
+    public DownloadsView(DownloadEngine engine, ActivityStatus activity, I18n i18n) {
         this.engine = engine;
         this.activity = activity;
-        this.openAddLinks = openAddLinks;
         this.i18n = i18n;
-        getStyleClass().add("content-area");
-        setTop(buildHeaderAndToolbar());
-        setCenter(buildTree());
-        setBottom(buildProperties());
+        getStyleClass().addAll("content-area", "page-view");
+        TreeTableView<DownloadItem> table = buildTree();
+        setTop(buildPageHeader(table));
+        VBox panel = new VBox(buildTableTools(), table, buildProperties());
+        VBox.setVgrow(table, Priority.ALWAYS);
+        panel.getStyleClass().add("content-panel");
+        setCenter(panel);
         wireModel();
         rebuild();
     }
 
     // --------------------------------------------------------------- Toolbar
-    private VBox buildHeaderAndToolbar() {
-        var title = Mat.label(i18n.text("downloads.title"), "headline");
-        var search = new MFXTextField();
-        search.setPromptText(i18n.text("downloads.search"));
-        search.getStyleClass().add("search-field");
-        search.setPrefWidth(260);
-        search.textProperty().addListener((o, a, b) -> { filter = b == null ? "" : b.toLowerCase(); rebuild(); });
-
-        HBox header = new HBox(12, title, Mat.hSpacer(), Icons0.search(), search);
-        header.getStyleClass().add("view-header");
+    private HBox buildPageHeader(TreeTableView<DownloadItem> table) {
+        var title = Mat.label(i18n.text("downloads.title"), "headline", "page-title");
+        MenuButton columns = columnMenu(table);
+        HBox header = new HBox(12, title, Mat.hSpacer(), columns);
+        header.getStyleClass().addAll("view-header", "page-head");
         header.setAlignment(Pos.CENTER_LEFT);
+        return header;
+    }
 
-        var addLinks = Mat.filled(i18n.text("downloads.add_links"), "add");
-        addLinks.setOnAction(e -> openAddLinks.run());
+    private MenuButton columnMenu(TreeTableView<DownloadItem> table) {
+        MenuButton menu = new MenuButton(i18n.text("downloads.columns"),
+                org.jdownloader.material.ui.Icons.of("more", 16));
+        menu.getStyleClass().addAll("page-actions", "move-menu");
+        for (int index = 1; index < table.getColumns().size(); index++) {
+            TreeTableColumn<DownloadItem, ?> column = table.getColumns().get(index);
+            CheckMenuItem item = new CheckMenuItem(column.getText());
+            item.selectedProperty().bindBidirectional(column.visibleProperty());
+            menu.getItems().add(item);
+        }
+        return menu;
+    }
 
-        var start = Mat.text(i18n.text("toolbar.start"), "play");
-        Mat.tip(start, i18n.text("tooltip.start"));
-        start.setOnAction(e -> engine.start());
-        var pause = Mat.text(i18n.text("toolbar.pause"), "pause");
-        pause.setOnAction(e -> engine.pause(!engine.pausedProperty().get()));
-        Runnable updatePause = () -> {
-            boolean isPaused = engine.pausedProperty().get();
-            pause.setText(i18n.text(isPaused ? "toolbar.resume" : "toolbar.pause"));
-            pause.setGraphic(org.jdownloader.material.ui.Icons.of(isPaused ? "play" : "pause", 20));
-            Mat.tip(pause, i18n.text(isPaused ? "tooltip.resume" : "tooltip.pause"));
-        };
-        updatePause.run();
-        pausedListener = (o, wasPaused, isPaused) -> {
-            if (!disposed) updatePause.run();
-        };
-        engine.pausedProperty().addListener(pausedListener);
-        var stop = Mat.text(i18n.text("toolbar.stop"), "stop");
-        Mat.tip(stop, i18n.text("tooltip.stop"));
-        stop.setOnAction(e -> engine.stop());
+    private HBox buildTableTools() {
+        ToggleGroup filters = new ToggleGroup();
+        ToggleButton all = filterChip(i18n.text("downloads.filter.all"), StateFilter.ALL, filters);
+        ToggleButton active = filterChip(i18n.text("downloads.filter.active"), StateFilter.ACTIVE, filters);
+        ToggleButton finished = filterChip(i18n.text("downloads.filter.finished"), StateFilter.FINISHED, filters);
+        all.setSelected(true);
 
-        var top = Mat.text(i18n.text("toolbar.top"), "top");
-        Mat.tip(top, i18n.text("tooltip.top"));
+        MenuItem top = new MenuItem(i18n.text("toolbar.top"), org.jdownloader.material.ui.Icons.of("top", 16));
         top.setOnAction(e -> move(Move.TOP));
-        var up = Mat.text(i18n.text("toolbar.up"), "up");
-        Mat.tip(up, i18n.text("tooltip.up"));
+        MenuItem up = new MenuItem(i18n.text("toolbar.up"), org.jdownloader.material.ui.Icons.of("up", 16));
         up.setOnAction(e -> move(Move.UP));
-        var down = Mat.text(i18n.text("toolbar.down"), "down");
-        Mat.tip(down, i18n.text("tooltip.down"));
+        MenuItem down = new MenuItem(i18n.text("toolbar.down"), org.jdownloader.material.ui.Icons.of("down", 16));
         down.setOnAction(e -> move(Move.DOWN));
-        var bottom = Mat.text(i18n.text("toolbar.bottom"), "bottom");
-        Mat.tip(bottom, i18n.text("tooltip.bottom"));
+        MenuItem bottom = new MenuItem(i18n.text("toolbar.bottom"), org.jdownloader.material.ui.Icons.of("bottom", 16));
         bottom.setOnAction(e -> move(Move.BOTTOM));
+        MenuButton move = new MenuButton(i18n.text("downloads.move"),
+                org.jdownloader.material.ui.Icons.of("more", 16), top, up, down, bottom);
+        move.getStyleClass().add("move-menu");
 
         var remove = Mat.text(i18n.text("toolbar.remove"), "delete");
         Mat.tip(remove, i18n.text("tooltip.remove"));
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 
-        FlowPane bar = new FlowPane(6, 4, addLinks, Mat.vSep(), start, pause, stop, Mat.vSep(),
-                top, up, down, bottom, Mat.vSep(), remove);
-        bar.getStyleClass().add("action-toolbar");
+        HBox bar = new HBox(8, all, active, finished, Mat.hSpacer(), move, remove);
+        bar.getStyleClass().addAll("action-toolbar", "table-tools");
         bar.setAlignment(Pos.CENTER_LEFT);
+        return bar;
+    }
 
-        return new VBox(header, bar);
+    private ToggleButton filterChip(String text, StateFilter value, ToggleGroup group) {
+        ToggleButton chip = new ToggleButton(text);
+        chip.setToggleGroup(group);
+        chip.getStyleClass().add("filter-chip");
+        chip.setOnAction(event -> {
+            if (!chip.isSelected()) {
+                chip.setSelected(true);
+                return;
+            }
+            stateFilter = value;
+            rebuild();
+        });
+        return chip;
     }
 
     // ----------------------------------------------------------------- Tree
@@ -374,11 +389,32 @@ public final class DownloadsView extends BorderPane {
     }
 
     private void attachPackage(DownloadPackage p) {
-        if (observedPackages.add(p)) p.links().addListener(rebuildListener);
+        if (!observedPackages.add(p)) return;
+        ListChangeListener<DownloadLink> listener = change -> {
+            while (change.next()) {
+                for (DownloadLink link : change.getAddedSubList()) attachLink(link);
+                for (DownloadLink link : change.getRemoved()) detachLink(link);
+            }
+            rebuild();
+        };
+        packageLinkListeners.put(p, listener);
+        p.links().addListener(listener);
+        p.links().forEach(this::attachLink);
     }
 
     private void detachPackage(DownloadPackage p) {
-        if (observedPackages.remove(p)) p.links().removeListener(rebuildListener);
+        if (!observedPackages.remove(p)) return;
+        ListChangeListener<DownloadLink> listener = packageLinkListeners.remove(p);
+        if (listener != null) p.links().removeListener(listener);
+        p.links().forEach(this::detachLink);
+    }
+
+    private void attachLink(DownloadLink link) {
+        if (observedLinks.add(link)) link.stateProperty().addListener(stateFilterListener);
+    }
+
+    private void detachLink(DownloadLink link) {
+        if (observedLinks.remove(link)) link.stateProperty().removeListener(stateFilterListener);
     }
 
     private void rebuild() {
@@ -386,13 +422,17 @@ public final class DownloadsView extends BorderPane {
         var selectedBefore = selectedItems();
         root.getChildren().clear();
         for (DownloadPackage pkg : engine.downloadPackages()) {
-            if (!matchesPackage(pkg)) continue;
+            boolean packageTextMatch = filter.isEmpty()
+                    || pkg.nameProp().get().toLowerCase().contains(filter);
             TreeItem<DownloadItem> pi = new TreeItem<>(pkg);
             pi.setExpanded(pkg.expandedProperty().get());
             pi.expandedProperty().addListener((o, a, b) -> pkg.expandedProperty().set(b));
             for (DownloadLink l : pkg.links()) {
-                if (matchesLink(l)) pi.getChildren().add(new TreeItem<>(l));
+                if (matchesState(l) && (packageTextMatch || matchesText(l))) {
+                    pi.getChildren().add(new TreeItem<>(l));
+                }
             }
+            if (pi.getChildren().isEmpty()) continue;
             root.getChildren().add(pi);
         }
         // Preserve both package and link selection while asynchronous state
@@ -414,7 +454,8 @@ public final class DownloadsView extends BorderPane {
         disposed = true;
         engine.downloadPackages().removeListener(downloadPackagesListener);
         for (DownloadPackage p : new ArrayList<>(observedPackages)) detachPackage(p);
-        if (pausedListener != null) engine.pausedProperty().removeListener(pausedListener);
+        for (DownloadLink link : new ArrayList<>(observedLinks)) detachLink(link);
+        packageLinkListeners.clear();
         tree.getSelectionModel().getSelectedItems().removeListener(selectionListener);
         observePropertiesItem(null);
     }
@@ -452,16 +493,25 @@ public final class DownloadsView extends BorderPane {
         return null;
     }
 
-    private boolean matchesPackage(DownloadPackage p) {
-        if (filter.isEmpty()) return true;
-        if (p.nameProp().get().toLowerCase().contains(filter)) return true;
-        return p.links().stream().anyMatch(this::matchesLink);
+    /** Applies the global shell search without rebuilding the view. */
+    public void setFilter(String value) {
+        String next = value == null ? "" : value.trim().toLowerCase();
+        if (next.equals(filter)) return;
+        filter = next;
+        rebuild();
     }
 
-    private boolean matchesLink(DownloadLink l) {
-        return filter.isEmpty()
-                || l.nameProperty().getValue().toLowerCase().contains(filter)
+    private boolean matchesText(DownloadLink l) {
+        return l.nameProperty().getValue().toLowerCase().contains(filter)
                 || l.hostProperty().getValue().toLowerCase().contains(filter);
+    }
+
+    private boolean matchesState(DownloadLink link) {
+        return switch (stateFilter) {
+            case ALL -> true;
+            case ACTIVE -> link.state().isActive();
+            case FINISHED -> link.state() == DownloadState.FINISHED;
+        };
     }
 
     // ---------------------------------------------------------------- Remove
@@ -548,10 +598,5 @@ public final class DownloadsView extends BorderPane {
         return null;
     }
 
-    /** Tiny leading search glyph for the header. */
-    private static final class Icons0 {
-        static javafx.scene.Node search() {
-            return org.jdownloader.material.ui.Icons.of("search", 20);
-        }
-    }
+    private enum StateFilter { ALL, ACTIVE, FINISHED }
 }

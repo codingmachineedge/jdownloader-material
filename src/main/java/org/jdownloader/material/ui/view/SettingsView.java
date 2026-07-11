@@ -2,10 +2,13 @@ package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXToggleButton;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.concurrent.Task;
@@ -43,6 +46,7 @@ public final class SettingsView extends BorderPane {
     private final ToggleGroup nav = new ToggleGroup();
     private final Map<String, ToggleButton> tabs = new HashMap<>();
     private final Map<String, ScrollPane> pages = new HashMap<>();
+    private final List<Runnable> disposers = new ArrayList<>();
     private String selectedTabKey;
 
     public SettingsView(Settings settings, I18n i18n) {
@@ -53,7 +57,7 @@ public final class SettingsView extends BorderPane {
         this.s = settings;
         this.i18n = i18n;
         this.selectedTabKey = selectedTabKey == null ? "settings.tab.general" : selectedTabKey;
-        getStyleClass().add("content-area");
+        getStyleClass().addAll("content-area", "page-view");
 
         VBox rail = new VBox(4);
         rail.getStyleClass().add("settings-nav");
@@ -65,11 +69,14 @@ public final class SettingsView extends BorderPane {
         addTab(rail, "settings.tab.backup", "shield", backupPage());
         addTab(rail, "settings.tab.about", "info", aboutPage());
 
-        var header = new HBox(Mat.label(t("settings.title"), "headline"));
-        header.getStyleClass().add("view-header");
+        var header = new HBox(Mat.label(t("settings.title"), "headline", "page-title"));
+        header.getStyleClass().addAll("view-header", "page-head");
         setTop(header);
-        setLeft(rail);
-        setCenter(content);
+        BorderPane panel = new BorderPane();
+        panel.getStyleClass().addAll("content-panel", "settings-layout");
+        panel.setLeft(rail);
+        panel.setCenter(content);
+        setCenter(panel);
     }
 
     private void addTab(VBox rail, String titleKey, String icon, Node page) {
@@ -102,6 +109,11 @@ public final class SettingsView extends BorderPane {
         showTab("settings.tab.appearance");
     }
 
+    /** Used by documentation capture to return to the primary settings page. */
+    public void showGeneralForCapture() {
+        showTab("settings.tab.general");
+    }
+
     private void showTab(String requestedKey) {
         String tabKey = tabs.containsKey(requestedKey) ? requestedKey : "settings.tab.general";
         ToggleButton tab = tabs.get(tabKey);
@@ -123,6 +135,7 @@ public final class SettingsView extends BorderPane {
     private Node generalPage() {
         TextField folder = new TextField(s.downloadFolderProperty().get());
         folder.textProperty().bindBidirectional(s.downloadFolderProperty());
+        disposers.add(() -> folder.textProperty().unbindBidirectional(s.downloadFolderProperty()));
         HBox.setHgrow(folder, Priority.ALWAYS);
         HBox folderCtl = new HBox(folder);
         folderCtl.setAlignment(Pos.CENTER_LEFT);
@@ -130,6 +143,7 @@ public final class SettingsView extends BorderPane {
 
         ComboBox<Settings.IfExists> ifExists = ifExistsSelector();
         ifExists.valueProperty().bindBidirectional(s.ifFileExistsProperty());
+        disposers.add(() -> ifExists.valueProperty().unbindBidirectional(s.ifFileExistsProperty()));
 
         return page(
                 sectionTitle(t("settings.section.downloads")),
@@ -393,6 +407,7 @@ public final class SettingsView extends BorderPane {
         });
         selector.setPrefWidth(300);
         selector.valueProperty().bindBidirectional(s.languageProperty());
+        disposers.add(() -> selector.valueProperty().unbindBidirectional(s.languageProperty()));
         return selector;
     }
 
@@ -414,6 +429,7 @@ public final class SettingsView extends BorderPane {
         MFXToggleButton toggle = new MFXToggleButton();
         toggle.setSelected(prop.get());
         toggle.selectedProperty().bindBidirectional(prop);
+        disposers.add(() -> toggle.selectedProperty().unbindBidirectional(prop));
         return toggle;
     }
 
@@ -426,15 +442,19 @@ public final class SettingsView extends BorderPane {
         value.getStyleClass().add("subtitle");
         value.setMinWidth(48);
         value.setAlignment(Pos.CENTER_RIGHT);
-        slider.valueProperty().addListener((o, a, b) -> {
+        ChangeListener<Number> sliderListener = (o, a, b) -> {
             int v = (int) Math.round(b.doubleValue());
             prop.set(v);
             value.setText(String.valueOf(v));
-        });
-        prop.addListener((o, a, b) -> {
+        };
+        ChangeListener<Number> propertyListener = (o, a, b) -> {
             slider.setValue(b.intValue());
             value.setText(String.valueOf(b.intValue()));
-        });
+        };
+        slider.valueProperty().addListener(sliderListener);
+        prop.addListener(propertyListener);
+        disposers.add(() -> slider.valueProperty().removeListener(sliderListener));
+        disposers.add(() -> prop.removeListener(propertyListener));
         HBox box = new HBox(12, slider, value);
         box.setAlignment(Pos.CENTER_LEFT);
         return box;
@@ -442,5 +462,10 @@ public final class SettingsView extends BorderPane {
 
     private String t(String key, Object... arguments) {
         return i18n.text(key, arguments);
+    }
+
+    public void dispose() {
+        disposers.forEach(Runnable::run);
+        disposers.clear();
     }
 }

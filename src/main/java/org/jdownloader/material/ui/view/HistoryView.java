@@ -86,7 +86,7 @@ public final class HistoryView extends BorderPane {
     public HistoryView(HistoryService history, I18n i18n) {
         this.history = Objects.requireNonNull(history, "history");
         this.i18n = Objects.requireNonNull(i18n, "i18n");
-        getStyleClass().add("content-area");
+        getStyleClass().addAll("content-area", "page-view");
         setTop(buildHeader());
         setCenter(buildContent());
 
@@ -99,7 +99,7 @@ public final class HistoryView extends BorderPane {
     }
 
     private Node buildHeader() {
-        Label title = Mat.label(t("history.title"), "headline");
+        Label title = Mat.label(t("history.title"), "headline", "page-title");
         Label storage = Mat.chip("", "history-storage-chip");
         storage.textProperty().bind(Bindings.createStringBinding(
                 () -> t("history.storage", Formats.bytes(Math.max(0, history.storageBytesProperty().get()))),
@@ -114,7 +114,7 @@ public final class HistoryView extends BorderPane {
         redo.setOnAction(event -> perform(history::redo));
 
         HBox titleRow = new HBox(12, title, storage, Mat.hSpacer(), undo, redo);
-        titleRow.getStyleClass().add("view-header");
+        titleRow.getStyleClass().addAll("view-header", "page-head");
         titleRow.setAlignment(Pos.CENTER_LEFT);
 
         search.setPromptText(t("history.search"));
@@ -142,7 +142,7 @@ public final class HistoryView extends BorderPane {
         status.textProperty().bind(historyStatusBinding());
         Label description = Mat.label(t("history.description"), "row-desc");
         description.setWrapText(true);
-        HBox controls = new HBox(12, scopeFilter, search, Mat.hSpacer(), status);
+        HBox controls = new HBox(12, scopeFilter, Mat.hSpacer(), status);
         controls.getStyleClass().add("history-toolbar");
         controls.setAlignment(Pos.CENTER_LEFT);
         controls.setPadding(new Insets(0, 20, 12, 20));
@@ -168,6 +168,12 @@ public final class HistoryView extends BorderPane {
         split.getStyleClass().add("history-split");
         split.setDividerPositions(0.44);
         return split;
+    }
+
+    /** Applies the search field hosted by the global application toolbar. */
+    public void setFilter(String value) {
+        String next = value == null ? "" : value;
+        if (!Objects.equals(search.getText(), next)) search.setText(next);
     }
 
     private Node buildPreview() {

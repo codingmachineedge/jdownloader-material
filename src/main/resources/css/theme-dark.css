@@ -1,67 +1,73 @@
 /*
- * JDownloader Material — Dark theme
- * Material Design 3 baseline dark color roles. Same token names as
- * theme-light.css; swapping this file is the whole light/dark switch.
+ * JDownloader Material Rewrite - canonical dark theme.
+ * Same role names as theme-light.css; ThemeManager swaps only this file.
  */
 .root {
-    /* Primary */
-    -md-primary:                 #D0BCFF;
-    -md-on-primary:              #381E72;
-    -md-primary-container:       #4F378B;
-    -md-on-primary-container:    #EADDFF;
+    /* Canonical palette */
+    -md-background:                 #111318;
+    -md-on-background:              #e7e9f0;
+    -md-surface:                    #191c22;
+    -md-on-surface:                 #e7e9f0;
+    -md-surface-2:                  #22262e;
+    -md-surface-3:                  #2c313b;
+    -md-muted:                      #aeb4c0;
+    -md-border:                     #3b414c;
 
-    /* Secondary */
-    -md-secondary:               #CCC2DC;
-    -md-on-secondary:            #332D41;
-    -md-secondary-container:     #4A4458;
-    -md-on-secondary-container:  #E8DEF8;
+    -md-primary:                    #8bd8c5;
+    -md-on-primary:                 #00382f;
+    -md-primary-container:          #2e3e3f;
+    -md-on-primary-container:       #e7e9f0;
 
-    /* Tertiary */
-    -md-tertiary:                #EFB8C8;
-    -md-tertiary-container:      #633B48;
+    -md-secondary:                  #a9c7ff;
+    -md-on-secondary:               #14335e;
+    -md-secondary-container:        #28374f;
+    -md-on-secondary-container:     #dbe7ff;
 
-    /* Error */
-    -md-error:                   #F2B8B5;
-    -md-on-error:                #601410;
-    -md-error-container:         #8C1D18;
-    -md-on-error-container:      #F9DEDC;
+    -md-success:                    #78dba9;
+    -md-success-container:          #203d31;
+    -md-on-success-container:       #a6f2ca;
+    -md-warning:                    #f0c36a;
+    -md-warning-container:          #44391f;
+    -md-on-warning-container:       #ffe0a0;
+    -md-error:                      #ffb4ab;
+    -md-on-error:                   #690005;
+    -md-error-container:            #4a2525;
+    -md-on-error-container:         #ffdad6;
 
-    /* Success / warning (extended roles) */
-    -md-success:                 #9CD67D;
-    -md-success-container:       #245100;
-    -md-warning:                 #F5BE48;
-    -md-warning-container:       #5C4300;
+    /* Material-compatible aliases used by existing controls */
+    -md-surface-variant:             #2c313b;
+    -md-on-surface-variant:          #aeb4c0;
+    -md-surface-container-lowest:    #111318;
+    -md-surface-container-low:       #191c22;
+    -md-surface-container:           #191c22;
+    -md-surface-container-high:      #22262e;
+    -md-surface-container-highest:   #22262e;
+    -md-outline:                     #737b87;
+    -md-outline-variant:             #3b414c;
+    -md-tertiary:                    #a9c7ff;
+    -md-tertiary-container:          #28374f;
+    -md-on-tertiary-container:       #dbe7ff;
 
-    /* Surfaces & background */
-    -md-background:              #141218;
-    -md-on-background:           #E6E0E9;
-    -md-surface:                 #141218;
-    -md-on-surface:              #E6E0E9;
-    -md-surface-variant:         #49454F;
-    -md-on-surface-variant:      #CAC4D0;
+    -md-inverse-surface:             #e7e9f0;
+    -md-inverse-on-surface:          #25282e;
+    -md-inverse-primary:             #006b5c;
+    -md-shadow:                      rgba(0, 0, 0, 0.42);
+    -md-shadow-overlay:              rgba(0, 0, 0, 0.33);
+    -md-scrim:                       rgba(0, 0, 0, 0.58);
 
-    -md-surface-container-lowest:  #0F0D13;
-    -md-surface-container-low:     #1D1B20;
-    -md-surface-container:         #211F26;
-    -md-surface-container-high:    #2B2930;
-    -md-surface-container-highest: #36343B;
-
-    /* Outline */
-    -md-outline:                 #938F99;
-    -md-outline-variant:         #49454F;
-
-    /* Inverse */
-    -md-inverse-surface:         #E6E0E9;
-    -md-inverse-on-surface:      #322F35;
-    -md-inverse-primary:         #6750A4;
-
-    -md-shadow:                  rgba(0, 0, 0, 0.55);
-
-    -md-hover-overlay:           rgba(230, 224, 233, 0.08);
-    -md-focus-overlay:           rgba(230, 224, 233, 0.12);
-    -md-press-overlay:           rgba(230, 224, 233, 0.12);
-    -md-primary-hover:           derive(-md-primary, -8%);
-    -md-primary-press:           derive(-md-primary, -14%);
+    /* State layers */
+    -md-hover-overlay:               rgba(231, 233, 240, 0.07);
+    -md-focus-overlay:               rgba(139, 216, 197, 0.13);
+    -md-press-overlay:               rgba(231, 233, 240, 0.12);
+    -md-primary-hover:               #9be4d2;
+    -md-primary-press:               #74c9b5;
+    -md-selection:                   #2e3e3f;
+    -md-divider-soft:                rgba(59, 65, 76, 0.72);
+    -md-primary-soft:                rgba(139, 216, 197, 0.18);
+    -md-secondary-soft:              rgba(169, 199, 255, 0.16);
+    -md-success-soft:                rgba(120, 219, 169, 0.16);
+    -md-warning-soft:                rgba(240, 195, 106, 0.16);
+    -md-error-soft:                  rgba(255, 180, 171, 0.16);
 
     -fx-background-color: -md-background;
 }

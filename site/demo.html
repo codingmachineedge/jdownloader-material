@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111318">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="assets/jdownloader-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="demo.css">
+  <title>JDownloader Material interactive preview</title>
+  <script>
+    (() => {
+      const saved = localStorage.getItem('jd-material-site-theme');
+      const preferred = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = saved || preferred;
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#demo-content">Skip to workspace</a>
+  <div class="app-shell" id="app-shell">
+    <header class="app-bar">
+      <a class="app-brand" href="index.html" target="_top" aria-label="Return to the JDownloader Material product page">
+        <img src="assets/jdownloader-mark.svg" width="30" height="30" alt="">
+        <span>JDownloader Material</span>
+      </a>
+      <div class="queue-controls" role="group" aria-label="Queue controls">
+        <button class="app-action primary" type="button" id="add-links-button" aria-label="Add links"><span aria-hidden="true">＋</span><b>Add links</b></button>
+        <button class="app-icon" type="button" id="start-button" aria-label="Start downloads" title="Start downloads"><span aria-hidden="true">▶︎</span></button>
+        <button class="app-icon" type="button" id="pause-button" aria-label="Pause downloads" title="Pause downloads"><span aria-hidden="true">Ⅱ</span></button>
+        <button class="app-icon" type="button" id="stop-button" aria-label="Stop downloads" title="Stop downloads"><span aria-hidden="true">■</span></button>
+      </div>
+      <div class="app-bar-spacer"></div>
+      <label class="search-box">
+        <span aria-hidden="true">⌕</span>
+        <span class="sr-only">Search current list</span>
+        <input id="demo-search" type="search" autocomplete="off" placeholder="Search downloads">
+      </label>
+      <div class="throughput" role="group" aria-label="Sample aggregate speed">
+        <span class="throughput-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <output id="speed-output">18.4 MB/s</output>
+      </div>
+      <span class="demo-badge">Sample</span>
+      <button class="app-icon" type="button" id="demo-theme-button" aria-label="Switch to light theme" aria-pressed="false" title="Switch theme"><span class="theme-symbol" aria-hidden="true"></span></button>
+    </header>
+
+    <nav class="app-rail" aria-label="Preview navigation">
+      <div class="rail-main">
+        <button class="rail-link active" type="button" data-screen="downloads" aria-label="Downloads" aria-current="page">
+          <span class="rail-icon" aria-hidden="true">↓</span><span>Downloads</span>
+        </button>
+        <button class="rail-link" type="button" data-screen="linkgrabber" aria-label="LinkGrabber">
+          <span class="rail-icon" aria-hidden="true">↗</span><span>LinkGrabber</span>
+        </button>
+        <button class="rail-link" type="button" data-screen="history" aria-label="History">
+          <span class="rail-icon" aria-hidden="true">↶</span><span>History</span>
+        </button>
+      </div>
+      <div class="rail-system">
+        <p class="rail-label">System</p>
+        <button class="rail-link" type="button" data-screen="settings" aria-label="Settings">
+          <span class="rail-icon rail-gear" aria-hidden="true">⚙︎</span><span>Settings</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="app-content" id="demo-content" tabindex="-1">
+      <header class="page-header">
+        <div><p class="page-kicker">Transfer queue</p><h1>Downloads</h1></div>
+        <div class="page-summary"><span><i class="status-dot live"></i>2 active</span><span>4 files</span></div>
+      </header>
+      <section class="workspace-panel" aria-labelledby="fallback-downloads-title">
+        <h2 class="sr-only" id="fallback-downloads-title">Sample downloads</h2>
+        <div class="table-toolbar"><button class="filter-chip active" type="button">All</button><span class="toolbar-spacer"></span><span>Interactive preview loading…</span></div>
+      </section>
+    </main>
+
+    <footer class="status-bar">
+      <span><i class="status-dot live"></i>Clipboard monitoring on</span>
+      <span class="status-reconnect">Auto reconnect ready</span>
+      <span class="status-spacer"></span>
+      <output id="global-status">18.4 MB/s · 2 active · 8.3 GB remaining</output>
+    </footer>
+  </div>
+
+  <div class="drawer-scrim" id="drawer-scrim" aria-hidden="true"></div>
+  <aside class="add-drawer" id="add-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true" inert>
+    <header class="drawer-header">
+      <div><p class="page-kicker">New transfer</p><h2 id="drawer-title">Add links</h2></div>
+      <button class="app-icon" type="button" id="close-drawer" aria-label="Close Add links"><span aria-hidden="true">×</span></button>
+    </header>
+    <form id="add-links-form" novalidate>
+      <label class="field field-grow" for="links-input">
+        <span>Direct HTTP(S) links</span>
+        <textarea id="links-input" rows="6" spellcheck="false">https://example.com/archive.zip</textarea>
+        <small>Enter one link per line.</small>
+        <em class="field-error" id="links-error" role="alert"></em>
+      </label>
+      <label class="field" for="package-input">
+        <span>Package name</span>
+        <input id="package-input" value="New downloads" autocomplete="off">
+      </label>
+      <label class="field" for="destination-input">
+        <span>Download folder</span>
+        <input id="destination-input" value="C:\Downloads" autocomplete="off">
+      </label>
+      <div class="drawer-actions">
+        <button class="app-action" type="button" id="cancel-drawer">Cancel</button>
+        <button class="app-action" type="submit" name="submission" value="queue">Add</button>
+        <button class="app-action primary" type="submit" name="submission" value="start">Add &amp; start</button>
+      </div>
+    </form>
+  </aside>
+
+  <div class="toast" id="demo-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <script src="demo.js" defer></script>
+</body>
+</html>

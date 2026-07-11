@@ -1,6 +1,7 @@
 package org.jdownloader.material.ui.component;
 
 import javafx.beans.binding.Bindings;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
@@ -8,37 +9,32 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.i18n.I18n;
-import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.util.Formats;
 
-/** Bottom status bar mirroring JDownloader's global speed / activity indicators. */
+/** Stable 30px operational status line from the design handoff. */
 public final class StatusBar extends HBox {
 
+    private final ActivityStatus activity;
+    private final ChangeListener<Boolean> errorListener;
+
     public StatusBar(DownloadEngine engine, I18n i18n, ActivityStatus activity) {
+        this.activity = activity;
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
 
-        Label speed = new Label();
-        speed.getStyleClass().add("status-strong");
-        speed.textProperty().bind(Bindings.createStringBinding(
-                () -> "▼ " + Formats.speed(engine.globalSpeedProperty().get()),
-                engine.globalSpeedProperty()));
+        Label clipboard = new Label();
+        clipboard.getStyleClass().add("status-metric");
+        clipboard.textProperty().bind(Bindings.createStringBinding(
+                () -> i18n.text(engine.settings().clipboardMonitoringProperty().get()
+                        ? "status.clipboard_on" : "status.clipboard_off"),
+                engine.settings().clipboardMonitoringProperty(), i18n.modeProperty()));
 
-        Label running = metric(i18n, "status.running",
-                Bindings.createStringBinding(
-                        () -> String.valueOf(engine.runningCountProperty().get()),
-                        engine.runningCountProperty()));
-
-        Label remaining = metric(i18n, "status.remaining",
-                Bindings.createStringBinding(
-                        () -> Formats.bytes(engine.totalRemainingProperty().get()),
-                        engine.totalRemainingProperty()));
-
-        HBox retry = new HBox(6, Icons.of("reconnect", 14, "icon-primary"),
-                new Label(i18n.text("status.retry_scheduled")));
-        retry.setAlignment(Pos.CENTER_LEFT);
-        retry.visibleProperty().bind(engine.retryScheduledProperty());
-        retry.managedProperty().bind(engine.retryScheduledProperty());
+        Label retry = new Label();
+        retry.getStyleClass().add("status-metric");
+        retry.textProperty().bind(Bindings.createStringBinding(
+                () -> i18n.text(engine.retryScheduledProperty().get()
+                        ? "status.retry_scheduled" : "status.auto_retry_ready"),
+                engine.retryScheduledProperty(), i18n.modeProperty()));
 
         Label activityMessage = new Label();
         activityMessage.getStyleClass().add("status-message");
@@ -47,35 +43,45 @@ public final class StatusBar extends HBox {
         activityMessage.textProperty().bind(activity.messageProperty());
         activityMessage.visibleProperty().bind(activity.messageProperty().isNotEmpty());
         activityMessage.managedProperty().bind(activity.messageProperty().isNotEmpty());
-        activity.errorProperty().addListener((observable, wasError, isError) -> {
+        errorListener = (observable, wasError, isError) -> {
             activityMessage.getStyleClass().remove("error");
             if (isError) activityMessage.getStyleClass().add("error");
-        });
+        };
+        activity.errorProperty().addListener(errorListener);
         if (activity.errorProperty().get()) activityMessage.getStyleClass().add("error");
+
+        Label speed = new Label();
+        speed.getStyleClass().add("status-strong");
+        speed.textProperty().bind(Bindings.createStringBinding(
+                () -> "\u2193 " + Formats.speed(engine.globalSpeedProperty().get()),
+                engine.globalSpeedProperty()));
+
+        Label running = new Label();
+        running.getStyleClass().add("status-metric");
+        running.textProperty().bind(Bindings.createStringBinding(
+                () -> i18n.text("status.active", engine.runningCountProperty().get()),
+                engine.runningCountProperty(), i18n.modeProperty()));
+
+        Label remaining = new Label();
+        remaining.getStyleClass().add("status-metric");
+        remaining.textProperty().bind(Bindings.createStringBinding(
+                () -> i18n.text("status.remaining_value",
+                        Formats.bytes(engine.totalRemainingProperty().get())),
+                engine.totalRemainingProperty(), i18n.modeProperty()));
+
+        HBox right = new HBox(8, speed, sep(), running, sep(), remaining);
+        right.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(activityMessage, Priority.NEVER);
-
-        getChildren().addAll(speed, sep(), running, sep(), remaining, activityMessage, Mat.hSpacer(), retry);
-    }
-
-    private Label metric(I18n i18n, String nameKey, javafx.beans.binding.StringBinding valueBinding) {
-        Label l = new Label();
-        l.getStyleClass().add("status-metric");
-        l.textProperty().bind(Bindings.createStringBinding(() -> i18n.text(nameKey) + ": ",
-                i18n.modeProperty()));
-        Label value = new Label();
-        value.getStyleClass().addAll("status-metric", "value");
-        value.textProperty().bind(valueBinding);
-        // combine into one label-like node via a container is overkill; return a compound label
-        HBox box = new HBox(4, l, value);
-        box.setAlignment(Pos.CENTER_LEFT);
-        Label wrapper = new Label();
-        wrapper.setGraphic(box);
-        return wrapper;
+        getChildren().addAll(clipboard, retry, activityMessage, Mat.hSpacer(), right);
     }
 
     private Label sep() {
-        Label l = new Label("•");
-        l.getStyleClass().add("status-metric");
-        return l;
+        Label label = new Label("\u00b7");
+        label.getStyleClass().add("status-metric");
+        return label;
+    }
+
+    public void dispose() {
+        activity.errorProperty().removeListener(errorListener);
     }
 }

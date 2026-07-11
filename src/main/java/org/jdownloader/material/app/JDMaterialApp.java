@@ -62,7 +62,9 @@ public class JDMaterialApp extends Application {
         } else {
             window = new MainWindow(engine, theme, stage);
         }
-        Scene scene = new Scene(window, 1180, 720);
+        boolean documentationCapture = screenshotDir != null && !screenshotDir.isBlank();
+        Scene scene = new Scene(window, documentationCapture ? 1440 : 1280,
+                documentationCapture ? 900 : 800);
         theme.install(scene);
 
         stage.setScene(scene);
@@ -131,10 +133,9 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("downloads-properties-light.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
                 new ScreenshotStep("history-light.png", window::showHistory),
-                new ScreenshotStep("settings-light.png", window::showSettings),
+                new ScreenshotStep("settings-light.png", window::showSettingsGeneralForCapture),
                 new ScreenshotStep("settings-appearance-light.png", window::showSettingsAppearanceForCapture),
-                new ScreenshotStep("add-links-light.png", window::openAddLinks),
-                new ScreenshotStep("workspace-tabs-light.png", window::showDownloads),
+                new ScreenshotStep("add-links-light.png", window::showAddLinksForCapture),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
                     window.showDownloadsForCapture();
@@ -142,9 +143,9 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("downloads-properties-dark.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-dark.png", window::showLinkGrabber),
                 new ScreenshotStep("history-dark.png", window::showHistory),
-                new ScreenshotStep("settings-dark.png", window::showSettings),
-                new ScreenshotStep("add-links-dark.png", window::openAddLinks),
-                new ScreenshotStep("workspace-tabs-dark.png", window::showDownloads),
+                new ScreenshotStep("settings-dark.png", window::showSettingsGeneralForCapture),
+                new ScreenshotStep("add-links-dark.png", window::showAddLinksForCapture),
+                new ScreenshotStep("settings-appearance-dark.png", window::showSettingsAppearanceForCapture),
                 new ScreenshotStep("downloads-cantonese.png", () -> {
                     if (theme.isDark()) theme.toggle();
                     engine.settings().languageProperty().set(LanguageMode.HONG_KONG_CANTONESE);
@@ -156,9 +157,8 @@ public class JDMaterialApp extends Application {
                     window.showDownloadsForCapture();
                 }),
                 new ScreenshotStep("history-bilingual.png", window::showHistory),
-                new ScreenshotStep("add-links-bilingual.png", window::openAddLinks),
-                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture),
-                new ScreenshotStep("workspace-tabs-bilingual.png", window::showDownloads));
+                new ScreenshotStep("add-links-bilingual.png", window::showAddLinksForCapture),
+                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture));
         captureStep(scene, window, steps, directory, 0);
     }
 

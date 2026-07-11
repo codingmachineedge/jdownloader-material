@@ -2,6 +2,8 @@ name: Release installers
 
 on:
   push:
+    branches:
+      - main
 
 env:
   APP_NAME: JDownloader Material
@@ -12,13 +14,13 @@ env:
 
 jobs:
   prepare-release:
-    name: Create published release
+    name: Create staged release
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Create or refresh the published release
+      - name: Create or refresh the draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,11 +57,10 @@ jobs:
               fi
             done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
             gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "$title" \
-              --notes-file release-notes.md --draft=false
+              --notes-file release-notes.md --draft=true
           else
-            # gh release create is published by default: never make this a draft.
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "$title" --notes-file release-notes.md
+              --title "$title" --notes-file release-notes.md --draft
           fi
 
   build-installer:
@@ -92,6 +93,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -200,7 +203,7 @@ jobs:
             throw "Installer is unexpectedly small: $assetPath"
           }
 
-      - name: Upload installer directly to the published release
+      - name: Upload installer directly to the draft release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -216,7 +219,7 @@ jobs:
           }
 
   release:
-    name: Validate published release
+    name: Validate and publish release
     if: always()
     needs: [prepare-release, build-installer]
     runs-on: ubuntu-latest
@@ -224,7 +227,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Validate or remove the published release
+      - name: Validate, publish, or remove the draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -266,3 +269,4 @@ jobs:
               exit 1
             }
           done
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
