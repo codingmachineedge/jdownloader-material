@@ -63,8 +63,9 @@ When Network recovery is enabled, direct engine workers retry network failures a
 and 5xx responses with capped 2/4/8/16-second backoff. The queue item and its partial data remain
 in place while Details shows the countdown. Other transfer failures remain visible as Error rows.
 
-File-exists behavior is resolved by the worker rather than a modal prompt. The default Ask policy
-chooses a safe auto-name; Rename, Skip, and Overwrite continue without interrupting the batch.
+File-exists behavior is resolved by the worker rather than a modal prompt. The internal default
+`ASK` value is presented as **Auto-rename (no prompt)** and chooses a safe name; Auto-rename, Skip,
+and Overwrite continue without interrupting the batch.
 
 For one queued, error, or disabled link, the Downloads page presents inline name and destination
 fields. A package editor applies only when all of its children are in those safe states. Running,
@@ -102,19 +103,6 @@ telemetry is omitted while final byte/path/outcome metadata stays with completed
 The manifest sequence can finish a durable prepared entry after a process interruption between
 repositories.
 
-## Workspace persistence
-
-The browser-style tab workspace uses its own
-[`GitWorkspaceStore`](../src/main/java/org/jdownloader/material/workspace/GitWorkspaceStore.java),
-separate from the transfer engine. It stores the application name, open tabs, selected tab, and
-per-tab title styling in `~/.jdownloader-material/workspace/`. Each tab also has its own durable
-descriptor file in the local Git repository. Opening, selecting, editing, importing, and closing
-tabs append commits; closed descriptors remain in the repository alongside their close event.
-
-`exportSnapshot(...)` writes a portable `.jdmtabs` file. `importSnapshot(...)` validates and loads
-that snapshot as fresh workspace tabs. `exportRepository(...)` writes a ZIP containing the complete
-private workspace repository and its immutable event history.
-
 ## Global state
 
 | Property | Meaning |
@@ -132,7 +120,7 @@ speed limit, file-exists policy, transient retry, LinkGrabber auto-confirm/auto-
 ordering, and presentation settings. Presentation offers English, playful Hong Kong Cantonese, and
 bilingual English / Hong Kong Cantonese.
 
-Network probes, HTTP streaming, journal writes, backup encryption, History Git work, workspace Git
-work, and disk I/O run outside the JavaFX Application Thread. JavaFX observable-model updates and
-history snapshot capture/restoration return through `Platform.runLater`. This keeps URL submission,
-queue controls, workspace edits, History, and backup work responsive without a blocking dialog.
+Network probes, HTTP streaming, journal writes, backup encryption, History Git work, and disk I/O
+run outside the JavaFX Application Thread. JavaFX observable-model updates and history snapshot
+capture/restoration return through `Platform.runLater`. This keeps URL submission, queue controls,
+primary navigation, History, and backup work responsive without a blocking dialog.

@@ -1,128 +1,116 @@
 # JDownloader Material
 
-<p align="center"><img src="src/main/resources/icons/app.png" alt="JDownloader Material indigo download-and-link logo" width="132"></p>
+<p align="center"><img src="src/main/resources/icons/app.png" alt="JDownloader Material mint-teal download mark" width="132"></p>
 
-JDownloader Material is a purpose-built JavaFX download workspace for direct HTTP(S) files. It
-combines a responsive Material Design 3 desktop interface with a real background transfer engine:
-paste URLs, inspect them in LinkGrabber, queue downloads, and keep working while probes, disk I/O,
-retry scheduling, and history writes run in the background.
+JDownloader Material is a purpose-built JavaFX desktop app for direct HTTP(S) files. Its mint-teal,
+high-density interface combines Downloads, LinkGrabber, History, Settings, and a nonblocking Add
+Links drawer with a real background transfer engine. Paste URLs, inspect metadata, queue files, and
+keep working while probes, disk I/O, retry scheduling, and append-only history writes continue.
 
-The indigo download-and-link mark above is the application icon used by the desktop app. Normal
-launches use `DirectHttpEngine`; `SimulatedEngine` is used only by the repeatable documentation
-capture mode.
+Normal launches use `DirectHttpEngine`; `SimulatedEngine` is limited to deterministic documentation
+capture. The project does not expose My.JDownloader, host accounts, captcha solving, plugins, or a
+general JDownloader-core adapter.
 
 - **Runtime:** Java 25 (Temurin) and JavaFX 25
-- **UI:** JavaFX, MaterialFX, and a hand-authored Material 3 stylesheet
+- **UI:** JavaFX, MaterialFX, and a hand-authored compact Material 3 system
 - **Languages:** English, playful Hong Kong Cantonese, or bilingual English / Hong Kong Cantonese
-- **Themes:** light and dark, switched immediately from the app bar
+- **Themes:** light and dark, switched immediately from the global toolbar or Settings
 - **Download scope:** direct HTTP and HTTPS URLs, including resumable `.part` transfers
+- **Interactive demo:** [GitHub Pages](https://codingmachineedge.github.io/jdownloader-material/)
+
+## Interface
+
+The desktop shell keeps global work in stable positions:
+
+- a **52 px global toolbar** with Add Links, Start, Pause/Resume, Stop, contextual search, aggregate
+  throughput, theme, clipboard monitoring, and window controls;
+- a **responsive navigation rail** that is 208 px wide normally and collapses to a 72 px icon rail
+  below 980 px, where the global search and throughput trace also hide;
+- dense page panels with 62 px headings, 48 px action rows, 34 px table headers, and 48 px data rows;
+- a **30 px status bar** for aggregate speed, running count, remaining bytes, retry state, and the
+  latest activity message; and
+- a **440 px Add Links drawer** with a scrim, explicit close/cancel actions, initial keyboard focus,
+  and Escape dismissal.
+
+Downloads, LinkGrabber, History, and Settings are persistent destinations in the rail. Search in
+the global toolbar follows the active Downloads, LinkGrabber, or History page; Settings disables
+it. [Read the UI guide](docs/UI_GUIDE.md), explore the
+[design system](docs/DESIGN_SYSTEM.md), or try the
+[interactive GitHub Pages demo](https://codingmachineedge.github.io/jdownloader-material/).
 
 ## Visual tour
 
-The gallery is captured from the running application. [UI guide](docs/UI_GUIDE.md) explains the
-workspace shell, direct-transfer flow, and nonblocking interaction pattern; [History Manager](docs/HISTORY.md)
-documents the local append-only timeline.
+The gallery is captured from the running JavaFX application.
 
-| Downloads light | Downloads dark |
+### Downloads
+
+| Light | Dark |
 | --- | --- |
 | ![Downloads in the light theme](docs/screenshots/downloads-light.png) | ![Downloads in the dark theme](docs/screenshots/downloads-dark.png) |
 
-| Fixed status feedback |
-| --- |
-| ![Downloads showing fixed in-layout activity feedback](docs/screenshots/downloads-status-light.png) |
+| Status feedback | Selected item, light | Selected item, dark |
+| --- | --- | --- |
+| ![Downloads with fixed activity feedback](docs/screenshots/downloads-status-light.png) | ![Queued-download properties in the light theme](docs/screenshots/downloads-properties-light.png) | ![Queued-download properties in the dark theme](docs/screenshots/downloads-properties-dark.png) |
 
 | Hong Kong Cantonese | Bilingual English / Hong Kong Cantonese |
 | --- | --- |
 | ![Downloads in playful Hong Kong Cantonese](docs/screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](docs/screenshots/downloads-bilingual.png) |
 
-| Hong Kong Cantonese LinkGrabber | Bilingual Add Links |
-| --- | --- |
-| ![LinkGrabber in playful Hong Kong Cantonese](docs/screenshots/linkgrabber-cantonese.png) | ![Add Links in bilingual English and Hong Kong Cantonese](docs/screenshots/add-links-bilingual.png) |
+### LinkGrabber
 
-| English language setting | Bilingual language setting |
-| --- | --- |
-| ![Appearance settings showing the English selector](docs/screenshots/settings-appearance-light.png) | ![Appearance settings showing the bilingual selector](docs/screenshots/settings-appearance-bilingual.png) |
-
-| Selected item light | Selected item dark |
-| --- | --- |
-| ![Inline queued-download properties in the light theme](docs/screenshots/downloads-properties-light.png) | ![Inline queued-download properties in the dark theme](docs/screenshots/downloads-properties-dark.png) |
-
-| LinkGrabber light | LinkGrabber dark |
-| --- | --- |
-| ![LinkGrabber in the light theme](docs/screenshots/linkgrabber-light.png) | ![LinkGrabber in the dark theme](docs/screenshots/linkgrabber-dark.png) |
-
-| History light | History dark | Bilingual History |
+| Light | Dark | Hong Kong Cantonese |
 | --- | --- | --- |
-| ![History Manager in the light theme](docs/screenshots/history-light.png) | ![History Manager in the dark theme](docs/screenshots/history-dark.png) | ![History Manager in bilingual English and Hong Kong Cantonese](docs/screenshots/history-bilingual.png) |
+| ![LinkGrabber in the light theme](docs/screenshots/linkgrabber-light.png) | ![LinkGrabber in the dark theme](docs/screenshots/linkgrabber-dark.png) | ![LinkGrabber in playful Hong Kong Cantonese](docs/screenshots/linkgrabber-cantonese.png) |
 
-| Settings light | Settings dark |
-| --- | --- |
-| ![Settings in the light theme](docs/screenshots/settings-light.png) | ![Settings in the dark theme](docs/screenshots/settings-dark.png) |
+### History
 
-| Add Links light | Add Links dark |
-| --- | --- |
-| ![Inline Add Links composer in the light theme](docs/screenshots/add-links-light.png) | ![Inline Add Links composer in the dark theme](docs/screenshots/add-links-dark.png) |
-
-| Workspace tabs light | Workspace tabs dark | Bilingual workspace tabs |
+| Light | Dark | Bilingual English / Hong Kong Cantonese |
 | --- | --- | --- |
-| ![Browser-style workspace tabs in the light theme](docs/screenshots/workspace-tabs-light.png) | ![Browser-style workspace tabs in the dark theme](docs/screenshots/workspace-tabs-dark.png) | ![Browser-style workspace tabs in bilingual English and Hong Kong Cantonese](docs/screenshots/workspace-tabs-bilingual.png) |
+| ![History in the light theme](docs/screenshots/history-light.png) | ![History in the dark theme](docs/screenshots/history-dark.png) | ![History in bilingual English and Hong Kong Cantonese](docs/screenshots/history-bilingual.png) |
 
-## Workspace tabs
+### Settings
 
-The shell behaves like a browser workspace: every open page has its own tab, and each tab owns a
-single page instance. Open Downloads, LinkGrabber, History, Settings, or Add Links in another tab
-when you want two independent places to work. A right-click on a tab opens its editor, where you
-can:
+| General, light | General, dark |
+| --- | --- |
+| ![Settings general section in the light theme](docs/screenshots/settings-light.png) | ![Settings general section in the dark theme](docs/screenshots/settings-dark.png) |
 
-- rename the tab;
-- choose the tab-label font family and size;
-- set bold, italic, and any color from the color picker; and
-- close the tab or open a new page tab.
+| Appearance, light | Appearance, dark | Appearance, bilingual |
+| --- | --- | --- |
+| ![Appearance settings in the light theme](docs/screenshots/settings-appearance-light.png) | ![Appearance settings in the dark theme](docs/screenshots/settings-appearance-dark.png) | ![Appearance settings in bilingual English and Hong Kong Cantonese](docs/screenshots/settings-appearance-bilingual.png) |
 
-The application name is editable in the same workspace controls and updates the window/app-bar
-identity. Open tabs, the selected tab, application name, and tab-label styling are kept in a
-private local Git repository at `~/.jdownloader-material/workspace/`. Every workspace change adds
-an append-only local commit. Closing a tab records its event while retaining its descriptor, so the
-timeline remains complete.
+### Add Links drawer
 
-Workspace controls also export a portable `.jdmtabs` snapshot, import that snapshot, and export a
-ZIP of the complete local workspace repository. The repository export includes the append-only
-tab history as well as the current workspace.
+| Light | Dark | Bilingual English / Hong Kong Cantonese |
+| --- | --- | --- |
+| ![Add Links drawer in the light theme](docs/screenshots/add-links-light.png) | ![Add Links drawer in the dark theme](docs/screenshots/add-links-dark.png) | ![Add Links drawer in bilingual English and Hong Kong Cantonese](docs/screenshots/add-links-bilingual.png) |
 
 ## Current capabilities
 
-- **Downloads** — package-to-file tree with name, size, host, status, progress, speed, ETA, and
-  inline details. Toolbar and right-click actions cover adding, starting, pausing, stopping,
-  ordering, removing, enabling, priority, and completed-file actions. A selected safe queued item
-  can be renamed or retargeted in an inline properties strip.
-- **LinkGrabber** — staged direct URLs with asynchronous metadata probes, Paste, Remove,
-  availability filtering, and direct confirmation into Downloads.
-- **Inline Add Links** — submit one or more direct HTTP(S) URLs with a package name and
-  destination. Queue in LinkGrabber and Queue & Start return immediately while background checks
-  continue.
+- **Downloads** — package-to-file tree with name, size, host, status, details, progress, speed, and
+  ETA. All / Running / Finished filters, Move, Remove, row context actions, and queue-safe inline
+  name/destination editing complement the global transfer controls and search.
+- **LinkGrabber** — staged direct URLs with asynchronous metadata probes, availability filtering,
+  Add Links, Paste, Remove, Add to Downloads, and Add all.
+- **Add Links drawer** — submits one or more direct HTTP(S) URLs with an optional package name and
+  destination. Add queues them in LinkGrabber; Add & start begins confirmed work without blocking
+  navigation.
 - **Direct transfers** — redirect-aware probing, background streaming, resumable `.part` files,
-  atomic finalization where supported, global and per-host limits, speed limiting, collision
-  policies, and bounded automatic retry for transient failures.
-- **Fixed feedback** — recent clipboard, validation, and removal messages remain in the status
-  line; work continues beneath them. Durable Undo and Redo live in History rather than a floating
-  popup.
-- **Local history** — Downloads, LinkGrabber, and non-secret settings are stored in separate
-  append-only local Git timelines. Undo, redo, and restore add a new event instead of removing an
-  older revision.
-- **Settings and backup** — every displayed setting controls a live direct-download behavior or
-  persisted presentation preference. Encrypted settings export/import performs cryptographic and
-  file work asynchronously.
-- **Localization** — English, playful Hong Kong Cantonese, and bilingual copy switch immediately
-  and persist across restarts.
+  atomic finalization where supported, global/per-host concurrency, speed limiting, nonmodal
+  collision policies, and bounded automatic retry for transient failures.
+- **History** — a split timeline/preview view over append-only local Git history for Downloads,
+  LinkGrabber, and non-secret Settings. Undo, redo, and restore append new events.
+- **Settings** — a 220 px section list beside concise setting rows for General, Connection,
+  Recovery, LinkGrabber, Appearance, Backup, and About. Encrypted backup file work is asynchronous.
+- **Localization** — English, playful Hong Kong Cantonese, and bilingual copy apply immediately and
+  persist across restarts.
 
 ## Installer releases
 
-Every push creates a published GitHub release containing self-contained native installers for
+Every push to `main` stages a draft GitHub release and builds self-contained native installers for
 Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. Each package includes a Java 25
 runtime, so users do not need Java or Maven installed. GitHub Actions uploads installers directly
-to the release; the release contains installer assets only, with no retained workflow artifacts.
-The final release check accepts exactly the four installer assets and removes an incomplete release
-when a platform build fails.
+to the draft, with no retained workflow artifacts. The final check publishes only after it finds
+exactly the four expected installer assets; a failed platform build removes the incomplete draft.
 
 - [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
 - [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
@@ -157,10 +145,11 @@ mvn package          # build a jar
 
 ## Local data and privacy
 
-The app keeps its restart journal, local history repositories, and workspace repository under
-`~/.jdownloader-material/`. They stay on the device and have no configured remote. History keeps
-direct-link URLs so a restored list remains useful; treat the directory as private data. Completed
-files and `.part` file contents are not copied into the history repositories.
+The restart journal and append-only history repositories live below
+`~/.jdownloader-material/` and have no configured remote. History retains direct-link URLs so a
+restored list remains useful, including signed parameters; treat the directory as private data.
+Credential fields, completed file contents, and `.part` contents do not enter history. Settings
+backup files are written only to the path selected in Settings.
 
 ## Project layout
 
@@ -169,22 +158,23 @@ src/main/java/org/jdownloader/material/
   app/       Application entry point (JDMaterialApp, Launcher)
   model/     DownloadItem/Link/Package, CrawledLink/Package, states
   engine/    DownloadEngine, DirectHttpEngine, SimulatedEngine, state and settings
-  workspace/ private append-only Git workspace tabs and portable export/import
   ui/        MainWindow, ThemeManager, Icons
   ui/view/   DownloadsView, LinkGrabberView, HistoryView, AddLinksView, SettingsView
-  ui/component/ Mat, DownloadCells, StatusBar, ActivityStatus
+  ui/component/ Mat, DownloadCells, StatusBar, ThroughputMeter, ActivityStatus
 src/main/resources/
-  icons/app.png                       application logo
-  css/theme-light.css / theme-dark.css Material 3 color tokens
-  css/material.css                    component stylesheet
+  icons/app.png                        application mark
+  css/theme-light.css / theme-dark.css canonical light/dark color roles
+  css/material.css                     compact desktop component system
 docs/        UI_GUIDE, HISTORY, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE_API
+site/        GitHub Pages overview and interactive demo
 ~~~
 
 ## Project identity
 
-JDownloader Material is an independently implemented direct HTTP(S) download workspace. The
-JDownloader name and core are the work of AppWork GmbH; this project uses a focused desktop
-experience and has its own engine and local data model.
+JDownloader Material is an independently implemented direct HTTP(S) download app. The JDownloader
+name and core are the work of AppWork GmbH; this project has its own focused engine and local data
+model. Its mint-teal download mark is a project-specific derived asset, not an official JDownloader
+trademark asset.
 
 ## License
 

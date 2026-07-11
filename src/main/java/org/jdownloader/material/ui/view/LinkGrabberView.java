@@ -1,6 +1,5 @@
 package org.jdownloader.material.ui.view;
 
-import io.github.palexdev.materialfx.controls.MFXTextField;
 import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -10,16 +9,17 @@ import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
@@ -68,9 +68,13 @@ public final class LinkGrabberView extends BorderPane {
         this.activity = activity;
         this.openAddLinks = openAddLinks;
         this.i18n = i18n;
-        getStyleClass().add("content-area");
-        setTop(buildHeaderAndToolbar());
-        setCenter(buildTree());
+        getStyleClass().addAll("content-area", "page-view");
+        TreeTableView<Object> table = buildTree();
+        setTop(buildPageHeader(table));
+        VBox panel = new VBox(buildTableTools(), table);
+        VBox.setVgrow(table, Priority.ALWAYS);
+        panel.getStyleClass().add("content-panel");
+        setCenter(panel);
         rebuildDelay.setOnFinished(event -> {
             rebuildScheduled = false;
             if (!disposed) rebuild();
@@ -79,33 +83,46 @@ public final class LinkGrabberView extends BorderPane {
         rebuild();
     }
 
-    private VBox buildHeaderAndToolbar() {
-        var title = Mat.label(i18n.text("linkgrabber.title"), "headline");
-        var search = new MFXTextField();
-        search.setPromptText(i18n.text("linkgrabber.search"));
-        search.getStyleClass().add("search-field");
-        search.setPrefWidth(240);
-        search.textProperty().addListener((o, a, b) -> { filter = b == null ? "" : b.toLowerCase(); rebuild(); });
+    private HBox buildPageHeader(TreeTableView<Object> table) {
+        var title = Mat.label(i18n.text("linkgrabber.title"), "headline", "page-title");
+        MenuButton columns = columnMenu(table);
+        HBox header = new HBox(12, title, Mat.hSpacer(), columns);
+        header.getStyleClass().addAll("view-header", "page-head");
+        header.setAlignment(Pos.CENTER_LEFT);
+        return header;
+    }
+
+    private MenuButton columnMenu(TreeTableView<Object> table) {
+        MenuButton menu = new MenuButton(i18n.text("downloads.columns"),
+                org.jdownloader.material.ui.Icons.of("more", 16));
+        menu.getStyleClass().addAll("page-actions", "move-menu");
+        for (int index = 1; index < table.getColumns().size(); index++) {
+            TreeTableColumn<Object, ?> column = table.getColumns().get(index);
+            CheckMenuItem item = new CheckMenuItem(column.getText());
+            item.selectedProperty().bindBidirectional(column.visibleProperty());
+            menu.getItems().add(item);
+        }
+        return menu;
+    }
+
+    private HBox buildTableTools() {
         var availability = Mat.outlined(availabilityFilter.label(i18n), null);
+        availability.getStyleClass().add("filter-chip");
         availability.setOnAction(e -> {
             availabilityFilter = availabilityFilter.next();
             availability.setText(availabilityFilter.label(i18n));
             requestRebuild();
         });
-        HBox header = new HBox(12, title, Mat.hSpacer(), availability,
-                org.jdownloader.material.ui.Icons.of("search", 20), search);
-        header.getStyleClass().add("view-header");
-        header.setAlignment(Pos.CENTER_LEFT);
 
-        var addLinks = Mat.filled(i18n.text("linkgrabber.add_links"), "add");
+        var addLinks = Mat.text(i18n.text("linkgrabber.add_links"), "add");
         addLinks.setOnAction(e -> openAddLinks.run());
-        var paste = Mat.tonal(i18n.text("linkgrabber.paste"), "paste");
+        var paste = Mat.text(i18n.text("linkgrabber.paste"), "paste");
         paste.setOnAction(e -> pasteFromClipboard());
 
-        var confirm = Mat.filled(i18n.text("linkgrabber.add_to_downloads"), "check");
+        var confirm = Mat.tonal(i18n.text("linkgrabber.add_to_downloads"), "check");
         confirm.setOnAction(e -> confirmSelected());
         confirm.disableProperty().bind(Bindings.isEmpty(tree.getSelectionModel().getSelectedItems()));
-        var addAll = Mat.outlined(i18n.text("linkgrabber.add_all"), null);
+        var addAll = Mat.text(i18n.text("linkgrabber.add_all"), null);
         addAll.setOnAction(e -> {
             engine.confirmAll(engine.settings().autoStartProperty().get());
         });
@@ -115,10 +132,10 @@ public final class LinkGrabberView extends BorderPane {
         remove.getStyleClass().add("danger");
         remove.setOnAction(e -> removeSelected());
 
-        FlowPane bar = new FlowPane(6, 4, addLinks, paste, Mat.vSep(), confirm, addAll, Mat.vSep(), remove);
-        bar.getStyleClass().add("action-toolbar");
+        HBox bar = new HBox(8, availability, addLinks, paste, Mat.hSpacer(), confirm, addAll, remove);
+        bar.getStyleClass().addAll("action-toolbar", "table-tools");
         bar.setAlignment(Pos.CENTER_LEFT);
-        return new VBox(header, bar);
+        return bar;
     }
 
     private TreeTableView<Object> buildTree() {
@@ -194,6 +211,7 @@ public final class LinkGrabberView extends BorderPane {
         return col -> new TreeTableCell<>() {
             private final Circle dot = new Circle(5);
             private final HBox box = new HBox(8, dot);
+            { dot.getStyleClass().add("status-dot"); }
             @Override protected void updateItem(LinkAvailability a, boolean empty) {
                 super.updateItem(a, empty);
                 Object row = getTableRow() == null ? null : getTableRow().getItem();
@@ -204,10 +222,11 @@ public final class LinkGrabberView extends BorderPane {
                     return;
                 }
                 LinkAvailability av = a == null ? LinkAvailability.UNKNOWN : a;
-                dot.setFill(switch (av) {
-                    case ONLINE -> Color.web("#2e9b4f");
-                    case OFFLINE -> Color.web("#c5352c");
-                    case UNKNOWN -> Color.web("#8b8792");
+                dot.getStyleClass().removeAll("state-finished", "state-offline", "state-checking");
+                dot.getStyleClass().add(switch (av) {
+                    case ONLINE -> "state-finished";
+                    case OFFLINE -> "state-offline";
+                    case UNKNOWN -> "state-checking";
                 });
                 var label = new javafx.scene.control.Label(i18n.text("availability." + av.name()));
                 label.getStyleClass().add("table-content-label");
@@ -304,6 +323,14 @@ public final class LinkGrabberView extends BorderPane {
         // Package rows derive text (online counts, sizes) at render time from
         // non-observable values; force visible cells to re-render.
         tree.refresh();
+    }
+
+    /** Applies the search field hosted by the global application toolbar. */
+    public void setFilter(String value) {
+        String next = value == null ? "" : value.trim().toLowerCase();
+        if (next.equals(filter)) return;
+        filter = next;
+        requestRebuild();
     }
 
     /**

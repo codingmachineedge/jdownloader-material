@@ -1,14 +1,13 @@
 package org.jdownloader.material.ui.view;
 
-import io.github.palexdev.materialfx.controls.MFXTextField;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -17,10 +16,10 @@ import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.component.Mat;
 
 /**
- * Inline link composer. It replaces the former floating Add Links panel so
- * users can queue, validate, and start work without a blocking dialog.
+ * Non-blocking Add Links drawer. The shell supplies the scrim and slide
+ * transition; this view owns validation and submission state.
  */
-public final class AddLinksView extends BorderPane {
+public final class AddLinksView extends VBox {
 
     /** User-entered composer values retained when the language shell is rebuilt. */
     public record Draft(String urls, String packageName, String destination) {
@@ -29,15 +28,23 @@ public final class AddLinksView extends BorderPane {
     private final DownloadEngine engine;
     private final I18n i18n;
     private final TextArea links = new TextArea();
-    private final MFXTextField packageName = new MFXTextField();
+    private final TextField packageName = new TextField();
     private final TextField destination;
     private final Label status = Mat.label("", "row-desc");
     private final ChangeListener<String> downloadFolderListener;
+    private final Runnable closeDrawer;
+    private final Runnable showLinkGrabber;
+    private final ButtonBase addButton;
+    private final ButtonBase addStartButton;
+    private long submissionGeneration;
+    private boolean submissionInFlight;
     private volatile boolean disposed;
 
-    public AddLinksView(DownloadEngine engine, Runnable showDownloads, Runnable showLinkGrabber, I18n i18n) {
+    public AddLinksView(DownloadEngine engine, Runnable closeDrawer, Runnable showLinkGrabber, I18n i18n) {
         this.engine = engine;
         this.i18n = i18n;
+        this.closeDrawer = closeDrawer;
+        this.showLinkGrabber = showLinkGrabber;
         this.destination = new TextField(engine.settings().downloadFolderProperty().get());
         this.downloadFolderListener = (o, previous, current) -> {
             if (!disposed && samePath(destination.getText(), previous)) destination.setText(current);
@@ -47,54 +54,53 @@ public final class AddLinksView extends BorderPane {
         // Keep an untouched composer aligned with Settings while preserving a
         // path the user deliberately entered for this submission.
         engine.settings().downloadFolderProperty().addListener(downloadFolderListener);
-        getStyleClass().add("content-area");
+        getStyleClass().add("drawer-body");
+        setFillWidth(true);
 
-        var title = Mat.label(i18n.text("addlinks.title"), "headline");
-        var downloads = Mat.text(i18n.text("addlinks.downloads"), "download");
-        downloads.setOnAction(e -> showDownloads.run());
-        var linkGrabber = Mat.outlined(i18n.text("addlinks.linkgrabber"), "link");
-        linkGrabber.setOnAction(e -> showLinkGrabber.run());
-        HBox header = new HBox(12, title, Mat.hSpacer(), downloads, linkGrabber);
-        header.getStyleClass().add("view-header");
+        var title = Mat.label(i18n.text("addlinks.title"), "drawer-title");
+        var close = Mat.icon("close", i18n.text("window.close"));
+        close.setOnAction(e -> closeDrawer.run());
+        HBox header = new HBox(12, title, Mat.hSpacer(), close);
+        header.getStyleClass().add("drawer-header");
         header.setAlignment(Pos.CENTER_LEFT);
-        setTop(header);
 
         links.setPromptText(i18n.text("addlinks.urls_prompt"));
-        links.setPrefRowCount(8);
+        links.setPrefRowCount(7);
         links.setWrapText(true);
         links.getStyleClass().add("links-area");
 
-        packageName.setFloatingText(i18n.text("addlinks.package_prompt"));
+        packageName.setPromptText(i18n.text("addlinks.package_prompt"));
         packageName.setMaxWidth(Double.MAX_VALUE);
 
         HBox.setHgrow(destination, Priority.ALWAYS);
         HBox destinationRow = new HBox(destination);
         destinationRow.setAlignment(Pos.CENTER_LEFT);
-        destinationRow.setMaxWidth(620);
+        destinationRow.setMaxWidth(Double.MAX_VALUE);
 
-        var add = Mat.outlined(i18n.text("addlinks.queue"), "add");
-        add.setOnAction(e -> submit(false));
-        var addStart = Mat.filled(i18n.text("addlinks.queue_start"), "play");
-        addStart.setOnAction(e -> submit(true));
-        HBox actions = new HBox(8, add, addStart);
-        actions.setAlignment(Pos.CENTER_LEFT);
+        addButton = Mat.outlined(i18n.text("addlinks.queue"), null);
+        addButton.setOnAction(e -> submit(false));
+        addStartButton = Mat.filled(i18n.text("addlinks.queue_start"), null);
+        addStartButton.setOnAction(e -> submit(true));
+        var cancel = Mat.text(i18n.text("addlinks.cancel"), null);
+        cancel.setOnAction(e -> closeDrawer.run());
+        HBox actions = new HBox(8, Mat.hSpacer(), cancel, addButton, addStartButton);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        actions.getStyleClass().add("drawer-actions");
 
         VBox composer = new VBox(12,
                 Mat.label(i18n.text("addlinks.urls"), "label-md"), links,
                 Mat.label(i18n.text("addlinks.package"), "label-md"), packageName,
                 Mat.label(i18n.text("addlinks.destination"), "label-md"), destinationRow,
-                actions, status);
-        composer.setPadding(new Insets(20));
-        composer.setMaxWidth(760);
-        composer.getStyleClass().add("md-card-flat");
+                status);
+        composer.getStyleClass().add("drawer-form");
+        VBox.setVgrow(composer, Priority.ALWAYS);
 
-        VBox center = new VBox(20, composer);
-        center.setPadding(new Insets(24, 28, 32, 28));
-        setCenter(center);
+        getChildren().setAll(header, composer, actions);
+        setPadding(new Insets(20));
     }
 
     private void submit(boolean start) {
-        if (disposed) return;
+        if (disposed || submissionInFlight) return;
         String text = links.getText();
         if (text == null || text.isBlank()) {
             setStatus("status.addlinks.empty");
@@ -102,12 +108,15 @@ public final class AddLinksView extends BorderPane {
         }
         String submittedPackage = packageName.getText();
         String submittedDestination = destination.getText();
+        long generation = ++submissionGeneration;
+        setSubmissionInFlight(true);
         setStatus("status.addlinks.validating");
         engine.addLinks(text, submittedPackage, submittedDestination, start, start)
                 .whenComplete((summary, error) -> {
                     if (disposed) return;
                     Platform.runLater(() -> {
-                        if (!disposed) {
+                        if (!disposed && generation == submissionGeneration) {
+                            setSubmissionInFlight(false);
                             showSubmissionResult(text, submittedPackage, submittedDestination, start, summary, error);
                         }
                     });
@@ -140,6 +149,8 @@ public final class AddLinksView extends BorderPane {
         if (samePath(destination.getText(), submittedDestination)) {
             destination.setText(engine.settings().downloadFolderProperty().get());
         }
+        if (start) closeDrawer.run();
+        else showLinkGrabber.run();
     }
 
     private static boolean samePath(String value, String other) {
@@ -161,6 +172,25 @@ public final class AddLinksView extends BorderPane {
         destination.setText(draft.destination());
     }
 
+    /** Moves keyboard focus into the first field after the drawer transition. */
+    public void requestInitialFocus() {
+        Platform.runLater(links::requestFocus);
+    }
+
+    /** Relinquishes completion callbacks when the current drawer session is dismissed. */
+    public void releaseSubmissionOwnership() {
+        if (disposed) return;
+        submissionGeneration++;
+        setSubmissionInFlight(false);
+        setStatus("status.addlinks.initial");
+    }
+
+    private void setSubmissionInFlight(boolean inFlight) {
+        submissionInFlight = inFlight;
+        addButton.setDisable(inFlight);
+        addStartButton.setDisable(inFlight);
+    }
+
     /**
      * Detaches the Settings listener registered for the composer. In-flight
      * submissions still finish in the engine, but their UI callback becomes a
@@ -169,6 +199,7 @@ public final class AddLinksView extends BorderPane {
     public void dispose() {
         if (disposed) return;
         disposed = true;
+        submissionGeneration++;
         engine.settings().downloadFolderProperty().removeListener(downloadFolderListener);
     }
 }
