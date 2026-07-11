@@ -76,10 +76,8 @@ import org.jdownloader.material.model.LinkAvailability;
 /**
  * A real, nonblocking direct-download backend for HTTP and HTTPS URLs.
  * <p>
- * It intentionally handles direct files only: JDownloader hoster plugins,
- * containers, accounts, CAPTCHA, and remote-control APIs still need a future
- * JDownloader-core adapter. Direct transfers nevertheless provide a complete
- * local path from LinkGrabber metadata through a streamed file on disk.
+ * It is focused on direct files and provides a complete local path from
+ * LinkGrabber metadata through a streamed file on disk.
  */
 public final class DirectHttpEngine implements DownloadEngine {
 
@@ -110,7 +108,7 @@ public final class DirectHttpEngine implements DownloadEngine {
     private final ReadOnlyLongWrapper globalSpeed = new ReadOnlyLongWrapper(0);
     private final ReadOnlyIntegerWrapper runningCount = new ReadOnlyIntegerWrapper(0);
     private final ReadOnlyLongWrapper totalRemaining = new ReadOnlyLongWrapper(0);
-    private final ReadOnlyBooleanWrapper reconnecting = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper retryScheduled = new ReadOnlyBooleanWrapper(false);
 
     private final HttpClient http = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -484,20 +482,18 @@ public final class DirectHttpEngine implements DownloadEngine {
     }
 
     private void refreshRetryCountdowns(List<DownloadLink> links, long now) {
-        boolean retryScheduled = false;
+        boolean hasScheduledRetry = false;
         for (DownloadLink link : links) {
             long retryAt = link.retryAtEpochMillisProperty().get();
             if (link.state() != DownloadState.QUEUED || retryAt <= now
                     || !settings.autoReconnectProperty().get()) continue;
-            retryScheduled = true;
+            hasScheduledRetry = true;
             long seconds = Math.max(1, (retryAt - now + 999) / 1_000);
             String detail = retryDetail(link.retryAttemptProperty().get(), seconds,
                     link.retryReasonProperty().get());
             if (!detail.equals(link.detailProperty().get())) link.detailProperty().set(detail);
         }
-        // This legacy-named observable now reflects real automatic recovery
-        // work rather than a simulated router reconnect.
-        reconnecting.set(retryScheduled);
+        retryScheduled.set(hasScheduledRetry);
     }
 
     private int activeTransferCount() {
@@ -735,13 +731,6 @@ public final class DirectHttpEngine implements DownloadEngine {
     private void cancelTransfer(DownloadLink link) {
         DirectTransfer transfer = activeTransfers.get(link.id());
         if (transfer != null) transfer.cancel();
-    }
-
-    @Override
-    public void reconnect() {
-        // Direct HTTP mode cannot reconnect a router. Keep the compatibility
-        // hook side-effect free except for admitting any retry that is already due.
-        scheduleQueue();
     }
 
     // -------------------------------------------------------------- Transfer
@@ -1077,7 +1066,7 @@ public final class DirectHttpEngine implements DownloadEngine {
             link.setState(DownloadState.ERROR);
             clearStartRequests(link);
         }
-        reconnecting.set(false);
+        retryScheduled.set(false);
     }
 
     private boolean isCurrent(DirectTransfer transfer) {
@@ -1146,8 +1135,6 @@ public final class DirectHttpEngine implements DownloadEngine {
         settings.downloadFolderProperty().addListener(historySettingsDirty);
         settings.maxSimultaneousDownloadsProperty().addListener(stateDirty);
         settings.maxSimultaneousDownloadsProperty().addListener(historySettingsDirty);
-        settings.maxChunksPerDownloadProperty().addListener(stateDirty);
-        settings.maxChunksPerDownloadProperty().addListener(historySettingsDirty);
         settings.ifFileExistsProperty().addListener(stateDirty);
         settings.ifFileExistsProperty().addListener(historySettingsDirty);
         settings.clipboardMonitoringProperty().addListener(stateDirty);
@@ -1175,8 +1162,6 @@ public final class DirectHttpEngine implements DownloadEngine {
             scheduleStateSave();
             scheduleSettingsHistory();
         });
-        settings.reconnectMethodProperty().addListener(stateDirty);
-        settings.reconnectMethodProperty().addListener(historySettingsDirty);
         settings.darkThemeProperty().addListener(stateDirty);
         settings.darkThemeProperty().addListener(historySettingsDirty);
         settings.speedInTitleProperty().addListener(stateDirty);
@@ -1733,7 +1718,7 @@ public final class DirectHttpEngine implements DownloadEngine {
     @Override public ReadOnlyLongProperty globalSpeedProperty() { return globalSpeed.getReadOnlyProperty(); }
     @Override public ReadOnlyIntegerProperty runningCountProperty() { return runningCount.getReadOnlyProperty(); }
     @Override public ReadOnlyLongProperty totalRemainingProperty() { return totalRemaining.getReadOnlyProperty(); }
-    @Override public ReadOnlyBooleanProperty reconnectingProperty() { return reconnecting.getReadOnlyProperty(); }
+    @Override public ReadOnlyBooleanProperty retryScheduledProperty() { return retryScheduled.getReadOnlyProperty(); }
     @Override public Settings settings() { return settings; }
     @Override public HistoryService history() { return history; }
 

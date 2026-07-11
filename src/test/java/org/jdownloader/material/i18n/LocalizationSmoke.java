@@ -33,10 +33,26 @@ public final class LocalizationSmoke {
                 "Language picker bilingual option does not show both languages");
 
         Properties backup = SettingsIO.snapshot(settings);
+        require(!backup.containsKey("maxChunksPerDownload")
+                        && !backup.containsKey("reconnectMethod")
+                        && !backup.containsKey("myjdEmail")
+                        && !backup.containsKey("myjdPassword"),
+                "Settings backup still contains retired unavailable-setting fields");
         Settings restored = new Settings();
         SettingsIO.apply(backup, restored);
         require(restored.languageProperty().get() == LanguageMode.BILINGUAL,
                 "Presentation language was not preserved in settings backup");
+
+        Properties legacyBackup = new Properties();
+        legacyBackup.setProperty("maxSimultaneousDownloads", "5");
+        legacyBackup.setProperty("maxChunksPerDownload", "12");
+        legacyBackup.setProperty("reconnectMethod", "Router (UPnP)");
+        legacyBackup.setProperty("myjdEmail", "legacy@example.test");
+        legacyBackup.setProperty("myjdPassword", "retired-secret");
+        Settings legacyRestored = new Settings();
+        SettingsIO.apply(legacyBackup, legacyRestored);
+        require(legacyRestored.maxSimultaneousDownloadsProperty().get() == 5,
+                "Supported settings were not restored from a legacy backup");
 
         System.out.println("Localization smoke check passed");
     }

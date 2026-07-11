@@ -1,98 +1,66 @@
-# JDownloader GUI - Feature Spec
+# Application feature reference
 
-This is an upstream-reference inventory of the JDownloader 2 GUI surface, derived from the
-Swing source (src/jd/gui/swing/jdgui, src/org/jdownloader/gui). It is not a claim that the
-Material front end or its simulated backend implements every item. Use it with
-[PARITY.md](PARITY.md), which records the actual shipped scope.
+This reference describes the JDownloader Material release surface: a direct HTTP(S) download
+workspace with append-only local history, browser-style tabs, and nonblocking desktop flows.
+For an implementation-oriented inventory, see [PARITY.md](PARITY.md).
 
-> **Architectural note (upstream):** Nearly every toolbar, menu, table context menu, and tab
-> bottom bar is data-driven and user-customizable. It is built at runtime from a
-> MenuContainerRoot tree and rendered by MenuBuilder, with layout import/export. The lists
-> below describe default structure; a faithful rewrite would preserve the customizability model.
+## Window layout
 
-## 1. Window layout
+| Region | Role |
+| --- | --- |
+| App bar | Saved application name, logo, clipboard monitor, retry behavior, theme, and window controls. |
+| Workspace tab strip | One page instance per browser-style tab; right-click editor for title and label typography. |
+| Navigation rail | Opens or focuses Downloads, LinkGrabber, History, and Settings. |
+| Content area | Direct-download pages and inline editors. |
+| Status line | Global speed, active count, remaining bytes, retry indicator, and fixed activity feedback. |
 
-| Region | Upstream class | Notes |
-|---|---|---|
-| Main frame | JDownloaderMainFrame | Remembered geometry, minimum size, tray/close behavior |
-| Menu bar | JDMenuBar / MenuManagerMainmenu | File, Settings, Extensions, Help |
-| Toolbar | MainToolBar / MenuManagerMainToolbar | Actions and embedded speedmeter graph |
-| Central tabs | MainTabbedPane | Downloads, LinkGrabber, Settings, My.JDownloader |
-| Status bar | StatusBarImpl | Per-service traffic, activity indicators, reconnect progress |
-| System tray | TrayExtension | Minimize/close-to-tray and tray menu |
-| Transient feedback | BubbleNotify | Captcha, transfer, update, and crawler status |
+## Workspace tabs
 
-## 2. Primary views
+- Tabs host Downloads, LinkGrabber, History, Settings, or Add Links pages.
+- Each tab stores title, font family, size, bold, italic, and color.
+- Application name, tab selection, opens, edits, and closes persist in a private local Git
+  repository under `~/.jdownloader-material/workspace/`.
+- Portable `.jdmtabs` export/import moves the current workspace; repository ZIP export preserves
+  the full append-only workspace record.
 
-- **Downloads** (DownloadsView) - active and finished download list (default tab).
-- **LinkGrabber** (LinkGrabberView) - staging area for crawled links before confirmation.
-- **Settings** (ConfigurationView) - full preferences (closable tab).
-- **My.JDownloader** (MyJDownloaderView) - optional remote-control account and devices.
+## Downloads
 
-## 3. The two tables (packages -> children)
+- Package-to-file tree with name, size, host, status, progress, speed, ETA, and Details.
+- Labeled toolbar for Add Links, Start, Pause, Stop, ordering, and Remove.
+- Right-click controls for state, durable priority, completed-file actions, expansion, and
+  removal.
+- Live search, package aggregation, state-colored progress, and inline queue-safe rename and
+  destination editing.
+- Direct HTTP(S) transfer scheduling with global/per-host limits, speed cap, partial-file
+  resumption, collision policy, bounded retry, and restart recovery.
 
-Both are ExtTables over a PackageController tree of **packages -> links/files**, with
-show/hide/reorder/lock columns persisted per user.
+## LinkGrabber
 
-**Downloads columns:** Name (tree, enable checkbox, status icon), Size, Host, Connections,
-Account, **Status/Task**, Remaining, Added/Modified/Finished dates, Duration, **Speed**, **ETA**,
-Loaded, **Progress bar**, Priority, Availability, Download folder, Comment, Checksum, and more.
-The row context menu includes add, settings (rename, folder, password, priority, chunks), open
-file/folder, enable/disable, force download, stop-sign, resume/reset, merge/split packages,
-delete, and properties.
+- Background HEAD plus ranged-GET metadata probes with redirect following.
+- Staged package-to-link tree carrying filename, size, host, URL, and availability.
+- Add Links, Paste, Remove, Add to Downloads, Add all, auto-confirm, auto-start, and inline
+  availability filtering.
 
-**LinkGrabber columns:** Name, **Variant** selector, Parts, editable URL, Download folder,
-Password, Enable, Size, Host, **Availability**, Priority, Comment, and more. The row context
-menu includes Add/Paste/Container, **Confirm** selected/all, settings, check status, merge/split,
-cleanup, and properties.
+## Add Links
 
-## 4. Toolbar (default)
+- Inline workspace page for one or more direct HTTP(S) URLs.
+- Optional package name and selected destination.
+- Queue in LinkGrabber and Queue & Start submit immediately, then let probe/confirmation/start
+  work finish on background workers.
 
-Start, Pause, Stop, move top/up/down/bottom, clipboard-monitor toggle, auto-reconnect toggle,
-account/service controls, silent mode, speed limiter, reconnect now, update check, and speedmeter
-graph. Many actions are hideable or addable, including settings, proxy, quick settings, captcha,
-and delete submenus.
+## History, settings, and presentation
 
-## 5. Menu bar
+- Downloads, LinkGrabber, and non-secret Settings live in append-only local Git timelines.
+- Undo, redo, and selected restore append a new event and preserve every prior revision.
+- Encrypted AES-256-GCM settings backup runs with asynchronous local file work.
+- Settings cover direct-download behavior, retry, LinkGrabber flow, appearance, backup, and
+  About.
+- English, playful Hong Kong Cantonese, and bilingual presentation modes apply immediately.
+- Light and dark Material themes use shared semantic color tokens.
 
-- **File:** Add Links, Add Container, Backup (create/restore), Restart, Exit
-- **Settings:** Settings, My.JDownloader, quick editors (chunks, parallel downloads, speed)
-- **Extensions:** Dynamic list of enabled extensions and their windows
-- **Help:** Knowledge base, Send log, Check for updates, Latest changes, About
+## Release delivery
 
-## 6. Panels and prompts
-
-- **Add Links** (AddLinksDialog upstream) - URL text area with clipboard parsing, destination
-  selection and variable insertion, package name/history, comment, extract password, extraction
-  option, download password, priority, Packagizer override, and add/add-and-start/add-and-force
-  choices. The Material implementation should present this as an inline, nonblocking composer.
-- **Add Container** - file selection for DLC/CCF/RSDF.
-- **Settings / Preferences** pages: General, Reconnect, Connection/Proxy, Account Manager,
-  Basic Authentication, Plugins, Captcha/Anti-Captcha, Appearance/GUI, Notifications,
-  My.JDownloader, LinkGrabber Filter, Packagizer, Archive Extractor, Tray icon, Advanced
-  Settings (searchable), Extension Manager, and extension pages.
-- **About, Captcha, Properties, Account, Proxy, credential, delete, and new-package prompts** -
-  reference surfaces in the upstream GUI. A Material rewrite should favor inline or transient
-  nonblocking interaction wherever a prompt is not required for safety.
-
-## 7. Status bar
-
-Per-service traffic bars, status text, reconnect progress (indeterminate), dynamic activity
-indicators (crawler running, availability checking, captcha pending, auto-confirm), skipped-link
-marker, global speed, and optionally window-title speed.
-
-## 8. Side panels
-
-- **LinkGrabber sidebar** - quick filters by hoster, file type, or online status, with counts.
-- **Settings sidebar** - page list, with inline extension enable/disable.
-- **Overview strips** - Downloads: packages, size, loaded, remaining, running, links, speed,
-  ETA, connections, finished, skipped, failed. LinkGrabber: analogous.
-- **Dockable bottom bars** per tab (customizable), and an inline dockable properties panel.
-
-## 9. Notable behaviors
-
-Clipboard monitoring, auto-confirm/auto-start, add-at-top, automatic and manual reconnect,
-speed limiter, pause behavior, per-row and aggregate progress/speed/ETA, package
-expand/collapse, merge/split, auto-hide single-child packages, live search and quick filters,
-media variants, priority and stop-sign, skipped-link recovery, tray behaviors, remembered window
-state, nonblocking status/undo feedback, and in-app updates.
+- Every push creates a published GitHub release with Windows x64, Linux x64, macOS Apple Silicon,
+  and macOS Intel installers.
+- Installers upload directly as the release assets; GitHub Actions artifacts are not retained.
+- The workflow verifies the expected asset set and removes an incomplete release.

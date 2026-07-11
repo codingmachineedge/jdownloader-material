@@ -37,14 +37,6 @@ import org.jdownloader.material.ui.component.Mat;
 /** Material preferences screen: a page rail on the left, setting rows on the right. */
 public final class SettingsView extends BorderPane {
 
-    private static final String EXTERNAL_COMMAND = "External command";
-    private static final String ROUTER_UPNP = "Router (UPnP)";
-    private static final String MODEM_SCRIPT = "Modem script";
-    private static final String CLR_SCRIPT = "ClR script";
-    private static final String[] RECONNECT_METHODS = {
-            EXTERNAL_COMMAND, ROUTER_UPNP, MODEM_SCRIPT, CLR_SCRIPT
-    };
-
     private final Settings s;
     private final I18n i18n;
     private final StackPane content = new StackPane();
@@ -67,10 +59,9 @@ public final class SettingsView extends BorderPane {
         rail.getStyleClass().add("settings-nav");
         addTab(rail, "settings.tab.general", "settings", generalPage());
         addTab(rail, "settings.tab.connection", "speed", connectionPage());
-        addTab(rail, "settings.tab.reconnect", "reconnect", reconnectPage());
+        addTab(rail, "settings.tab.recovery", "reconnect", recoveryPage());
         addTab(rail, "settings.tab.linkgrabber", "link", linkgrabberPage());
         addTab(rail, "settings.tab.appearance", "palette", appearancePage());
-        addTab(rail, "settings.tab.accounts", "account", accountsPage());
         addTab(rail, "settings.tab.backup", "shield", backupPage());
         addTab(rail, "settings.tab.about", "info", aboutPage());
 
@@ -145,8 +136,6 @@ public final class SettingsView extends BorderPane {
                 row(t("settings.default_folder"), t("desc.default_folder"), folderCtl),
                 row(t("settings.simultaneous"), t("desc.simultaneous"),
                         slider(s.maxSimultaneousDownloadsProperty(), 1, 10, 1)),
-                row(t("settings.connections_per_download"), t("desc.connections_per_download"),
-                        disabled(slider(s.maxChunksPerDownloadProperty(), 1, 20, 1))),
                 row(t("settings.if_exists"), t("desc.if_exists"), ifExists)
         );
     }
@@ -163,15 +152,11 @@ public final class SettingsView extends BorderPane {
         );
     }
 
-    private Node reconnectPage() {
-        ComboBox<String> method = reconnectMethodSelector();
-        method.valueProperty().bindBidirectional(s.reconnectMethodProperty());
-        method.setDisable(true);
+    private Node recoveryPage() {
         return page(
                 sectionTitle(t("settings.section.recovery")),
                 row(t("settings.retry_transient"), t("desc.retry_transient"),
-                        toggle(s.autoReconnectProperty())),
-                row(t("settings.router_reconnect"), t("desc.router_reconnect"), method)
+                        toggle(s.autoReconnectProperty()))
         );
     }
 
@@ -197,24 +182,6 @@ public final class SettingsView extends BorderPane {
                         toggle(s.speedInTitleProperty())),
                 row(t("settings.language"), t("desc.language"), languageSelector())
         );
-    }
-
-    private Node accountsPage() {
-        TextField email = new TextField();
-        email.setPromptText("email@example.com");
-        email.textProperty().bindBidirectional(s.myjdEmailProperty());
-        email.setPrefWidth(280);
-        PasswordField password = new PasswordField();
-        password.setPromptText("••••••••");
-        password.textProperty().bindBidirectional(s.myjdPasswordProperty());
-        password.setPrefWidth(280);
-
-        email.setDisable(true);
-        password.setDisable(true);
-        return page(sectionTitle(t("settings.section.accounts")),
-                Mat.label(t("desc.accounts_unavailable"), "row-desc"),
-                row(t("settings.email"), t("desc.backup_only"), email),
-                row(t("settings.password"), t("desc.backup_only"), password));
     }
 
     private Node backupPage() {
@@ -409,24 +376,6 @@ public final class SettingsView extends BorderPane {
         return selector;
     }
 
-    private ComboBox<String> reconnectMethodSelector() {
-        ComboBox<String> selector = new ComboBox<>();
-        selector.getItems().setAll(RECONNECT_METHODS);
-        selector.setConverter(new StringConverter<>() {
-            @Override public String toString(String value) {
-                return value == null ? "" : reconnectMethodLabel(value);
-            }
-
-            @Override public String fromString(String text) {
-                return Arrays.stream(RECONNECT_METHODS)
-                        .filter(value -> reconnectMethodLabel(value).equals(text))
-                        .findFirst()
-                        .orElse(s.reconnectMethodProperty().get());
-            }
-        });
-        return selector;
-    }
-
     private ComboBox<LanguageMode> languageSelector() {
         ComboBox<LanguageMode> selector = new ComboBox<>();
         selector.getItems().setAll(LanguageMode.values());
@@ -445,16 +394,6 @@ public final class SettingsView extends BorderPane {
         selector.setPrefWidth(300);
         selector.valueProperty().bindBidirectional(s.languageProperty());
         return selector;
-    }
-
-    private String reconnectMethodLabel(String method) {
-        return switch (method) {
-            case EXTERNAL_COMMAND -> t("settings.reconnect.external_command");
-            case ROUTER_UPNP -> t("settings.reconnect.router_upnp");
-            case MODEM_SCRIPT -> t("settings.reconnect.modem_script");
-            case CLR_SCRIPT -> t("settings.reconnect.clr_script");
-            default -> method;
-        };
     }
 
     private Label sectionTitle(String text) {
@@ -476,11 +415,6 @@ public final class SettingsView extends BorderPane {
         toggle.setSelected(prop.get());
         toggle.selectedProperty().bindBidirectional(prop);
         return toggle;
-    }
-
-    private static <T extends Node> T disabled(T node) {
-        node.setDisable(true);
-        return node;
     }
 
     private HBox slider(IntegerProperty prop, int min, int max, int step) {

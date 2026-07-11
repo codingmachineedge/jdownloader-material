@@ -3,7 +3,9 @@ package org.jdownloader.material.ui.component;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.Icons;
@@ -12,7 +14,7 @@ import org.jdownloader.material.util.Formats;
 /** Bottom status bar mirroring JDownloader's global speed / activity indicators. */
 public final class StatusBar extends HBox {
 
-    public StatusBar(DownloadEngine engine, I18n i18n) {
+    public StatusBar(DownloadEngine engine, I18n i18n, ActivityStatus activity) {
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
 
@@ -32,15 +34,27 @@ public final class StatusBar extends HBox {
                         () -> Formats.bytes(engine.totalRemainingProperty().get()),
                         engine.totalRemainingProperty()));
 
-        // Direct HTTP mode uses this legacy-named property for a real retry
-        // countdown, not a pretend router reconnect.
-        HBox reconnect = new HBox(6, Icons.of("reconnect", 14, "icon-primary"),
+        HBox retry = new HBox(6, Icons.of("reconnect", 14, "icon-primary"),
                 new Label(i18n.text("status.retry_scheduled")));
-        reconnect.setAlignment(Pos.CENTER_LEFT);
-        reconnect.visibleProperty().bind(engine.reconnectingProperty());
-        reconnect.managedProperty().bind(engine.reconnectingProperty());
+        retry.setAlignment(Pos.CENTER_LEFT);
+        retry.visibleProperty().bind(engine.retryScheduledProperty());
+        retry.managedProperty().bind(engine.retryScheduledProperty());
 
-        getChildren().addAll(speed, sep(), running, sep(), remaining, Mat.hSpacer(), reconnect);
+        Label activityMessage = new Label();
+        activityMessage.getStyleClass().add("status-message");
+        activityMessage.setTextOverrun(OverrunStyle.ELLIPSIS);
+        activityMessage.setMaxWidth(420);
+        activityMessage.textProperty().bind(activity.messageProperty());
+        activityMessage.visibleProperty().bind(activity.messageProperty().isNotEmpty());
+        activityMessage.managedProperty().bind(activity.messageProperty().isNotEmpty());
+        activity.errorProperty().addListener((observable, wasError, isError) -> {
+            activityMessage.getStyleClass().remove("error");
+            if (isError) activityMessage.getStyleClass().add("error");
+        });
+        if (activity.errorProperty().get()) activityMessage.getStyleClass().add("error");
+        HBox.setHgrow(activityMessage, Priority.NEVER);
+
+        getChildren().addAll(speed, sep(), running, sep(), remaining, activityMessage, Mat.hSpacer(), retry);
     }
 
     private Label metric(I18n i18n, String nameKey, javafx.beans.binding.StringBinding valueBinding) {

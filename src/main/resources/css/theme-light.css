@@ -51,7 +51,7 @@
     -md-outline:                 #79747E;
     -md-outline-variant:         #CAC4D0;
 
-    /* Inverse (snackbars, etc.) */
+    /* Inverse surfaces retained for future non-overlay components */
     -md-inverse-surface:         #322F35;
     -md-inverse-on-surface:      #F5EFF7;
     -md-inverse-primary:         #D0BCFF;

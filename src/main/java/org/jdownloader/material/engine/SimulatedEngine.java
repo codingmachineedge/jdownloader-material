@@ -43,8 +43,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * A self-contained, in-memory engine that makes the GUI fully interactive
  * without a real backend: it schedules queued links, advances running
- * downloads on the JavaFX pulse, simulates online-availability checks and
- * reconnects, and publishes global speed / count / remaining statistics.
+ * downloads on the JavaFX pulse, simulates online-availability checks, and
+ * publishes global speed / count / remaining statistics.
  * <p>
  * It is intentionally the <em>only</em> place that would be replaced by a real
  * JDownloader-core adapter; the views never reference it directly.
@@ -69,7 +69,7 @@ public final class SimulatedEngine implements DownloadEngine {
     private final ReadOnlyLongWrapper globalSpeed = new ReadOnlyLongWrapper(0);
     private final ReadOnlyIntegerWrapper runningCount = new ReadOnlyIntegerWrapper(0);
     private final ReadOnlyLongWrapper totalRemaining = new ReadOnlyLongWrapper(0);
-    private final ReadOnlyBooleanWrapper reconnecting = new ReadOnlyBooleanWrapper(false);
+    private final ReadOnlyBooleanWrapper retryScheduled = new ReadOnlyBooleanWrapper(false);
 
     /** Per-link target throughput assigned on promotion to RUNNING. */
     private final Map<String, Long> targetSpeed = new HashMap<>();
@@ -506,15 +506,6 @@ public final class SimulatedEngine implements DownloadEngine {
         if (changed) recordHistory(HistoryScope.DOWNLOADS, i18n.text("history.summary.removed_downloads"));
     }
 
-    @Override
-    public void reconnect() {
-        if (reconnecting.get()) return;
-        reconnecting.set(true);
-        PauseTransition p = new PauseTransition(Duration.seconds(2.5));
-        p.setOnFinished(e -> reconnecting.set(false));
-        p.play();
-    }
-
     // ------------------------------------------------------------- Accessors
     @Override public ObservableList<DownloadPackage> downloadPackages() { return downloads; }
     @Override public ObservableList<CrawledPackage> crawledPackages() { return crawled; }
@@ -523,7 +514,7 @@ public final class SimulatedEngine implements DownloadEngine {
     @Override public ReadOnlyLongProperty globalSpeedProperty() { return globalSpeed.getReadOnlyProperty(); }
     @Override public ReadOnlyIntegerProperty runningCountProperty() { return runningCount.getReadOnlyProperty(); }
     @Override public ReadOnlyLongProperty totalRemainingProperty() { return totalRemaining.getReadOnlyProperty(); }
-    @Override public ReadOnlyBooleanProperty reconnectingProperty() { return reconnecting.getReadOnlyProperty(); }
+    @Override public ReadOnlyBooleanProperty retryScheduledProperty() { return retryScheduled.getReadOnlyProperty(); }
     @Override public Settings settings() { return settings; }
     @Override public HistoryService history() { return history; }
 

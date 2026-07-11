@@ -1,43 +1,52 @@
 # UI guide
 
-JDownloader Material uses one Material 3 shell around every primary screen. The desktop window
-does not show a second native title bar: its app bar owns window movement and window controls,
-keeping the application visually consistent.
+JDownloader Material is a Material 3 workspace for direct HTTP(S) downloads. Its custom app bar
+owns window movement and window controls, so the window stays visually consistent from the top bar
+through the fixed status line.
 
-Normal launches use DirectHttpEngine. That means the ordinary flow can download direct HTTP and
-HTTPS file URLs end to end; it does not mean the app includes JDownloader's hoster plugins,
-containers, accounts, CAPTCHA handling, or full crawler.
+## Shell and workspace tabs
 
-## Shell
+- **Top app bar** — shows the saved application name and hosts clipboard monitoring, transient
+  retry behavior, theme, and native-style window actions. Application actions pair an icon with a
+  text label; drag unused app-bar space to move the window and double-click it to maximize or
+  restore it.
+- **Workspace tab strip** — works like a browser: each open tab contains one page instance.
+  Open Downloads, LinkGrabber, History, Settings, or Add Links in separate tabs when you want
+  independent places to work.
+- **Tab editor** — right-click any tab to edit its title, tab-label font family, size, bold,
+  italic, and color. The color picker accepts any color. The same workspace controls rename the
+  application, open a tab, close a tab, import/export a portable workspace snapshot, and export
+  the complete local workspace Git repository.
+- **Navigation rail** — opens or focuses Downloads, LinkGrabber, History, and Settings while
+  preserving the workspace and status line. Transfer screens also offer Add Links.
+- **Status line** — reports aggregate speed, running count, remaining bytes, pending retry, and
+  the most recent activity message. Clipboard, validation, and removal feedback stays here in the
+  layout instead of covering the active page.
+- **Light and dark themes** — switch from the app bar. Every surface, table, chip, inline editor,
+  and tab resolves through the same theme tokens.
 
-- **Top app bar** - identifies the application and holds clipboard monitoring, the
-  automatic transient-failure retry setting, theme, minimize, maximize/restore, and close
-  controls. The app actions pair icons with text labels; only the familiar native-style window
-  controls remain compact icons. Drag an unused portion of the bar to move the window;
-  double-click it to maximize or restore it.
-- **Navigation rail** - switches between Downloads, LinkGrabber, History, and Settings while
-  preserving the shell and status bar. Add Links opens as its own inline view from the transfer
-  screens.
-- **Status bar** - reports global transfer speed, active download count, remaining bytes, and
-  a pending automatic-retry indicator.
-- **Light and dark themes** - switch from the app bar. Every surface, table, chip, and inline
-  form resolves from the same theme tokens.
+The workspace state is stored in a private local Git repository at
+`~/.jdownloader-material/workspace/`. It records the app name, open and closed tabs, selection,
+and each tab's label styling. Each change adds an append-only commit. A portable `.jdmtabs` export
+captures the current workspace; repository ZIP export preserves its complete local timeline.
+
+| Workspace tabs light | Workspace tabs dark | Bilingual workspace tabs |
+| --- | --- | --- |
+| ![Workspace tab strip in the light theme](screenshots/workspace-tabs-light.png) | ![Workspace tab strip in the dark theme](screenshots/workspace-tabs-dark.png) | ![Workspace tab strip in bilingual English and Hong Kong Cantonese](screenshots/workspace-tabs-bilingual.png) |
 
 ## Language
 
-**Settings → Appearance → Language** changes the interface immediately and is saved with the
-rest of the local settings and encrypted backup. Choose **English**, **香港粵語（得意版）**, or
-**English · 香港粵語**. The bilingual mode keeps both versions of standard UI copy visible:
-most compact labels use a middle dot, while longer descriptions—and narrow navigation and app-bar
-labels—stack the two versions for readability. The
-download pipeline, background probes, retries, and inline forms continue without a restart or a
-blocking prompt while the language is changed.
+**Settings → Appearance → Language** changes the interface immediately and saves the selection in
+local settings and encrypted backup. Choose **English**, **Hong Kong Cantonese**, or bilingual
+**English / Hong Kong Cantonese**. Bilingual mode presents both versions of standard UI copy;
+compact labels use a separator and longer descriptions stack the languages for readability. The
+download pipeline, probes, retries, and inline forms continue while the language changes.
 
-| 香港粵語（得意版） | English · 香港粵語 |
+| Hong Kong Cantonese | Bilingual English / Hong Kong Cantonese |
 | --- | --- |
 | ![Downloads in playful Hong Kong Cantonese](screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](screenshots/downloads-bilingual.png) |
 
-| 香港粵語 LinkGrabber | English · 香港粵語 Add Links |
+| Hong Kong Cantonese LinkGrabber | Bilingual Add Links |
 | --- | --- |
 | ![LinkGrabber in playful Hong Kong Cantonese](screenshots/linkgrabber-cantonese.png) | ![Add Links in bilingual English and Hong Kong Cantonese](screenshots/add-links-bilingual.png) |
 
@@ -47,24 +56,22 @@ blocking prompt while the language is changed.
 
 ## History
 
-**History** is a local, nonblocking browser for the append-only Downloads/LinkGrabber and
-non-secret Settings timeline. Search and the scope selector narrow entries by Downloads,
+**History** is a local, asynchronous browser for append-only Downloads, LinkGrabber, and
+non-secret Settings snapshots. Search and the scope selector narrow entries by Downloads,
 LinkGrabber, Settings, or all activity. Selecting an entry reveals its operation, scope, time,
-status, related revision, and any storage error; the header shows the local history size.
+status, related revision, and any storage message; the header shows local history size.
 
-**Undo**, **Redo**, and **Restore** run asynchronously and add a new timeline entry instead of
-deleting or rewriting a prior one. That lets an undo be undone and keeps a newer path after a
-restore visible as an alternate timeline path. The controls are unavailable only while the selected
-action is unavailable or a history task is working; they do not open a confirmation dialog.
+**Undo**, **Redo**, and **Restore** apply the chosen snapshot and append a new event rather than
+rewriting an earlier one. An undo can therefore be undone, and a restored point remains visible
+alongside newer events. The page presents ready and busy states inline, without a confirmation
+dialog.
 
-History stores list/settings snapshots only. It excludes My.JDownloader credentials, completed
-files, `.part` files, active byte-progress/speed telemetry, retry timing, and live transfer
-details. A finished row retains its final byte count, output path, and outcome detail; a final
-error retains its reason. Direct-link URLs remain intact for a faithful restore, including signed parameters,
-so the local-only history folder must be treated as private device data. Restoring safely stops
-active transfers and changes only the application model; it does not delete, overwrite, or roll
-back a file on disk. See [History Manager](HISTORY.md) for
-storage and archive caveats.
+History stores list/settings snapshots only. Credential fields, completed file contents, `.part`
+file contents, active byte-progress/speed telemetry, retry timing, and live transfer details stay
+outside the history repositories. Direct-link URLs remain intact for a faithful restore, including
+signed parameters, so treat the local history directory as private device data. Restoring stops
+active transfers safely and changes only the application model; it leaves files on disk alone. See
+[History Manager](HISTORY.md) for storage and archive guidance.
 
 | History light | History dark | Bilingual History |
 | --- | --- | --- |
@@ -73,26 +80,19 @@ storage and archive caveats.
 ## Downloads
 
 Downloads is a package-to-file tree with Name, Size, Host, Status, Progress, Speed, ETA, and
-inline Details for a direct-transfer error or collision result.
-Package rows aggregate their children. The toolbar holds the transfer and ordering actions, and
-search filters the tree live. Start, pause, stop, and state changes appear directly in the table
-and status bar rather than requiring acknowledgement. Each toolbar action pairs its icon with a
-short visible label, so users do not have to infer controls from artwork alone.
+inline Details for a direct-transfer error or collision result. Package rows aggregate their
+children. The labeled toolbar holds transfer and ordering actions, while search filters the tree
+live. State changes appear directly in the table and status line.
 
-For direct HTTP(S) files, the engine streams bytes in background workers. The scheduler honors the
-global simultaneous-download setting and the per-host connection setting. Pause holds active
-transfers without dequeuing them; Stop returns them to the queue and preserves any partial file
-for a later start.
+For direct HTTP(S) files, the engine streams bytes on background workers. The scheduler honors the
+global simultaneous-download setting and per-host connection setting. Pause holds active transfers
+without dequeuing them; Stop returns them to Queue and preserves partial data for a later start.
 
-The row menu can enable or disable queued work and set a durable priority, and completed links
-retain the exact resolved file path. **Open completed file** and **Show in folder** run outside the
-UI thread, so a desktop file-manager action never blocks the queue.
-
-Selecting exactly one queued, error, or disabled link reveals an inline properties strip below the
-table. It can rename that item and set its next destination without opening a dialog. A package is
-editable only when every child is in one of those safe states, then its changes apply to all of
-them. Running, paused, and completed transfers remain read-only there, because their stream or
-final filesystem location is already in use.
+The row menu changes transfer state, sets durable priority, and opens completed files or their
+folders. File-manager actions run outside the JavaFX thread. Selecting one queued, error, or
+disabled link reveals an inline properties strip below the table where its name and next
+destination can be changed. A package becomes editable when all of its children are in those safe
+states, and its edit applies to every child.
 
 | Selected item light | Selected item dark |
 | --- | --- |
@@ -102,39 +102,39 @@ final filesystem location is already in use.
 | --- | --- |
 | ![Downloads light](screenshots/downloads-light.png) | ![Downloads dark](screenshots/downloads-dark.png) |
 
+| Fixed status feedback |
+| --- |
+| ![Downloads showing fixed in-layout activity feedback](screenshots/downloads-status-light.png) |
+
 ## LinkGrabber
 
-LinkGrabber stages discovered direct URLs. After URLs are queued, DirectHttpEngine checks their
-metadata asynchronously: it uses HEAD first and a ranged GET fallback, follows redirects, and
-updates availability, filename, and known size when the server provides them. It supports adding
-or pasting links, removing staged entries, and confirming online results to Downloads.
-Its compact availability control cycles through **All links**, **Checking**, **Online**, and
-**Offline** without opening a filter dialog.
+LinkGrabber stages direct URLs. After URLs are queued, `DirectHttpEngine` checks metadata in the
+background: it uses HEAD first and a ranged GET fallback, follows redirects, and updates
+availability, filename, and known size when supplied by the server. Add Links, Paste, Remove, Add
+to Downloads, and the compact All / Checking / Online / Offline availability control work directly
+in the page.
 
-The Auto-confirm setting lets a staged direct URL continue through confirmation, and Auto-start
-begins those auto-confirmed results without additional user interaction. URLs that are offline or unsupported stay
-out of the actual download queue; this release accepts only direct HTTP(S) URLs, not JDownloader
-container files or plugin-managed hoster links.
+Auto-confirm moves verified staged URLs forward after probing. Auto-start starts those results
+without extra user interaction. The direct HTTP(S) pipeline keeps the rest of the workspace usable
+while metadata work proceeds.
 
 | Light | Dark |
 | --- | --- |
 | ![LinkGrabber light](screenshots/linkgrabber-light.png) | ![LinkGrabber dark](screenshots/linkgrabber-dark.png) |
 
-## Add Links: queue to download without a blocking prompt
+## Add Links
 
-**Add Links** is a normal content view, not a floating panel or modal dialog. Paste one or more
-direct HTTP(S) URLs, optionally set a package name and destination, then choose one of two paths:
+**Add Links** is a normal workspace page rather than a floating panel. Paste one or more direct
+HTTP(S) URLs, optionally set a package name and destination, then choose one of two paths:
 
-1. **Queue in LinkGrabber** adds the URLs with the submitted destination and returns immediately. Availability checking happens
-   after submission while the user can navigate elsewhere.
-2. **Queue & Start** queues the URLs, waits for the deferred availability check, then confirms
-   the online results and starts downloading automatically.
+1. **Queue in LinkGrabber** adds the URLs and returns immediately; availability checking runs
+   while you navigate elsewhere.
+2. **Queue & Start** submits the URLs, waits for background availability checks, then confirms
+   verified results and starts them automatically.
 
-The inline status confirms immediate background submission; the engine accepts only supported
-direct HTTP(S) URLs. Clipboard monitoring follows the same nonblocking path, and the LinkGrabber
-Auto-confirm and Auto-start settings can continue it without a confirmation prompt.
-If background validation finds no supported URL, the pasted text stays in the composer for editing;
-accepted submissions clear only the unchanged input snapshot, so a newer edit is never lost.
+The inline status reports acceptance while the engine works. If validation finds no direct URL,
+the entered text remains in the composer for editing; an accepted submission clears only the
+unchanged input snapshot, so a newer edit is retained.
 
 | Light | Dark |
 | --- | --- |
@@ -142,58 +142,47 @@ accepted submissions clear only the unchanged input snapshot, so a newer edit is
 
 ## Transfers, partial files, and collisions
 
-A real transfer writes to a final-name .part file. When a file is started again, the engine asks the
-server for the remaining range; if the server supports it, the partial bytes are reused. If it
-does not, the partial stream restarts safely. On success, the file is moved to its final name
-atomically where the filesystem supports atomic moves.
+A real transfer writes to a final-name `.part` file. Starting it again requests the remaining
+range; a server that accepts ranges reuses existing bytes, while another response restarts the
+partial stream safely. Successful downloads move into their final name atomically where the
+filesystem supports it.
 
-There is no file-collision dialog in the path. The default **Ask** setting deliberately means
-safe auto-rename in this app. **Rename**, **Skip**, and **Overwrite** are all applied by the
-background worker, so an existing filename cannot interrupt a batch with a prompt.
+There is no file-collision dialog in the download path. The default **Ask** setting chooses a safe
+auto-name. **Rename**, **Skip**, and **Overwrite** are applied by the background worker, allowing a
+batch to continue without user intervention.
 
-When **Retry transient HTTP failures** is enabled, direct transfers automatically retry network,
-408, 429, and 5xx failures with a bounded exponential backoff. The Details column shows the next
-retry countdown; an unavailable file, filesystem problem, or exhausted retry budget remains an
-inline Error row for an explicit Start or Force Start.
+When **Retry transient HTTP failures** is enabled, direct transfers retry network, 408, 429, and
+5xx failures with bounded exponential backoff. Details show the retry countdown; a permanent
+transfer error remains an inline row ready for Start or Force Start.
 
 ## Recovery after restart
 
-DirectHttpEngine saves non-secret settings, Downloads packages/links, and LinkGrabber
-packages/links in a local journal under ~/.jdownloader-material/. A running or paused transfer
-is restored as queued after a restart because its live HTTP stream cannot survive process exit.
-Starting it again can reuse its .part file. Optional My.JDownloader credentials are omitted
-from this normal local journal; use the encrypted Backup page to move those credentials between
-machines.
+`DirectHttpEngine` saves supported settings, Downloads packages/links, and LinkGrabber
+packages/links in a local journal under `~/.jdownloader-material/`. A running or paused transfer
+returns as queued after restart because its live HTTP stream ended with the process. Starting it
+again can reuse its `.part` data.
 
-The separate History Manager keeps append-only, local JGit repositories for reversible model
-changes. It complements the restart journal rather than replacing it: the journal restores the
-most recent normal-run state, while History lets the user browse and restore older list/settings
-points without versioning downloaded files.
+The History Manager keeps separate append-only local Git repositories for reversible model
+changes. The workspace repository independently preserves the app name and tabs. Both complement
+the restart journal: the journal restores the most recent run state, while local Git keeps durable
+timeline records without versioning downloaded file contents.
 
 ## Feedback and settings work
 
-Normal actions do not open workflow-blocking overlays or acknowledgement dialogs. Visible state in
-the table, inline composer, and status bar is the primary feedback. A compact transient message
-may appear for a reversible or navigable result such as **Undo** or **View**; it does not block input.
+Normal actions remain in the page flow. Table state, inline composer results, History timeline,
+and the fixed status line provide feedback while navigation and transfers continue. Removals are
+reversed through History rather than a transient overlay.
 
-The Backup page keeps export/import inputs inline. Encryption and disk work run asynchronously,
-and completion or failure is shown in the page, so backup activity does not interrupt the
-download workflow.
-
-History capture, Git storage, and history restore status use the same nonblocking pattern. The
-timeline remains interactive while ordinary transfers and navigation continue; a restore waits
-only for its own local history task and updates the model on the UI thread.
-
-The recovery setting retries transient direct HTTP/network failures only. It does not attempt a
-router, modem, or IP reconnect.
+The Backup page keeps export/import inputs inline. Encryption and local file work run
+asynchronously, and completion or failure stays in the page. History capture, Git storage,
+workspace storage, and restores use the same background-work pattern.
 
 ## Settings
 
-Settings groups General, Connection, Network recovery, LinkGrabber, Appearance, backup-compatible
-My.JDownloader fields, Backup, and About behind its own page rail. The
-default download folder is an editable path field using the platform-native separator. No account
-is required for direct HTTP(S) downloading. Router reconnect, remote control, and multi-connection
-segmentation are labelled unavailable rather than silently pretending to run.
+Settings groups General, Connection, Network recovery, LinkGrabber, Appearance, Backup, and About
+behind its own page rail. The default download folder is an editable path field using the
+platform-native separator. Each displayed control drives a live direct-download behavior or a
+persisted presentation preference.
 
 | Light | Dark |
 | --- | --- |
@@ -201,9 +190,9 @@ segmentation are labelled unavailable rather than silently pretending to run.
 
 ## Regenerating the gallery
 
-The application has an opt-in documentation capture mode. It selects SimulatedEngine, seeds
-deterministic sample rows, renders nineteen scene snapshots, and exits when they are written.
-Ordinary launches are unaffected and continue to select DirectHttpEngine.
+The application has an opt-in documentation capture mode. It selects `SimulatedEngine`, seeds
+deterministic sample rows, renders the documented scenes, and exits after writing them. Ordinary
+launches continue to select `DirectHttpEngine`.
 
 From PowerShell with JDK 25 available:
 
@@ -212,5 +201,5 @@ $env:JD_SCREENSHOT_DIR = (Resolve-Path "docs/screenshots").Path
 .\mvnw.cmd javafx:run
 ~~~
 
-This refreshes Downloads, LinkGrabber, History, Settings, and Add Links in both light and dark
-themes, plus Cantonese and bilingual captures across the main transfer flows.
+The command refreshes the documented Downloads, LinkGrabber, History, Settings, Add Links,
+workspace-tab, and language/theme views.

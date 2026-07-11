@@ -1,173 +1,138 @@
 # Engine API
 
-The GUI depends only on
-[DownloadEngine](../src/main/java/org/jdownloader/material/engine/DownloadEngine.java). That
-boundary is real in the shipped application: normal launches create **DirectHttpEngine**, which
-downloads ordinary direct HTTP and HTTPS files. It is also the seam where a future
-JDownloader-core adapter could be added without making views depend on JDownloader classes.
+The desktop views use
+[DownloadEngine](../src/main/java/org/jdownloader/material/engine/DownloadEngine.java) as their
+direct-download contract. Normal application launches create `DirectHttpEngine`, which handles
+real HTTP(S) URLs. `SimulatedEngine` supplies deterministic in-memory sample data only for the
+documentation capture path.
 
-| Implementation | Used by | Scope |
-|---|---|---|
-| DirectHttpEngine | Normal application launch | Real direct HTTP(S) probing, queueing, streaming, resume, bounded transient retry, local state recovery, and local embedded-JGit history. |
-| SimulatedEngine | Deterministic documentation screenshot capture | In-memory sample data, fake progress, and an in-memory HistoryService; it never performs normal-user downloads. |
+| Implementation | Used by | Behavior |
+| --- | --- | --- |
+| `DirectHttpEngine` | Normal launch | Direct URL probing, queueing, streaming, resume, bounded retry, restart recovery, and embedded local-Git history. |
+| `SimulatedEngine` | Documentation capture | Stable sample rows, fake progress, and in-memory history. |
 
-DirectHttpEngine is deliberately not a JDownloader-core adapter. It has no hoster plugins,
-container crawler, Account Manager, CAPTCHA solver, My.JDownloader backend, or full upstream
-compatibility.
+## Observable model
 
-## Model exposure
+`downloadPackages()` exposes the direct-download queue as an observable package-to-link tree.
+`crawledPackages()` exposes staged direct URLs and their asynchronous probe results. Views bind to
+these lists and their JavaFX properties; they do not poll transfer workers.
 
-| Interface | Shipped behavior | Future JDownloader-core concept |
-|---|---|---|
-| downloadPackages() : ObservableList<DownloadPackage> | Exposes the real direct-download queue and its live transfer state. | DownloadController -> FilePackage list |
-| crawledPackages() : ObservableList<CrawledPackage> | Exposes staged direct URLs and asynchronous probe results. | LinkCollector -> CrawledPackage list |
+A `DownloadLink` includes queued name, host, URL, destination, resolved output path,
+byte/progress state, priority, and retry data. A `CrawledLink` includes staged name, host, URL,
+size, and availability; its shared destination belongs to `CrawledPackage`.
 
-DownloadLink carries queued name, host, URL, destination, resolved output path, byte/progress,
-state, priority, and retry data. CrawledLink carries staged name, host, URL, size, and
-availability; its shared destination belongs to CrawledPackage. A future adapter would listen to
-JDownloader controller events and copy those values into these observable model properties on the
-JavaFX Application Thread.
+## LinkGrabber operations
 
-## Shipped direct HTTP(S) pipeline
+| API | Behavior |
+| --- | --- |
+| `addLinks(text, packageName, destination, autoConfirm, autoStart)` | Filters direct HTTP(S) URLs outside the UI thread, stages them, and begins background metadata probes. The returned result resolves with the accepted-input summary while later probe/confirmation work continues. |
+| `confirmToDownloads(packages, autoStart)` | Moves online staged package links into the Downloads queue. |
+| `confirmLinksToDownloads(links, autoStart)` | Moves selected online staged links while retaining their package siblings. |
+| `confirmAll(autoStart)` | Moves every online staged link to Downloads. |
+| `removeCrawled(...)` / `removeCrawledLinks(...)` | Removes staging packages or selected staged links. |
 
-### LinkGrabber
+Probing tries HEAD first and falls back to a ranged GET when metadata requires it. Redirects are
+followed. A successful response can update availability, filename, and size. Submission returns
+immediately; auto-confirm and auto-start continue after the asynchronous probe result.
 
-| Interface | Current direct-engine behavior | Future JDownloader-core concept |
-|---|---|---|
-| addLinks(text, packageName, destination, autoConfirm, autoStart) | Filters direct HTTP(S) URLs off the UI thread, puts them in a LinkGrabber package, then probes them in background workers. | LinkCollector.addCrawlerJob(...) / LinkCrawler |
-| confirmToDownloads(packages, autoStart) | Moves online staged links into the real Downloads queue. | LinkCollector.moveLinksToDownloadList(...) |
-| confirmAll(autoStart) | Confirms every online staged link. | Confirm the collector contents. |
-| removeCrawled(...) / removeCrawledLinks(...) | Removes staged packages or individual staged links. | LinkCollector.removePackage(...) |
+## Download operations
 
-Probing first tries a HEAD request and falls back to a ranged GET when metadata is not
-available. Redirects are followed; a successful response can update the availability, filename,
-and size shown in LinkGrabber. Submission returns immediately. When explicit arguments or the
-LinkGrabber settings request it, confirmation and starting happen only after the asynchronous
-probe completes, with no confirmation dialog. `addLinks(...)` returns an asynchronous acceptance
-summary so the inline composer can retain unsupported-only input rather than clearing it prematurely.
+| API | Behavior |
+| --- | --- |
+| `start()` / `pause(boolean)` / `stop()` | Starts, pauses/resumes, or stops the direct queue while preserving queued work and partial files. |
+| `startLinks(links)` / `stopLinks(links)` | Starts or stops only the selected direct links. |
+| `forceStart(links)` | Requeues eligible links and starts the scheduler. |
+| `setEnabled(links, enabled)` | Enables or disables selected queue links without a confirmation prompt. |
+| `setPriority(links, priority)` | Saves a direct-link queue priority; higher priorities enter the scheduler first. |
+| `removeDownloads(items)` | Cancels matching workers and removes package/link rows. |
 
-### Downloads
+The scheduler runs on JavaFX pulses and admits queued links under the configured global
+simultaneous-download and per-host limits. Transfer I/O runs on background workers and honors the
+global speed cap. Each direct link uses one safe HTTP stream.
 
-start() schedules queued links on the JavaFX pulse; file I/O itself runs on daemon workers.
-The scheduler enforces the configured global simultaneous-download limit and the configured
-per-host connection limit. The direct engine also honors the global speed cap. Each direct link
-uses one HTTP stream; the persisted **Connections per download** / `maxChunksPerDownload` setting
-does not segment a file yet, so it does **not** implement JDownloader's plugin-specific
-multi-chunk behavior.
+For each transfer, a worker:
 
-For each real transfer, the worker:
+1. reserves a target name and writes to a `.part` file;
+2. records a URL fingerprint and any available remote validator beside the partial;
+3. asks for the remaining range when partial bytes exist, restarting safely when the server
+   declines or invalidates resumption; and
+4. moves the completed partial to the final name atomically where supported, with a normal move
+   fallback, then retains the resolved path for file actions.
 
-1. reserves a target name and writes to its `.part` file;
-2. records a URL fingerprint and, when provided, a remote validator beside the partial;
-3. sends a Range request from the existing partial length when possible and restarts safely if
-   the server declines or invalidates range resumption; and
-4. moves the completed partial file to the final name atomically where the filesystem supports
-   atomic moves (with a normal move fallback where it does not), then retains the resolved output
-   path for nonblocking file actions.
+When Network recovery is enabled, direct engine workers retry network failures and HTTP 408, 429,
+and 5xx responses with capped 2/4/8/16-second backoff. The queue item and its partial data remain
+in place while Details shows the countdown. Other transfer failures remain visible as Error rows.
 
-When the Network recovery setting is enabled, `IOException`-class network failures plus HTTP 408,
-429, and 5xx responses are retried with a capped 2/4/8/16-second backoff. The link stays queued,
-its `.part` remains intact, and Details carries the countdown. Filesystem, invalid-URL, and other
-permanent failures remain Error rows.
+File-exists behavior is resolved by the worker rather than a modal prompt. The default Ask policy
+chooses a safe auto-name; Rename, Skip, and Overwrite continue without interrupting the batch.
 
-File-exists behavior is resolved by the worker, not a modal prompt. The default Ask setting is
-intentionally mapped to safe auto-rename; Rename, Skip, and Overwrite also proceed without
-asking the user to dismiss anything.
+For one queued, error, or disabled link, the Downloads page presents inline name and destination
+fields. A package editor applies only when all of its children are in those safe states. Running,
+paused, and finished output locations remain stable while a worker owns a stream or a completed
+file.
 
-For a single queued, error, or disabled link, DownloadsView exposes inline name and destination
-fields instead of a properties dialog. A package is editable only when all its children are in
-those same safe states; its edits then apply to each child. These write the persisted
-DownloadLink / DownloadPackage model before the next start. Running, paused, and finished items
-are deliberately read-only: the worker has already captured their output path or finalized a file there.
+## Restart journal
 
-| Interface | Current direct-engine behavior | Future JDownloader-core concept |
-|---|---|---|
-| start() / pause(boolean) / stop() | Starts, pauses/resumes, or cancels direct transfer workers while preserving queued work and partial files. | DownloadWatchDog controls |
-| forceStart(links) | Requeues selected non-finished direct links and starts the scheduler. | DownloadWatchDog.forceDownload(...) |
-| setEnabled(links, enabled) | Disables queued/active direct links safely or returns them to Queue when re-enabled. | Link enable/disable actions |
-| setPriority(links, priority) | Persists a per-link priority; higher priorities admit ahead of lower normal queued links. | Link priority controls |
-| removeDownloads(items) | Cancels matching workers and removes package/link rows. | DownloadController.removePackage/removeChildren(...) |
-| reconnect() | Compatibility hook that can admit an already-due retry; it does not reconnect a router or host connection. | Reconnecter.forceReconnect() |
-
-## Local state recovery
-
-DirectHttpEngine writes a debounced, best-effort local journal to
-~/.jdownloader-material/state.properties (or to the directory supplied to its test/portable
-constructor). The journal includes non-secret settings, Downloads packages/links, and
-LinkGrabber packages/links. A link that was running or paused when the process ended is restored
-as queued; when it is started again, its existing .part file can be resumed if the server
-supports byte ranges. Per-link priority, retry state, resolved output path, and queued inline
-name/destination changes are retained as well.
-
-The ordinary local journal deliberately excludes My.JDownloader email and password. Those
-optional credentials are preserved only through the separately encrypted .jdmbackup
-export/import flow.
+`DirectHttpEngine` writes a debounced local journal to
+`~/.jdownloader-material/state.properties` (or a supplied portable/test directory). The journal
+contains non-secret settings, Downloads packages/links, and LinkGrabber packages/links. A link
+that was running or paused at exit returns as queued after restart; a later start can reuse
+existing `.part` bytes when the server supports ranges. Priority, retry state, resolved output
+path, and queued inline name/destination changes persist too.
 
 ## Local append-only History API
 
-History is exposed by DownloadEngine so the shell and future adapters do not need to depend on
-DirectHttpEngine or JGit directly.
+`history()` returns the observable `HistoryService`. `recordHistory(scope, summary)` captures one
+completed semantic model change on the JavaFX thread and commits it asynchronously. History uses
+asynchronous operations for `undo()`, `redo()`, and `restore(entryId)`; each operation
+applies a full model snapshot on the JavaFX thread and appends a new `UNDO`, `REDO`, or `RESTORE`
+event.
 
-| DownloadEngine API | Current behavior | Adapter requirement |
-|---|---|---|
-| `history()` | Returns a local HistoryService with observable entries, busy/status, undo/redo availability, and measured storage bytes. | Supply an append-only, local HistoryService or an equivalent implementation. |
-| `recordHistory(HistoryScope, summary)` | Captures one completed semantic model change on the JavaFX thread, then commits it asynchronously. | Call after a completed user-meaningful mutation; do not call for every transfer telemetry tick. |
-
-HistoryService exposes `CompletableFuture`-returning `undo()`, `redo()`, and `restore(entryId)`
-operations. Each applies a full model snapshot on the JavaFX Application Thread and appends a
-new `UNDO`, `REDO`, or `RESTORE` event. It never resets a branch, overwrites an old event, or
-deletes a revision. HistoryScope labels an event as `SETTINGS`, `DOWNLOADS`, `LINKGRABBER`, or
-`DOWNLOAD_LISTS`; the snapshot itself still contains all durable list/settings state so one
-operation can be restored coherently.
-
-DirectHttpEngine uses bundled JGit to maintain these private repositories under
-`~/.jdownloader-material/history/` (or under the supplied portable/test state directory):
+`DirectHttpEngine` uses bundled JGit to maintain private repositories under
+`~/.jdownloader-material/history/`:
 
 - `settings` contains canonical non-secret `settings.properties` snapshots;
-- `download-lists` contains canonical `downloads.properties` and `linkgrabber.properties` snapshots;
-- `manifest` contains immutable prepare records with canonical snapshot copies, followed by
-  completion metadata that points to the exact commits in the first two repositories.
+- `download-lists` contains canonical `downloads.properties` and `linkgrabber.properties`;
+- `manifest` holds durable prepare records and completion metadata linked to the matching commits.
 
-JGit runs with append-only retention settings: the service does not use reset, rebase, deletion,
-pruning, or garbage collection. My.JDownloader fields are removed before a history snapshot enters
-Git. Direct-link URLs are retained exactly for a faithful restore, so the local-only history
-directory is private device data and has no configured remote. Completed files and `.part` files
-never enter HistoryService. Volatile active-transfer data—loaded bytes, speed, retry timing, and
-live details—is omitted, while a finished row retains its final byte count/path/outcome detail
-and an error row retains its final reason. The manifest assigns a monotonic worker sequence and
-can finish a durable prepare after a crash between its three local repositories. History records
-durable intent, not a filesystem backup or a high-frequency transfer log.
+The repositories retain an append-only timeline. Credential fields never enter a history snapshot.
+Direct-link URLs remain for a faithful restore, so these local-only repositories are private device
+data with no configured remote. Completed files and `.part` contents stay out of history. Active
+telemetry is omitted while final byte/path/outcome metadata stays with completed or failed rows.
+The manifest sequence can finish a durable prepared entry after a process interruption between
+repositories.
 
-## Global state (observable)
+## Workspace persistence
 
-| Interface | Shipped direct-engine behavior | Future JDownloader-core concept |
-|---|---|---|
-| runningProperty() / pausedProperty() | Direct queue scheduler state. | DownloadWatchDog state machine |
-| globalSpeedProperty() | Sum of active direct-transfer speeds. | DownloadWatchDog speed manager |
-| runningCountProperty() | Number of running direct links. | Active SingleDownloadController count |
-| totalRemainingProperty() | Sum of known remaining direct bytes. | Sum of unfinished bytes |
-| reconnectingProperty() | Legacy-named property, true only while an automatic retry is pending; not an actual network reconnect. | Reconnecter progress |
+The browser-style tab workspace uses its own
+[`GitWorkspaceStore`](../src/main/java/org/jdownloader/material/workspace/GitWorkspaceStore.java),
+separate from the transfer engine. It stores the application name, open tabs, selected tab, and
+per-tab title styling in `~/.jdownloader-material/workspace/`. Each tab also has its own durable
+descriptor file in the local Git repository. Opening, selecting, editing, importing, and closing
+tabs append commits; closed descriptors remain in the repository alongside their close event.
 
-## Settings
+`exportSnapshot(...)` writes a portable `.jdmtabs` file. `importSnapshot(...)` validates and loads
+that snapshot as fresh workspace tabs. `exportRepository(...)` writes a ZIP containing the complete
+private workspace repository and its immutable event history.
 
-DirectHttpEngine currently applies the direct-download folder, simultaneous-download limit,
-per-host connection limit, global speed limit, file-exists policy, transient-failure retry,
-LinkGrabber auto-confirm / auto-start behavior, ordering, and appearance settings. Appearance
-includes a persisted presentation mode: English, playful Hong Kong Cantonese, or a bilingual
-English · 香港粵語 rendering. Each direct link uses one safe stream; the stored
-multi-connection/chunk setting is disabled until a proper segmented-transfer implementation
-exists. Router reconnect and My.JDownloader remote control do not run in this release.
+## Global state
 
-## Threading contract
+| Property | Meaning |
+| --- | --- |
+| `runningProperty()` / `pausedProperty()` | Direct queue scheduler state. |
+| `globalSpeedProperty()` | Sum of active direct-transfer speeds. |
+| `runningCountProperty()` | Number of running direct links. |
+| `totalRemainingProperty()` | Sum of known remaining direct bytes. |
+| `retryScheduledProperty()` | True while one or more transient direct-download retries are scheduled. |
 
-Network probing, HTTP streaming, state-file writing, backup encryption, JGit history storage, and
-disk I/O run outside the JavaFX Application Thread. JavaFX observable-model updates, history
-snapshot capture, and history snapshot restoration are marshalled back to that thread with
-Platform.runLater; views bind directly to those properties. HistoryService serializes JGit work
-on its own worker and completes its undo/redo/restore futures only after the matching FX apply
-has run. This keeps URL submission, queue controls, history controls, backup fields, and collision
-handling responsive without a blocking dialog.
+## Settings and threading
 
-A future JDownloader adapter must preserve the same boundary: backend callbacks may arrive on
-background threads, but every mutation observed by the JavaFX UI must arrive on the JavaFX
-Application Thread.
+The direct engine applies download folder, simultaneous-download limit, per-host limit, global
+speed limit, file-exists policy, transient retry, LinkGrabber auto-confirm/auto-start behavior,
+ordering, and presentation settings. Presentation offers English, playful Hong Kong Cantonese, and
+bilingual English / Hong Kong Cantonese.
+
+Network probes, HTTP streaming, journal writes, backup encryption, History Git work, workspace Git
+work, and disk I/O run outside the JavaFX Application Thread. JavaFX observable-model updates and
+history snapshot capture/restoration return through `Platform.runLater`. This keeps URL submission,
+queue controls, workspace edits, History, and backup work responsive without a blocking dialog.

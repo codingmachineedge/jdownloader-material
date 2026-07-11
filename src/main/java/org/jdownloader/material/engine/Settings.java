@@ -13,8 +13,7 @@ import javafx.beans.property.StringProperty;
 
 /**
  * Observable application settings. The GUI binds controls directly to these
- * properties; a real backend would persist them and react to changes. Mirrors
- * the most-used knobs from JDownloader's General/Connection/Reconnect pages.
+ * properties; the direct HTTP backend persists them and reacts to each one.
  */
 public final class Settings {
 
@@ -32,7 +31,6 @@ public final class Settings {
             new SimpleStringProperty(this, "downloadFolder",
                     Path.of(System.getProperty("user.home"), "Downloads").toString());
     private final IntegerProperty maxSimultaneousDownloads = new SimpleIntegerProperty(this, "maxSimultaneousDownloads", 3);
-    private final IntegerProperty maxChunksPerDownload = new SimpleIntegerProperty(this, "maxChunksPerDownload", 4);
     private final javafx.beans.property.ObjectProperty<IfExists> ifFileExists =
             new javafx.beans.property.SimpleObjectProperty<>(this, "ifFileExists", IfExists.ASK);
 
@@ -47,9 +45,9 @@ public final class Settings {
     private final IntegerProperty speedLimitKbps = new SimpleIntegerProperty(this, "speedLimitKbps", 2000);
     private final IntegerProperty maxConnectionsPerHost = new SimpleIntegerProperty(this, "maxConnectionsPerHost", 8);
 
-    // Network recovery (the historic property names remain backup-compatible).
+    // Network recovery. The historic property name is retained internally so
+    // existing local state keeps its automatic-retry preference.
     private final BooleanProperty autoReconnect = new SimpleBooleanProperty(this, "autoReconnect", false);
-    private final StringProperty reconnectMethod = new SimpleStringProperty(this, "reconnectMethod", "External command");
 
     // Appearance
     private final BooleanProperty darkTheme = new SimpleBooleanProperty(this, "darkTheme", false);
@@ -57,14 +55,8 @@ public final class Settings {
     private final ObjectProperty<LanguageMode> language =
             new SimpleObjectProperty<>(this, "language", LanguageMode.ENGLISH);
 
-    // My.JDownloader remote-control credentials (the password is a secret —
-    // see SettingsIO, which only ever writes settings encrypted).
-    private final StringProperty myjdEmail = new SimpleStringProperty(this, "myjdEmail", "");
-    private final StringProperty myjdPassword = new SimpleStringProperty(this, "myjdPassword", "");
-
     public StringProperty downloadFolderProperty() { return downloadFolder; }
     public IntegerProperty maxSimultaneousDownloadsProperty() { return maxSimultaneousDownloads; }
-    public IntegerProperty maxChunksPerDownloadProperty() { return maxChunksPerDownload; }
     public javafx.beans.property.ObjectProperty<IfExists> ifFileExistsProperty() { return ifFileExists; }
     public BooleanProperty clipboardMonitoringProperty() { return clipboardMonitoring; }
     public BooleanProperty autoConfirmProperty() { return autoConfirm; }
@@ -74,10 +66,7 @@ public final class Settings {
     public IntegerProperty speedLimitKbpsProperty() { return speedLimitKbps; }
     public IntegerProperty maxConnectionsPerHostProperty() { return maxConnectionsPerHost; }
     public BooleanProperty autoReconnectProperty() { return autoReconnect; }
-    public StringProperty reconnectMethodProperty() { return reconnectMethod; }
     public BooleanProperty darkThemeProperty() { return darkTheme; }
     public BooleanProperty speedInTitleProperty() { return speedInTitle; }
     public ObjectProperty<LanguageMode> languageProperty() { return language; }
-    public StringProperty myjdEmailProperty() { return myjdEmail; }
-    public StringProperty myjdPasswordProperty() { return myjdPassword; }
 }

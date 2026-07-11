@@ -34,7 +34,7 @@ import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.component.CompletedFileActions;
 import org.jdownloader.material.ui.component.DownloadCells;
 import org.jdownloader.material.ui.component.Mat;
-import org.jdownloader.material.ui.component.NotificationCenter;
+import org.jdownloader.material.ui.component.ActivityStatus;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 public final class DownloadsView extends BorderPane {
 
     private final DownloadEngine engine;
-    private final NotificationCenter notifier;
+    private final ActivityStatus activity;
     private final Runnable openAddLinks;
     private final I18n i18n;
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
@@ -75,9 +75,9 @@ public final class DownloadsView extends BorderPane {
     private volatile boolean disposed;
     private String filter = "";
 
-    public DownloadsView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks, I18n i18n) {
+    public DownloadsView(DownloadEngine engine, ActivityStatus activity, Runnable openAddLinks, I18n i18n) {
         this.engine = engine;
-        this.notifier = notifier;
+        this.activity = activity;
         this.openAddLinks = openAddLinks;
         this.i18n = i18n;
         getStyleClass().add("content-area");
@@ -295,7 +295,7 @@ public final class DownloadsView extends BorderPane {
         if (propertiesItem == null || !isEditable(propertiesItem)) return;
         String name = editName.getText() == null ? "" : editName.getText().trim();
         if (name.isBlank()) {
-            notifier.snack(i18n.text("properties.name_required"));
+            activity.error(i18n.text("properties.name_required"));
             return;
         }
         String destination = editDestination.getText() == null ? "" : editDestination.getText().trim();
@@ -308,7 +308,7 @@ public final class DownloadsView extends BorderPane {
             pkg.links().forEach(link -> link.destinationProperty().set(destination));
         }
         engine.recordHistory(HistoryScope.DOWNLOADS, i18n.text("properties.updated"));
-        notifier.snack(i18n.text("properties.updated"));
+        activity.info(i18n.text("properties.updated"));
         rebuild();
     }
 
@@ -465,41 +465,13 @@ public final class DownloadsView extends BorderPane {
     }
 
     // ---------------------------------------------------------------- Remove
-    /**
-     * Removes the selection immediately and offers Undo via snackbar — the
-     * Material pattern replacing a confirm-delete dialog. Undo is additive:
-     * it re-inserts what was removed without disturbing anything added since.
-     */
+    /** Removes immediately; the append-only History page provides durable undo. */
     private void removeSelected() {
         List<DownloadItem> selection = selectedItems();
         if (selection.isEmpty()) return;
-        // Snapshot the full structure so Undo can restore packages emptied
-        // (and auto-dropped) as a side effect of removing their last links.
-        var packages = engine.downloadPackages();
-        List<DownloadPackage> pkgOrder = new ArrayList<>(packages);
-        var linkOrder = new java.util.HashMap<DownloadPackage, List<DownloadLink>>();
-        for (DownloadPackage p : pkgOrder) linkOrder.put(p, new ArrayList<>(p.links()));
-
         int n = selection.size();
         engine.removeDownloads(selection);
-
-        notifier.snack(i18n.text(n == 1 ? "snack.removed.one" : "snack.removed.many", n),
-                i18n.text("action.undo"), () -> {
-            for (int i = 0; i < pkgOrder.size(); i++) {
-                DownloadPackage p = pkgOrder.get(i);
-                if (!packages.contains(p)) {
-                    packages.add(Math.min(i, packages.size()), p);
-                }
-                List<DownloadLink> wanted = linkOrder.get(p);
-                for (int j = 0; j < wanted.size(); j++) {
-                    DownloadLink l = wanted.get(j);
-                    if (!p.links().contains(l)) {
-                        p.links().add(Math.min(j, p.links().size()), l);
-                    }
-                }
-            }
-            engine.recordHistory(HistoryScope.DOWNLOADS, i18n.text("action.undo"));
-        });
+        activity.info(i18n.text(n == 1 ? "activity.removed.one" : "activity.removed.many", n));
     }
 
     // ------------------------------------------------------------- Selection

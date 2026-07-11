@@ -51,7 +51,17 @@ public class JDMaterialApp extends Application {
         // Keep the Appearance toggle and the app-bar toggle in lock-step.
         theme.darkProperty().bindBidirectional(engine.settings().darkThemeProperty());
 
-        MainWindow window = new MainWindow(engine, theme, stage);
+        MainWindow window;
+        if (screenshotDir != null && !screenshotDir.isBlank()) {
+            try {
+                // Documentation capture never touches a person's real workspace repository.
+                window = new MainWindow(engine, theme, stage, Files.createTempDirectory("jdm-workspace-capture-"));
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not create an isolated capture workspace", e);
+            }
+        } else {
+            window = new MainWindow(engine, theme, stage);
+        }
         Scene scene = new Scene(window, 1180, 720);
         theme.install(scene);
 
@@ -60,12 +70,14 @@ public class JDMaterialApp extends Application {
         stage.setMinHeight(560);
         loadIcon(stage);
 
+        // Workspace tools can rename the display name without renaming the installed binary.
         stage.titleProperty().bind(Bindings.createStringBinding(() -> {
             if (engine.settings().speedInTitleProperty().get() && engine.globalSpeedProperty().get() > 0) {
-                return "JDownloader Material — ▼ " + Formats.speed(engine.globalSpeedProperty().get());
+                return window.applicationNameProperty().get() + " - ▼ "
+                        + Formats.speed(engine.globalSpeedProperty().get());
             }
-            return "JDownloader Material";
-        }, engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
+            return window.applicationNameProperty().get();
+        }, window.applicationNameProperty(), engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
 
         stage.setOnCloseRequest(e -> {
             window.dispose();
@@ -78,21 +90,17 @@ public class JDMaterialApp extends Application {
             return;
         }
 
-        // Optional demo hook. JD_DEMO=panel opens the Add Links composer; JD_DEMO=snack
-        // re-shows a snackbar on a timer so it can be observed/screenshotted.
+        // Optional demo hook for opening a content page without a modal or
+        // overlay. Documentation capture uses its own deterministic path.
         String demo = System.getenv("JD_DEMO");
         if (demo != null) {
             javafx.application.Platform.runLater(() -> {
-                if ("snack".equalsIgnoreCase(demo)) {
-                    var timeline = new javafx.animation.Timeline(
-                            new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, e -> window.demoSnack()),
-                            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3), e -> window.demoSnack()));
-                    timeline.setCycleCount(6);
-                    timeline.play();
-                } else if ("linkgrabber".equalsIgnoreCase(demo)) {
+                if ("linkgrabber".equalsIgnoreCase(demo)) {
                     window.showLinkGrabber();
                 } else if ("settings".equalsIgnoreCase(demo)) {
                     window.showSettings();
+                } else if ("history".equalsIgnoreCase(demo)) {
+                    window.showHistory();
                 } else {
                     window.openAddLinks();
                 }
@@ -119,12 +127,14 @@ public class JDMaterialApp extends Application {
                     if (theme.isDark()) theme.toggle();
                     window.showDownloadsForCapture();
                 }),
+                new ScreenshotStep("downloads-status-light.png", window::showDownloadsWithActivityForCapture),
                 new ScreenshotStep("downloads-properties-light.png", window::showDownloadsWithEditableSelection),
                 new ScreenshotStep("linkgrabber-light.png", window::showLinkGrabber),
                 new ScreenshotStep("history-light.png", window::showHistory),
                 new ScreenshotStep("settings-light.png", window::showSettings),
                 new ScreenshotStep("settings-appearance-light.png", window::showSettingsAppearanceForCapture),
                 new ScreenshotStep("add-links-light.png", window::openAddLinks),
+                new ScreenshotStep("workspace-tabs-light.png", window::showDownloads),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
                     window.showDownloadsForCapture();
@@ -134,6 +144,7 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("history-dark.png", window::showHistory),
                 new ScreenshotStep("settings-dark.png", window::showSettings),
                 new ScreenshotStep("add-links-dark.png", window::openAddLinks),
+                new ScreenshotStep("workspace-tabs-dark.png", window::showDownloads),
                 new ScreenshotStep("downloads-cantonese.png", () -> {
                     if (theme.isDark()) theme.toggle();
                     engine.settings().languageProperty().set(LanguageMode.HONG_KONG_CANTONESE);
@@ -146,12 +157,14 @@ public class JDMaterialApp extends Application {
                 }),
                 new ScreenshotStep("history-bilingual.png", window::showHistory),
                 new ScreenshotStep("add-links-bilingual.png", window::openAddLinks),
-                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture));
+                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture),
+                new ScreenshotStep("workspace-tabs-bilingual.png", window::showDownloads));
         captureStep(scene, window, steps, directory, 0);
     }
 
     private void captureStep(Scene scene, MainWindow window, List<ScreenshotStep> steps, Path directory, int index) {
         ScreenshotStep step = steps.get(index);
+        window.clearActivityStatus();
         step.prepare().run();
         window.clearTransientFocus();
         // A content or language switch can replace much of the scene graph.

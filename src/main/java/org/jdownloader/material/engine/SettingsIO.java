@@ -18,10 +18,10 @@ import java.util.Arrays;
 import java.util.Properties;
 
 /**
- * Full-settings backup: export/import of every {@link Settings} property,
- * secrets included, to a single {@code .jdmbackup} file.
+ * Full-settings backup: export/import of every supported {@link Settings}
+ * property to a single {@code .jdmbackup} file.
  * <p>
- * The whole payload — not just the secret fields — is encrypted with
+ * The whole payload is encrypted with
  * AES-256-GCM under a key derived from the user's passphrase via
  * PBKDF2-HmacSHA256 (210k iterations, random salt), so nothing about the
  * configuration leaks from the file and tampering fails authentication.
@@ -57,7 +57,6 @@ public final class SettingsIO {
         Properties p = new Properties();
         p.setProperty("downloadFolder", s.downloadFolderProperty().get());
         p.setProperty("maxSimultaneousDownloads", Integer.toString(s.maxSimultaneousDownloadsProperty().get()));
-        p.setProperty("maxChunksPerDownload", Integer.toString(s.maxChunksPerDownloadProperty().get()));
         p.setProperty("ifFileExists", s.ifFileExistsProperty().get().name());
         p.setProperty("clipboardMonitoring", Boolean.toString(s.clipboardMonitoringProperty().get()));
         p.setProperty("autoConfirm", Boolean.toString(s.autoConfirmProperty().get()));
@@ -67,13 +66,9 @@ public final class SettingsIO {
         p.setProperty("speedLimitKbps", Integer.toString(s.speedLimitKbpsProperty().get()));
         p.setProperty("maxConnectionsPerHost", Integer.toString(s.maxConnectionsPerHostProperty().get()));
         p.setProperty("autoReconnect", Boolean.toString(s.autoReconnectProperty().get()));
-        p.setProperty("reconnectMethod", s.reconnectMethodProperty().get());
         p.setProperty("darkTheme", Boolean.toString(s.darkThemeProperty().get()));
         p.setProperty("speedInTitle", Boolean.toString(s.speedInTitleProperty().get()));
         p.setProperty("language", s.languageProperty().get().name());
-        // Secrets — protected by the whole-file encryption below.
-        p.setProperty("myjdEmail", s.myjdEmailProperty().get());
-        p.setProperty("myjdPassword", s.myjdPasswordProperty().get());
         return p;
     }
 
@@ -154,7 +149,6 @@ public final class SettingsIO {
     public static void apply(Properties p, Settings s) {
         apply(p, "downloadFolder", v -> s.downloadFolderProperty().set(v));
         applyInt(p, "maxSimultaneousDownloads", v -> s.maxSimultaneousDownloadsProperty().set(clamp(v, 1, 10)));
-        applyInt(p, "maxChunksPerDownload", v -> s.maxChunksPerDownloadProperty().set(clamp(v, 1, 20)));
         apply(p, "ifFileExists", v -> s.ifFileExistsProperty().set(Settings.IfExists.valueOf(v)));
         applyBool(p, "clipboardMonitoring", v -> s.clipboardMonitoringProperty().set(v));
         applyBool(p, "autoConfirm", v -> s.autoConfirmProperty().set(v));
@@ -164,12 +158,12 @@ public final class SettingsIO {
         applyInt(p, "speedLimitKbps", v -> s.speedLimitKbpsProperty().set(clamp(v, 128, 20_000)));
         applyInt(p, "maxConnectionsPerHost", v -> s.maxConnectionsPerHostProperty().set(clamp(v, 1, 20)));
         applyBool(p, "autoReconnect", v -> s.autoReconnectProperty().set(v));
-        apply(p, "reconnectMethod", v -> s.reconnectMethodProperty().set(v));
         applyBool(p, "darkTheme", v -> s.darkThemeProperty().set(v));
         applyBool(p, "speedInTitle", v -> s.speedInTitleProperty().set(v));
         apply(p, "language", v -> s.languageProperty().set(LanguageMode.valueOf(v)));
-        apply(p, "myjdEmail", v -> s.myjdEmailProperty().set(v));
-        apply(p, "myjdPassword", v -> s.myjdPasswordProperty().set(v));
+        // Older encrypted backups may include retired settings. Unknown entries
+        // are deliberately ignored so
+        // importing an existing backup still restores every supported setting.
     }
 
     // ---------------------------------------------------------------- Crypto

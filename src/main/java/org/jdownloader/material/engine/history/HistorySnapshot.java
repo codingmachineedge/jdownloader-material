@@ -42,9 +42,9 @@ public final class HistorySnapshot {
     }
 
     /**
-     * Creates a snapshot from separately maintained properties. My.JDownloader
-     * credentials are always removed from the settings file before it reaches
-     * the Git object store.
+     * Creates a snapshot from separately maintained properties. Credential
+     * fields are always removed from the settings file before it reaches the
+     * Git object store.
      */
     public static HistorySnapshot fromProperties(Properties settings, Properties downloads,
                                                  Properties linkGrabber) {
@@ -123,7 +123,7 @@ public final class HistorySnapshot {
 
     /**
      * Converts text snapshots to canonical UTF-8. Settings text is parsed as
-     * properties and scrubbed of My.JDownloader fields; list text is line-end
+     * properties and scrubbed of credential fields; list text is line-end
      * normalized without imposing a schema on callers.
      */
     public static HistorySnapshot fromText(String settings, String downloads, String linkGrabber) {
@@ -193,12 +193,12 @@ public final class HistorySnapshot {
     }
 
     /** A deterministic, header-free Java-properties encoder using UTF-8. */
-    static byte[] canonicalProperties(Properties source, boolean scrubMyJd) {
+    static byte[] canonicalProperties(Properties source, boolean scrubCredentials) {
         TreeMap<String, String> sorted = new TreeMap<>();
         if (source != null) {
             for (Map.Entry<Object, Object> entry : source.entrySet()) {
                 String key = String.valueOf(entry.getKey());
-                if (scrubMyJd && isMyJdField(key)) continue;
+                if (scrubCredentials && isCredentialField(key)) continue;
                 sorted.put(key, String.valueOf(entry.getValue()));
             }
         }
@@ -212,7 +212,7 @@ public final class HistorySnapshot {
         return encoded.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private static boolean isMyJdField(String key) {
+    private static boolean isCredentialField(String key) {
         String normalized = key.toLowerCase(Locale.ROOT);
         return normalized.contains("myjd")
                 || normalized.contains("my.jdownloader")

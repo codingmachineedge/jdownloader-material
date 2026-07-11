@@ -21,10 +21,8 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * The GUI depends on this interface only — never on a concrete engine — so the
  * bundled {@link DirectHttpEngine} handles direct HTTP(S) files, while
- * {@link SimulatedEngine} supports deterministic captures. A future adapter
- * over the JDownloader core (link crawler, plugin/hoster system, download
- * controller) can use this same boundary without touching a view. See
- * {@code docs/ENGINE_API.md} for the mapping to JD-core concepts.
+ * {@link SimulatedEngine} supplies deterministic documentation captures. See
+ * {@code docs/ENGINE_API.md} for the engine boundary and data flow.
  */
 public interface DownloadEngine {
 
@@ -90,9 +88,6 @@ public interface DownloadEngine {
     /** Removes the given items (packages or links) from the Downloads list. */
     void removeDownloads(Collection<DownloadItem> items);
 
-    /** Compatibility hook; direct HTTP mode cannot reconnect network equipment. */
-    void reconnect();
-
     // ---- Local append-only history ---------------------------------------
     /** Local-only history for durable queue, LinkGrabber, and non-secret settings changes. */
     HistoryService history();
@@ -111,7 +106,8 @@ public interface DownloadEngine {
 
     ReadOnlyLongProperty totalRemainingProperty();
 
-    ReadOnlyBooleanProperty reconnectingProperty();
+    /** True while one or more transient direct-download failures are awaiting retry. */
+    ReadOnlyBooleanProperty retryScheduledProperty();
 
     // ---- Configuration ----------------------------------------------------
     Settings settings();

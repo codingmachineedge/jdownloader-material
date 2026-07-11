@@ -20,9 +20,7 @@ import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.model.LinkAvailability;
 
 /**
- * Small, atomic local journal for non-secret settings and direct-download jobs.
- * Credentials deliberately stay out of this normal-state file; encrypted
- * import/export remains the only persistence route for them.
+ * Small, atomic local journal for supported settings and direct-download jobs.
  */
 final class AppStateStore {
 
@@ -81,9 +79,6 @@ final class AppStateStore {
     static Properties snapshot(Settings settings, List<DownloadPackage> packages,
                                List<CrawledPackage> crawledPackages) {
         Properties state = SettingsIO.snapshot(settings);
-        // Normal local state must never persist remote-control credentials in plaintext.
-        state.remove("myjdEmail");
-        state.remove("myjdPassword");
         state.setProperty("stateVersion", VERSION);
         state.setProperty("queue.packageCount", Integer.toString(packages.size()));
         for (int packageIndex = 0; packageIndex < packages.size(); packageIndex++) {

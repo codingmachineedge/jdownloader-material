@@ -56,8 +56,7 @@
     -fx-text-fill: -md-on-surface;
 }
 .top-app-bar .app-mark {
-    -fx-background-color: -md-primary;
-    -fx-background-radius: 10;
+    -fx-background-color: transparent;
     -fx-min-width: 32; -fx-min-height: 32;
     -fx-max-width: 32; -fx-max-height: 32;
     -fx-alignment: center;
@@ -135,6 +134,34 @@
     -fx-spacing: 12;
     -fx-alignment: center-left;
 }
+
+/* ----------------------------------------------------------- Workspace tabs */
+.workspace-area { -fx-background-color: -md-background; }
+.workspace-toolbar {
+    -fx-background-color: -md-surface-container-low;
+    -fx-padding: 7 16 7 16;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.workspace-title { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -md-on-surface-variant; }
+.workspace-tabs { -fx-background-color: -md-background; -fx-background-insets: 0; }
+.workspace-tabs > .tab-header-area { -fx-padding: 7 12 0 12; -fx-background-color: -md-surface-container-low; }
+.workspace-tabs > .tab-header-area > .tab-header-background { -fx-background-color: -md-surface-container-low; }
+.workspace-tabs > .tab-header-area .tab {
+    -fx-background-color: -md-surface-container;
+    -fx-background-radius: 12 12 0 0;
+    -fx-padding: 8 12 8 12;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 12 12 0 0;
+}
+.workspace-tabs > .tab-header-area .tab:hover { -fx-background-color: -md-hover-overlay; }
+.workspace-tabs > .tab-header-area .tab:selected { -fx-background-color: -md-background; }
+.workspace-tabs > .tab-header-area .tab .tab-close-button { -fx-background-color: -md-on-surface-variant; }
+.workspace-tabs > .tab-header-area .tab .tab-close-button:hover { -fx-background-color: -md-error; }
+.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; }
+.workspace-tabs > .tab-content-area { -fx-background-color: -md-background; }
+.workspace-page { -fx-background-color: -md-background; }
 
 /* --------------------------------------------------------------- Cards */
 .md-card {
@@ -377,6 +404,12 @@
 .status-bar .status-metric { -fx-text-fill: -md-on-surface-variant; -fx-font-size: 12px; }
 .status-bar .status-metric .value { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; }
 .status-bar .status-strong { -fx-text-fill: -md-primary; -fx-font-weight: 700; -fx-font-size: 12px; }
+.status-bar .status-message {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 4;
+}
+.status-bar .status-message.error { -fx-text-fill: -md-error; }
 
 /* --------------------------------------------------------------- Settings */
 .settings-nav { -fx-background-color: -md-surface-container-low; -fx-padding: 12 8 12 8; -fx-spacing: 4; -fx-min-width: 220; }
@@ -450,17 +483,6 @@
 }
 .history-error-row .label-md, .history-error-row .row-desc { -fx-text-fill: -md-on-error-container; }
 
-/* --------------------------------------------------------------- Dialogs */
-.md-dialog {
-    -fx-background-color: -md-surface-container-high;
-    -fx-background-radius: 28;
-    -fx-padding: 24;
-    -fx-spacing: 16;
-    -fx-effect: dropshadow(gaussian, -md-shadow, 24, 0.1, 0, 6);
-}
-.md-dialog .dialog-title { -fx-font-size: 22px; -fx-font-weight: 600; -fx-text-fill: -md-on-surface; }
-.scrim { -fx-background-color: rgba(0,0,0,0.32); }
-
 .links-area {
     -fx-background-color: -md-surface-container-highest;
     -fx-background-radius: 12;
@@ -471,31 +493,6 @@
 .links-area .content { -fx-background-color: -md-surface-container-highest; -fx-background-radius: 12; }
 .links-area:focused { -fx-border-color: -md-primary; -fx-border-width: 1; -fx-border-radius: 12; }
 .links-area .scroll-pane, .links-area .viewport { -fx-background-color: transparent; }
-
-/* --------------------------------------------- Optional feedback snackbar */
-.notification-layer { -fx-background-color: transparent; }
-
-/* Snackbar (bottom center, inverse surface) */
-.snackbar {
-    -fx-background-color: -md-inverse-surface;
-    -fx-background-radius: 10;
-    -fx-padding: 10 12 10 16;
-    -fx-alignment: center-left;
-    -fx-min-height: 44;
-    -fx-max-width: 520;
-    -fx-effect: dropshadow(gaussian, -md-shadow, 18, 0.1, 0, 4);
-}
-.snackbar-text { -fx-text-fill: -md-inverse-on-surface; -fx-font-size: 14px; }
-.snackbar-action {
-    -fx-text-fill: -md-inverse-primary;
-    -mfx-text-fill: -md-inverse-primary;
-    -fx-background-color: transparent;
-    -fx-font-weight: 700;
-    -fx-padding: 6 10 6 10;
-    -fx-background-radius: 20;
-}
-.snackbar-action:hover { -fx-background-color: rgba(255,255,255,0.10); }
-.snackbar-action .mat-icon { -fx-background-color: -md-inverse-primary; }
 
 /* --------------------------------------------- MaterialFX control tinting */
 .mfx-text-field {

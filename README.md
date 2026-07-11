@@ -1,41 +1,41 @@
 # JDownloader Material
 
-JDownloader Material is a JavaFX + [MaterialFX](https://github.com/palexdev/MaterialFX)
-desktop downloader inspired by [JDownloader 2](https://jdownloader.org/), styled with
-Material Design 3 in both light and dark themes.
+<p align="center"><img src="src/main/resources/icons/app.png" alt="JDownloader Material indigo download-and-link logo" width="132"></p>
 
-Normal launches use `DirectHttpEngine` to download **direct HTTP and HTTPS files**. URLs are
-probed in the background, streamed to resumable `.part` files, retried after transient network or
-server failures when recovery is enabled, and finalized into their target names without a blocking
-confirmation dialog. It is **not** a distribution of, or adapter to,
-the JDownloader core: JDownloader plugins, containers, accounts, CAPTCHA handling, and the full
-hoster ecosystem are not bundled. The UI talks to a small [engine boundary](docs/ENGINE_API.md)
-so a future core integration can be added without rewriting the views.
+JDownloader Material is a purpose-built JavaFX download workspace for direct HTTP(S) files. It
+combines a responsive Material Design 3 desktop interface with a real background transfer engine:
+paste URLs, inspect them in LinkGrabber, queue downloads, and keep working while probes, disk I/O,
+retry scheduling, and history writes run in the background.
 
-- **Runtime:** Java 25 (Temurin), JavaFX 25
-- **UI:** JavaFX 25, MaterialFX components, hand-authored Material 3 stylesheet
-- **Interface languages:** English, 香港粵語（得意版）, or bilingual English · 香港粵語,
-  switchable immediately from **Settings → Appearance**
-- **Themes:** Material light + dark, switchable at runtime from the app bar
-- **Engine:** a swappable [DownloadEngine](src/main/java/org/jdownloader/material/engine/DownloadEngine.java)
-  interface; normal launches use `DirectHttpEngine`, while `SimulatedEngine` is reserved for
-  deterministic screenshot capture
+The indigo download-and-link mark above is the application icon used by the desktop app. Normal
+launches use `DirectHttpEngine`; `SimulatedEngine` is used only by the repeatable documentation
+capture mode.
+
+- **Runtime:** Java 25 (Temurin) and JavaFX 25
+- **UI:** JavaFX, MaterialFX, and a hand-authored Material 3 stylesheet
+- **Languages:** English, playful Hong Kong Cantonese, or bilingual English / Hong Kong Cantonese
+- **Themes:** light and dark, switched immediately from the app bar
+- **Download scope:** direct HTTP and HTTPS URLs, including resumable `.part` transfers
 
 ## Visual tour
 
-The gallery is captured from the running application. The [UI guide](docs/UI_GUIDE.md)
-explains the shell, views, nonblocking flows, and repeatable capture mode. The
-[History Manager guide](docs/HISTORY.md) explains the local, append-only timeline.
+The gallery is captured from the running application. [UI guide](docs/UI_GUIDE.md) explains the
+workspace shell, direct-transfer flow, and nonblocking interaction pattern; [History Manager](docs/HISTORY.md)
+documents the local append-only timeline.
 
 | Downloads light | Downloads dark |
 | --- | --- |
 | ![Downloads in the light theme](docs/screenshots/downloads-light.png) | ![Downloads in the dark theme](docs/screenshots/downloads-dark.png) |
 
-| 香港粵語（得意版） | Bilingual English · 香港粵語 |
+| Fixed status feedback |
+| --- |
+| ![Downloads showing fixed in-layout activity feedback](docs/screenshots/downloads-status-light.png) |
+
+| Hong Kong Cantonese | Bilingual English / Hong Kong Cantonese |
 | --- | --- |
 | ![Downloads in playful Hong Kong Cantonese](docs/screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](docs/screenshots/downloads-bilingual.png) |
 
-| 香港粵語 LinkGrabber | Bilingual Add Links |
+| Hong Kong Cantonese LinkGrabber | Bilingual Add Links |
 | --- | --- |
 | ![LinkGrabber in playful Hong Kong Cantonese](docs/screenshots/linkgrabber-cantonese.png) | ![Add Links in bilingual English and Hong Kong Cantonese](docs/screenshots/add-links-bilingual.png) |
 
@@ -63,65 +63,66 @@ explains the shell, views, nonblocking flows, and repeatable capture mode. The
 | --- | --- |
 | ![Inline Add Links composer in the light theme](docs/screenshots/add-links-light.png) | ![Inline Add Links composer in the dark theme](docs/screenshots/add-links-dark.png) |
 
+| Workspace tabs light | Workspace tabs dark | Bilingual workspace tabs |
+| --- | --- | --- |
+| ![Browser-style workspace tabs in the light theme](docs/screenshots/workspace-tabs-light.png) | ![Browser-style workspace tabs in the dark theme](docs/screenshots/workspace-tabs-dark.png) | ![Browser-style workspace tabs in bilingual English and Hong Kong Cantonese](docs/screenshots/workspace-tabs-bilingual.png) |
+
+## Workspace tabs
+
+The shell behaves like a browser workspace: every open page has its own tab, and each tab owns a
+single page instance. Open Downloads, LinkGrabber, History, Settings, or Add Links in another tab
+when you want two independent places to work. A right-click on a tab opens its editor, where you
+can:
+
+- rename the tab;
+- choose the tab-label font family and size;
+- set bold, italic, and any color from the color picker; and
+- close the tab or open a new page tab.
+
+The application name is editable in the same workspace controls and updates the window/app-bar
+identity. Open tabs, the selected tab, application name, and tab-label styling are kept in a
+private local Git repository at `~/.jdownloader-material/workspace/`. Every workspace change adds
+an append-only local commit. Closing a tab records its event while retaining its descriptor, so the
+timeline remains complete.
+
+Workspace controls also export a portable `.jdmtabs` snapshot, import that snapshot, and export a
+ZIP of the complete local workspace repository. The repository export includes the append-only
+tab history as well as the current workspace.
+
 ## Current capabilities
 
-The front-end screens are interactive. [docs/PARITY.md](docs/PARITY.md) records the
-implemented surface and remaining upstream work; [docs/FEATURE_SPEC.md](docs/FEATURE_SPEC.md)
-is the upstream reference inventory, not a claim of full core compatibility.
-
-- **Downloads** - package-to-file tree table with Name, Size, Host, Status, Progress, Speed,
-  ETA, and inline Details; Material status chips and progress bars; Add Links, Start, Pause, Stop, ordering,
-  Remove, live search, and a context menu. A single queued/error/disabled link—or a package only
-  when every child is in one of those safe states—can be renamed or retargeted in an inline strip;
-  active and completed output paths are intentionally read-only.
-  Direct HTTP(S) files stream to disk for normal runs.
-- **LinkGrabber** - staging tree table with asynchronous direct-URL metadata probes, Paste,
-  Remove, Add to Downloads, and an inline availability filter (All, Checking, Online, Offline).
-- **Inline Add Links composer** - paste one or more direct HTTP(S) URLs, optionally name the
-  package and set a destination, then choose **Queue in LinkGrabber** or **Queue & Start**.
-  Parsing, availability checks, automatic confirmation, and starting are deferred so the user
-  can keep navigating. Unsupported-only input stays in the composer with an inline result rather
-  than being discarded.
-- **Direct HTTP(S) transfers** - redirect-aware metadata probes; background streaming;
-  resumable `.part` files when the server supports byte ranges; atomic finalization where the
-  filesystem supports it; global and per-host transfer limits; a global speed cap; and bounded,
-  inline automatic retry for transient HTTP/network failures.
-- **Nonblocking file collisions** - the default "Ask" policy safely auto-renames instead of
-  showing a prompt. Skip, overwrite, and rename policies are selected in Settings and applied by
-  the worker, not by a dialog. Completed rows retain their resolved file path and offer
-  nonblocking **Open completed file** and **Show in folder** actions.
-- **Local state recovery** - settings (excluding remote-control credentials), the Downloads
-  queue, and LinkGrabber staging data are journaled under `~/.jdownloader-material/`. In-progress
-  transfers recover as queued on restart and reuse their `.part` file when started again.
-- **Local History Manager** - Downloads, LinkGrabber, and non-secret Settings changes are recorded
-  in separate local Git timelines, with a private manifest prepare/recovery protocol that
-  survives a crash between repositories. Undo, redo, and restore append a new record instead of
-  deleting an older one; history work runs off the UI thread. See [docs/HISTORY.md](docs/HISTORY.md) for
-  scope, storage, and recovery limits.
-- **Nonblocking feedback** - ordinary transfer actions expose their state in the view and status
-  bar. A compact transient message is reserved for navigable or reversible results such as
-  **View** and **Undo**; it never asks the user to dismiss a workflow-blocking prompt.
-- **Settings** - General, Connection, network-recovery retry, LinkGrabber, Appearance,
-  backup compatibility fields, Backup, and About. Appearance includes a persisted, immediate
-  language switch for English, playful Hong Kong Cantonese, and a view that shows both. Router
-  reconnect and remote control remain clearly unavailable in direct HTTP mode; an account is not
-  required to download.
-- **Encrypted settings backup** - inline export/import fields run file and cryptographic work
-  asynchronously, preserving access to the rest of the application.
-- **App bar and status bar** - clipboard monitoring, automatic transient-failure retry,
-  light/dark switch, window controls, global speed, running count, remaining bytes, and a real
-  pending-retry indicator.
-- **Screenshot capture engine** - `SimulatedEngine` supplies deterministic sample rows and fake
-  progress only when the opt-in documentation screenshot path is used. It is not the normal downloader.
+- **Downloads** — package-to-file tree with name, size, host, status, progress, speed, ETA, and
+  inline details. Toolbar and right-click actions cover adding, starting, pausing, stopping,
+  ordering, removing, enabling, priority, and completed-file actions. A selected safe queued item
+  can be renamed or retargeted in an inline properties strip.
+- **LinkGrabber** — staged direct URLs with asynchronous metadata probes, Paste, Remove,
+  availability filtering, and direct confirmation into Downloads.
+- **Inline Add Links** — submit one or more direct HTTP(S) URLs with a package name and
+  destination. Queue in LinkGrabber and Queue & Start return immediately while background checks
+  continue.
+- **Direct transfers** — redirect-aware probing, background streaming, resumable `.part` files,
+  atomic finalization where supported, global and per-host limits, speed limiting, collision
+  policies, and bounded automatic retry for transient failures.
+- **Fixed feedback** — recent clipboard, validation, and removal messages remain in the status
+  line; work continues beneath them. Durable Undo and Redo live in History rather than a floating
+  popup.
+- **Local history** — Downloads, LinkGrabber, and non-secret settings are stored in separate
+  append-only local Git timelines. Undo, redo, and restore add a new event instead of removing an
+  older revision.
+- **Settings and backup** — every displayed setting controls a live direct-download behavior or
+  persisted presentation preference. Encrypted settings export/import performs cryptographic and
+  file work asynchronously.
+- **Localization** — English, playful Hong Kong Cantonese, and bilingual copy switch immediately
+  and persist across restarts.
 
 ## Installer releases
 
-Every push builds and publishes a new GitHub release with self-contained native
-installers for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. The installers
-include a Java 25 runtime, so users do not need to install Java or Maven separately.
-Each matrix build uploads its installer directly to that published release—no GitHub Actions
-artifacts are created or retained. The final workflow check keeps exactly those four installer
-uploads as release assets and removes an incomplete release if a platform build fails.
+Every push creates a published GitHub release containing self-contained native installers for
+Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. Each package includes a Java 25
+runtime, so users do not need Java or Maven installed. GitHub Actions uploads installers directly
+to the release; the release contains installer assets only, with no retained workflow artifacts.
+The final release check accepts exactly the four installer assets and removes an incomplete release
+when a platform build fails.
 
 - [Latest release](https://github.com/codingmachineedge/jdownloader-material/releases/latest)
 - [Windows x64 installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-windows-x64.exe)
@@ -129,24 +130,24 @@ uploads as release assets and removes an incomplete release if a platform build 
 - [macOS Apple Silicon installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-macos-arm64.dmg)
 - [macOS Intel installer](https://github.com/codingmachineedge/jdownloader-material/releases/latest/download/JDownloader-Material-macos-x64.dmg)
 
-The release tag and About page include the generated build version. Windows and macOS packages
-are currently unsigned, so SmartScreen or Gatekeeper may display a security warning.
+The release tag and About page include the generated build version. Windows and macOS packages are
+currently unsigned, so SmartScreen or Gatekeeper can display the platform's normal security notice.
 
 ## Building and running
 
-**Zero-setup (recommended)** - no Java or Maven required:
+**Zero-setup (recommended)** — no Java or Maven required:
 
 ~~~sh
 run.cmd        # Windows
 ./run.sh       # Linux / macOS
 ~~~
 
-The scripts find a JDK 25+ (JAVA_HOME, PATH, or a previously provisioned .jdk/). If none
-exists, they download Eclipse Temurin 25 from the Adoptium API into a project-local .jdk/
-folder, then build and launch through the Maven Wrapper. First run needs an internet connection;
-supported platforms are Windows, macOS, and Linux on x64/arm64.
+The scripts find a JDK 25+ through `JAVA_HOME`, `PATH`, or a project-local `.jdk/` directory. When
+needed, they provision Eclipse Temurin 25 through the Adoptium API, then build and launch through
+the Maven Wrapper. First run needs an internet connection; Windows, macOS, and Linux on x64/arm64
+are supported.
 
-**With your own toolchain** (JDK 25+, Maven 3.9+):
+With an existing JDK 25+ and Maven 3.9+:
 
 ~~~sh
 mvn javafx:run       # build and launch
@@ -154,15 +155,12 @@ mvn compile          # compile only
 mvn package          # build a jar
 ~~~
 
-MaterialFX and JavaFX are resolved from Maven Central automatically.
+## Local data and privacy
 
-## Settings backup (encrypted, secrets included)
-
-Settings -> **Backup** exports every setting, including optional My.JDownloader credentials,
-to a .jdmbackup file and restores the full configuration on another machine. The file is
-encrypted with **AES-256-GCM** under a key derived from the chosen passphrase
-(PBKDF2-HmacSHA256, 210k iterations, random salt). The backup page keeps path and passphrase
-inputs inline and performs export/import work asynchronously; nothing is written in plaintext.
+The app keeps its restart journal, local history repositories, and workspace repository under
+`~/.jdownloader-material/`. They stay on the device and have no configured remote. History keeps
+direct-link URLs so a restored list remains useful; treat the directory as private data. Completed
+files and `.part` file contents are not copied into the history repositories.
 
 ## Project layout
 
@@ -170,25 +168,24 @@ inputs inline and performs export/import work asynchronously; nothing is written
 src/main/java/org/jdownloader/material/
   app/       Application entry point (JDMaterialApp, Launcher)
   model/     DownloadItem/Link/Package, CrawledLink/Package, states
-  engine/    DownloadEngine interface, DirectHttpEngine, SimulatedEngine, AppStateStore, Settings
+  engine/    DownloadEngine, DirectHttpEngine, SimulatedEngine, state and settings
+  workspace/ private append-only Git workspace tabs and portable export/import
   ui/        MainWindow, ThemeManager, Icons
-  ui/view/   DownloadsView, LinkGrabberView, AddLinksView, SettingsView
-  ui/component/ Mat, DownloadCells, StatusBar, NotificationCenter
-src/main/resources/css/
-  theme-light.css / theme-dark.css   Material 3 color tokens
-  material.css                       component stylesheet
-docs/        UI_GUIDE, FEATURE_SPEC, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE_API
+  ui/view/   DownloadsView, LinkGrabberView, HistoryView, AddLinksView, SettingsView
+  ui/component/ Mat, DownloadCells, StatusBar, ActivityStatus
+src/main/resources/
+  icons/app.png                       application logo
+  css/theme-light.css / theme-dark.css Material 3 color tokens
+  css/material.css                    component stylesheet
+docs/        UI_GUIDE, HISTORY, PARITY, ARCHITECTURE, DESIGN_SYSTEM, ENGINE_API
 ~~~
 
-## Relationship to JDownloader
+## Project identity
 
-This project has its own small direct-file downloader, not the JDownloader core. It can retrieve
-ordinary direct HTTP(S) files, but it does not ship JDownloader's crawler, hoster/plugin
-ecosystem, container formats, Account Manager, CAPTCHA flow, or remote-control backend. No
-JDownloader-core adapter exists in this repository yet. [docs/ENGINE_API.md](docs/ENGINE_API.md)
-documents both the shipped direct engine and the intended future core integration boundary.
+JDownloader Material is an independently implemented direct HTTP(S) download workspace. The
+JDownloader name and core are the work of AppWork GmbH; this project uses a focused desktop
+experience and has its own engine and local data model.
 
 ## License
 
-Intended to track upstream JDownloader licensing. The JDownloader name and core are the work
-of AppWork GmbH; this is an independent front-end experiment.
+Intended to track upstream JDownloader licensing.

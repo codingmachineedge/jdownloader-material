@@ -23,13 +23,12 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import org.jdownloader.material.engine.DownloadEngine;
-import org.jdownloader.material.engine.history.HistoryScope;
 import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.LinkAvailability;
+import org.jdownloader.material.ui.component.ActivityStatus;
 import org.jdownloader.material.ui.component.Mat;
-import org.jdownloader.material.ui.component.NotificationCenter;
 import org.jdownloader.material.util.Formats;
 
 import java.util.LinkedHashSet;
@@ -43,7 +42,7 @@ import java.util.Set;
 public final class LinkGrabberView extends BorderPane {
 
     private final DownloadEngine engine;
-    private final NotificationCenter notifier;
+    private final ActivityStatus activity;
     private final Runnable openAddLinks;
     private final I18n i18n;
     private final TreeTableView<Object> tree = new TreeTableView<>();
@@ -64,9 +63,9 @@ public final class LinkGrabberView extends BorderPane {
     private String filter = "";
     private AvailabilityFilter availabilityFilter = AvailabilityFilter.ALL;
 
-    public LinkGrabberView(DownloadEngine engine, NotificationCenter notifier, Runnable openAddLinks, I18n i18n) {
+    public LinkGrabberView(DownloadEngine engine, ActivityStatus activity, Runnable openAddLinks, I18n i18n) {
         this.engine = engine;
-        this.notifier = notifier;
+        this.activity = activity;
         this.openAddLinks = openAddLinks;
         this.i18n = i18n;
         getStyleClass().add("content-area");
@@ -358,43 +357,16 @@ public final class LinkGrabberView extends BorderPane {
         return out;
     }
 
-    /** Immediate remove with additive Undo — no confirm dialog. */
+    /** Immediate remove; the append-only History page provides durable undo. */
     private void removeSelected() {
         Set<CrawledPackage> selectedPackages = selectedPackageRows();
         Set<CrawledLink> selectedLinks = selectedLinkRows(selectedPackages);
         if (selectedPackages.isEmpty() && selectedLinks.isEmpty()) return;
-        var packages = engine.crawledPackages();
-        Set<CrawledPackage> affectedPackages = new LinkedHashSet<>(selectedPackages);
-        for (CrawledLink link : selectedLinks) {
-            packages.stream().filter(pkg -> pkg.links().contains(link)).findFirst().ifPresent(affectedPackages::add);
-        }
-        var indices = new java.util.LinkedHashMap<CrawledPackage, Integer>();
-        var linkOrder = new java.util.LinkedHashMap<CrawledPackage, List<CrawledLink>>();
-        for (CrawledPackage pkg : affectedPackages) {
-            indices.put(pkg, packages.indexOf(pkg));
-            linkOrder.put(pkg, new java.util.ArrayList<>(pkg.links()));
-        }
-
         engine.removeCrawled(selectedPackages);
         engine.removeCrawledLinks(selectedLinks);
 
         int n = selectedPackages.size() + selectedLinks.size();
-        notifier.snack(i18n.text(n == 1 ? "snack.removed.one" : "snack.removed.many", n),
-                i18n.text("action.undo"), () -> {
-            for (var entry : indices.entrySet()) {
-                if (!packages.contains(entry.getKey())) {
-                    packages.add(Math.min(entry.getValue(), packages.size()), entry.getKey());
-                }
-                List<CrawledLink> wanted = linkOrder.get(entry.getKey());
-                for (int i = 0; i < wanted.size(); i++) {
-                    CrawledLink link = wanted.get(i);
-                    if (!entry.getKey().links().contains(link)) {
-                        entry.getKey().links().add(Math.min(i, entry.getKey().links().size()), link);
-                    }
-                }
-            }
-            engine.recordHistory(HistoryScope.LINKGRABBER, i18n.text("action.undo"));
-        });
+        activity.info(i18n.text(n == 1 ? "activity.removed.one" : "activity.removed.many", n));
     }
 
     private void confirmSelected() {
