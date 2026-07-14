@@ -22,15 +22,17 @@ The application entry point is `org.jdownloader.material.app.Launcher`. Normal l
 
 ## Compile and run smoke checks
 
-`mvn test` compiles the manual smoke classes but they are plain `main` programs, not Surefire/JUnit tests. Run the current download, persistence, history, and localization checks explicitly from PowerShell:
+`mvn test` compiles the manual smoke classes but they are plain `main` programs, not Surefire/JUnit tests. Run the current download, persistence, history, localization, and JavaFX accessibility checks explicitly from PowerShell:
 
 ```powershell
 .\mvnw.cmd test-compile
 $smokes = @(
   "org.jdownloader.material.i18n.LocalizationSmoke",
+  "org.jdownloader.material.workspace.GitWorkspaceStoreSmoke",
   "org.jdownloader.material.engine.history.GitHistoryServiceSmoke",
   "org.jdownloader.material.engine.DirectHistorySmoke",
-  "org.jdownloader.material.engine.DirectHttpEngineSmoke"
+  "org.jdownloader.material.engine.DirectHttpEngineSmoke",
+  "org.jdownloader.material.ui.UiAccessibilitySmoke"
 )
 foreach ($smoke in $smokes) {
   .\mvnw.cmd org.codehaus.mojo:exec-maven-plugin:3.5.0:java `
@@ -39,7 +41,26 @@ foreach ($smoke in $smokes) {
 }
 ```
 
-The JavaFX-backed smoke checks need a graphical desktop session.
+`UiAccessibilitySmoke` needs a graphical desktop session. It mounts Downloads, LinkGrabber, History,
+and Settings, checks named rail/icon actions and linked Settings labels, then verifies the bilingual
+Add Links dialog at 880 × 560 px for focus, wrapping, dialog semantics, and Escape dismissal.
+
+## UI smoke checklist
+
+Before handing off an interface change, run the manual-smoke set, capture the gallery to a temporary
+directory, and review at least Downloads light/dark/bilingual, Add Links bilingual, and Appearance
+bilingual. Confirm that bilingual state chips show both lines, `ETA` remains a single compact header,
+and no drawer text is cut off. The static Pages preview must keep a native compact menu below 1080 px,
+retain visible state words below 640 px, preserve room for demo status text, and move focus to the
+iframe page heading after a parent screen switch. See the
+[UI smoke handoff](https://github.com/codingmachineedge/jdownloader-material/blob/main/docs/UI_SMOKE.md)
+for the current evidence and exact scope.
+
+Run the Pages guard with any Node.js 20+ runtime:
+
+```powershell
+node .\site\smoke-check.mjs
+```
 
 ## Refresh the gallery
 

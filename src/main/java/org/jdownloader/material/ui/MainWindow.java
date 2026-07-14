@@ -10,6 +10,7 @@ import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
+import javafx.scene.AccessibleRole;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -177,6 +178,8 @@ public final class MainWindow extends StackPane {
 
         drawerHost = new StackPane(addLinks);
         drawerHost.getStyleClass().add("add-links-drawer");
+        drawerHost.setAccessibleRole(AccessibleRole.DIALOG);
+        drawerHost.setAccessibleText(i18n.text("addlinks.title"));
         drawerHost.setMaxWidth(440);
         drawerHost.setPrefWidth(440);
         StackPane.setAlignment(drawerHost, Pos.CENTER_RIGHT);
@@ -213,7 +216,10 @@ public final class MainWindow extends StackPane {
         pause.setOnAction(event -> engine.pause(!engine.pausedProperty().get()));
         ChangeListener<Boolean> pauseListener = (observable, wasPaused, isPaused) -> {
             pause.setGraphic(Icons.of(isPaused ? "play" : "pause", 20));
-            Mat.tip(pause, i18n.text(isPaused ? "tooltip.resume" : "tooltip.pause"));
+            String label = i18n.text(isPaused ? "tooltip.resume" : "tooltip.pause");
+            Mat.tip(pause, label);
+            pause.setAccessibleText(label);
+            pause.setAccessibleHelp(label);
         };
         engine.pausedProperty().addListener(pauseListener);
         shellDisposers.add(() -> engine.pausedProperty().removeListener(pauseListener));
@@ -233,7 +239,10 @@ public final class MainWindow extends StackPane {
         themeButton.setOnAction(event -> theme.toggle());
         ChangeListener<Boolean> themeListener = (observable, wasDark, isDark) -> {
             themeButton.setGraphic(Icons.of(isDark ? "sun" : "moon", 20));
-            Mat.tip(themeButton, i18n.text(isDark ? "tooltip.light_theme" : "tooltip.dark_theme"));
+            String label = i18n.text(isDark ? "tooltip.light_theme" : "tooltip.dark_theme");
+            Mat.tip(themeButton, label);
+            themeButton.setAccessibleText(label);
+            themeButton.setAccessibleHelp(label);
         };
         theme.darkProperty().addListener(themeListener);
         shellDisposers.add(() -> theme.darkProperty().removeListener(themeListener));
@@ -271,7 +280,10 @@ public final class MainWindow extends StackPane {
         maximize.setOnAction(event -> toggleMaximize());
         ChangeListener<Boolean> maximizeListener = (observable, wasMaximized, isMaximized) -> {
             maximize.setGraphic(Icons.of(isMaximized ? "restore" : "maximize", 18));
-            Mat.tip(maximize, i18n.text(isMaximized ? "window.restore" : "window.maximize"));
+            String label = i18n.text(isMaximized ? "window.restore" : "window.maximize");
+            Mat.tip(maximize, label);
+            maximize.setAccessibleText(label);
+            maximize.setAccessibleHelp(label);
         };
         stage.maximizedProperty().addListener(maximizeListener);
         shellDisposers.add(() -> stage.maximizedProperty().removeListener(maximizeListener));
@@ -306,7 +318,8 @@ public final class MainWindow extends StackPane {
     }
 
     private ToggleButton navItem(Page page, String icon, String key, ToggleGroup group) {
-        Label label = new Label(i18n.text(key));
+        String accessibleLabel = i18n.text(key);
+        Label label = new Label(accessibleLabel);
         label.getStyleClass().add("nav-label");
         responsiveLabels.add(label);
         Region glyph = Icons.of(icon, 20);
@@ -322,7 +335,9 @@ public final class MainWindow extends StackPane {
             if (button.isSelected()) showPage(page, true);
             else button.setSelected(true);
         });
-        Mat.tip(button, i18n.text(key));
+        Mat.tip(button, accessibleLabel);
+        button.setAccessibleText(accessibleLabel);
+        button.setAccessibleHelp(accessibleLabel);
         navButtons.put(page, button);
         return button;
     }

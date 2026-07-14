@@ -61,6 +61,7 @@ public final class I18n {
                 || key.startsWith("nav.") || key.startsWith("app.")
                 || key.startsWith("status.addlinks.") || key.startsWith("status.backup.")
                 || key.startsWith("properties.hint")
+                || key.startsWith("state.")
                 ? "\n" : " · ";
     }
 

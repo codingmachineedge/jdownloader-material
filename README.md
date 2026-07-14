@@ -103,6 +103,8 @@ The gallery is captured from the running JavaFX application.
   Recovery, LinkGrabber, Appearance, Backup, and About. Encrypted backup file work is asynchronous.
 - **Localization** — English, playful Hong Kong Cantonese, and bilingual copy apply immediately and
   persist across restarts.
+- **Accessible compact UI** — named rail and icon actions, linked Settings labels, readable bilingual
+  state chips, and a focus-managed Add Links dialog keep dense workflows usable at compact width.
 
 ## Installer releases
 
@@ -142,6 +144,12 @@ mvn javafx:run       # build and launch
 mvn compile          # compile only
 mvn package          # build a jar
 ~~~
+
+## Verification
+
+The maintained [UI smoke handoff](docs/UI_SMOKE.md) records the route, accessibility, compact-layout,
+and gallery checks used for this revision. It also lists reproducible manual-smoke and screenshot
+commands for future interface changes.
 
 ## Local data and privacy
 

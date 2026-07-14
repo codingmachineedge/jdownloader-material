@@ -201,6 +201,7 @@ public final class DownloadsView extends BorderPane {
             DownloadItem item = p.getValue().getValue();
             return item instanceof DownloadLink link ? link.detailProperty() : new ReadOnlyStringWrapper("");
         });
+        details.setCellFactory(DownloadCells.textWithTooltip());
         details.setPrefWidth(180);
 
         TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>(i18n.text("column.progress"));

@@ -154,9 +154,10 @@ Paste one or more direct HTTP(S) URLs, optionally set a package name and destina
 2. **Add & start** to accept the URLs, continue probe/confirmation/start work, and close the
    drawer without blocking the page.
 
-Inline copy reports validation and acceptance. Invalid input remains available for editing. An
-accepted submission clears only the exact draft that was sent, so a newer edit made while the
-background operation was running is preserved.
+Inline copy reports validation and acceptance, wraps in bilingual mode, and remains available to
+assistive technology as dialog feedback. Invalid input remains available for editing. An accepted
+submission clears only the exact draft that was sent, so a newer edit made while the background
+operation was running is preserved.
 
 | Light | Dark | Bilingual English / Hong Kong Cantonese |
 | --- | --- | --- |
@@ -183,8 +184,12 @@ traversal and activation remain available. The visual system adds:
   a primary focused boundary on table rows;
 - visible text labels for primary actions and tooltips for compact icon controls;
 - text or icon reinforcement for every semantic status color;
+- explicit accessible names for rail and icon actions, plus label/control associations and supporting
+  help for Settings rows;
 - an accessible text role/value for the throughput display;
-- automatic focus transfer to the first Add Links field and Escape dismissal; and
+- a named dialog role, automatic focus transfer to the first Add Links field, and Escape dismissal;
+- two-line wrapping for bilingual state chips, while dense Details cells retain their full copy in an
+  accessible tooltip; and
 - fixed inline status and activity copy instead of time-limited overlays.
 
 The current implementation does not claim complete shortcut coverage or screen-reader
@@ -222,3 +227,7 @@ $env:JD_SCREENSHOT_DIR = (Resolve-Path "docs/screenshots").Path
 The command refreshes Downloads light/dark/status/properties/Cantonese/bilingual; LinkGrabber
 light/dark/Cantonese; History light/dark/bilingual; Settings general light/dark and Appearance
 light/dark/bilingual; and Add Links light/dark/bilingual.
+
+Review the key compact and bilingual scenes before replacing the checked-in assets. The current
+[UI smoke handoff](UI_SMOKE.md) records the route, accessibility, and clipping checks that accompany
+the gallery.

@@ -196,6 +196,65 @@ img {
   color: var(--fg);
 }
 
+.header-menu {
+  position: relative;
+  display: none;
+}
+
+.header-menu summary {
+  min-width: 64px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  list-style: none;
+}
+
+.header-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-menu summary:hover,
+.header-menu[open] summary {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.header-menu nav {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1;
+  min-width: 188px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .18);
+}
+
+.header-menu nav a {
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.header-menu nav a:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
 .header-actions,
 .hero-actions {
   display: flex;
@@ -1150,8 +1209,13 @@ code {
     display: none;
   }
 
-  .header-actions {
+  .header-menu {
+    display: block;
     margin-left: auto;
+  }
+
+  .header-actions {
+    margin-left: 0;
   }
 
   .hero-grid {
@@ -1260,7 +1324,7 @@ code {
 
   .header-inner {
     width: calc(100% - 24px);
-    gap: 10px;
+    gap: 6px;
   }
 
   .site-brand {
@@ -1272,10 +1336,31 @@ code {
   }
 
   .site-brand strong {
-    max-width: 126px;
+    max-width: 94px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .site-brand img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-menu summary {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .header-menu summary::after {
+    content: "☰";
+    font-size: 17px;
+  }
+
+  .header-actions {
+    gap: 6px;
   }
 
   .header-actions .button {
@@ -1330,8 +1415,20 @@ code {
     border-right: 0;
   }
 
+  .console-row {
+    grid-template-columns: 8px minmax(0, 1fr) minmax(76px, auto);
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .console-state {
+    justify-items: start;
+    font-size: 9px;
+  }
+
   .console-state > span {
-    font-size: 0;
+    gap: 4px;
+    white-space: nowrap;
   }
 
   .console-status-right {

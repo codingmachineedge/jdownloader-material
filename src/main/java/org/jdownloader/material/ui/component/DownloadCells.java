@@ -5,6 +5,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.layout.HBox;
@@ -114,15 +115,47 @@ public final class DownloadCells {
     public static Callback<TreeTableColumn<DownloadItem, DownloadState>, TreeTableCell<DownloadItem, DownloadState>> status(I18n i18n) {
         return col -> new TreeTableCell<>() {
             private final Label chip = new Label();
-            { chip.getStyleClass().add("status-chip"); }
+            private final Tooltip tooltip = new Tooltip();
+            {
+                chip.getStyleClass().add("status-chip");
+                chip.setWrapText(true);
+                chip.setMaxWidth(Double.MAX_VALUE);
+                chip.setAlignment(Pos.CENTER);
+                chip.setTooltip(tooltip);
+            }
             @Override protected void updateItem(DownloadState st, boolean empty) {
                 super.updateItem(st, empty);
                 if (empty || st == null) { setGraphic(null); return; }
-                chip.setText(i18n.text("state." + st.name()));
+                String text = i18n.text("state." + st.name());
+                chip.setText(text);
+                chip.setAccessibleText(text);
+                tooltip.setText(text);
                 chip.getStyleClass().removeIf(c -> c.startsWith("state-"));
                 chip.getStyleClass().add(st.styleClass());
                 setGraphic(chip);
                 setText(null);
+            }
+        };
+    }
+
+    /** Dense table text that keeps the unelided value available on hover and to AT. */
+    public static Callback<TreeTableColumn<DownloadItem, String>, TreeTableCell<DownloadItem, String>> textWithTooltip() {
+        return col -> new TreeTableCell<>() {
+            private final Tooltip tooltip = new Tooltip();
+            {
+                setTooltip(tooltip);
+            }
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                if (empty || value == null || value.isBlank()) {
+                    setText(null);
+                    setAccessibleText(null);
+                    tooltip.setText(null);
+                    return;
+                }
+                setText(value);
+                setAccessibleText(value);
+                tooltip.setText(value);
             }
         };
     }
