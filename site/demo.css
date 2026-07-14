@@ -1120,7 +1120,7 @@ button {
   }
 
   .data-table {
-    min-width: 0;
+    min-width: 340px;
     table-layout: fixed;
   }
 
@@ -1138,15 +1138,24 @@ button {
   }
 
   .data-table .name-col {
-    width: 48% !important;
+    width: 46% !important;
   }
 
   .data-table .status-col {
-    width: 25% !important;
+    width: 29% !important;
   }
 
   .data-table .progress-col {
-    width: 27% !important;
+    width: 25% !important;
+  }
+
+  .data-table td.status-col {
+    white-space: normal;
+  }
+
+  .status-col .state-label {
+    max-width: 100%;
+    line-height: 1.2;
   }
 
   .progress-cell {

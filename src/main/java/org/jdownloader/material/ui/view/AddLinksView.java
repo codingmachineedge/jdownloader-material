@@ -50,6 +50,11 @@ public final class AddLinksView extends VBox {
             if (!disposed && samePath(destination.getText(), previous)) destination.setText(current);
         };
         setStatus("status.addlinks.initial");
+        // Bilingual status copy intentionally uses a line break. Let the
+        // feedback area grow instead of eliding either language.
+        status.setWrapText(true);
+        status.setMinWidth(0);
+        status.setMaxWidth(Double.MAX_VALUE);
         // A submission-specific destination must not silently overwrite the global default.
         // Keep an untouched composer aligned with Settings while preserving a
         // path the user deliberately entered for this submission.
@@ -65,12 +70,16 @@ public final class AddLinksView extends VBox {
         header.setAlignment(Pos.CENTER_LEFT);
 
         links.setPromptText(i18n.text("addlinks.urls_prompt"));
+        links.setAccessibleText(i18n.text("addlinks.urls"));
         links.setPrefRowCount(7);
         links.setWrapText(true);
         links.getStyleClass().add("links-area");
 
         packageName.setPromptText(i18n.text("addlinks.package_prompt"));
+        packageName.setAccessibleText(i18n.text("addlinks.package"));
         packageName.setMaxWidth(Double.MAX_VALUE);
+
+        destination.setAccessibleText(i18n.text("addlinks.destination"));
 
         HBox.setHgrow(destination, Priority.ALWAYS);
         HBox destinationRow = new HBox(destination);
@@ -87,10 +96,17 @@ public final class AddLinksView extends VBox {
         actions.setAlignment(Pos.CENTER_RIGHT);
         actions.getStyleClass().add("drawer-actions");
 
+        Label urlsLabel = Mat.label(i18n.text("addlinks.urls"), "label-md");
+        urlsLabel.setLabelFor(links);
+        Label packageLabel = Mat.label(i18n.text("addlinks.package"), "label-md");
+        packageLabel.setLabelFor(packageName);
+        Label destinationLabel = Mat.label(i18n.text("addlinks.destination"), "label-md");
+        destinationLabel.setLabelFor(destination);
+
         VBox composer = new VBox(12,
-                Mat.label(i18n.text("addlinks.urls"), "label-md"), links,
-                Mat.label(i18n.text("addlinks.package"), "label-md"), packageName,
-                Mat.label(i18n.text("addlinks.destination"), "label-md"), destinationRow,
+                urlsLabel, links,
+                packageLabel, packageName,
+                destinationLabel, destinationRow,
                 status);
         composer.getStyleClass().add("drawer-form");
         VBox.setVgrow(composer, Priority.ALWAYS);

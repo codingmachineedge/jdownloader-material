@@ -15,8 +15,10 @@ import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
@@ -418,11 +420,31 @@ public final class SettingsView extends BorderPane {
     }
 
     private HBox row(String title, String desc, Node control) {
-        VBox text = new VBox(2, Mat.label(title, "row-title"), Mat.label(desc, "row-desc"));
+        Label titleLabel = Mat.label(title, "row-title");
+        Label descriptionLabel = Mat.label(desc, "row-desc");
+        Control labelledControl = firstControl(control);
+        if (labelledControl != null) {
+            titleLabel.setLabelFor(labelledControl);
+            labelledControl.setAccessibleText(title);
+            labelledControl.setAccessibleHelp(desc);
+        }
+        VBox text = new VBox(2, titleLabel, descriptionLabel);
         HBox row = new HBox(16, text, Mat.hSpacer(), control);
         row.getStyleClass().add("settings-row");
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
+    }
+
+    /** Finds the primary interactive control inside a compact row wrapper. */
+    private static Control firstControl(Node node) {
+        if (node instanceof Control control) return control;
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                Control found = firstControl(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private MFXToggleButton toggle(BooleanProperty prop) {

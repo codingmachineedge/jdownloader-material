@@ -21,7 +21,7 @@ Search follows Downloads, LinkGrabber, or History and is disabled in Settings. T
 
 ## Presentation and access
 
-Light and dark themes switch immediately. English, playful Hong Kong Cantonese, and bilingual English / Hong Kong Cantonese also apply without stopping the engine. Status color is reinforced with text, icons, chips, progress, or values; keyboard focus remains visible; compact icon controls have tooltips; and the Add Links drawer receives initial focus and supports Escape.
+Light and dark themes switch immediately. English, playful Hong Kong Cantonese, and bilingual English / Hong Kong Cantonese also apply without stopping the engine. Status color is reinforced with text, icons, chips, progress, or values; bilingual state chips stack their two language lines; keyboard focus remains visible; rail and compact icon controls expose names; and the Add Links drawer is named as a dialog, receives initial focus, and supports Escape. Settings row labels are associated with their controls so their title and supporting text remain available to assistive technology.
 
 The project does not claim complete screen-reader announcements or shortcut coverage for every dynamic queue change.
 

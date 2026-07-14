@@ -50,7 +50,14 @@ public final class Mat {
         MFXButton b = base("", "icon-button");
         b.setGraphic(Icons.of(icon, 20));
         b.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        if (tooltip != null) tip(b, tooltip);
+        if (tooltip != null && !tooltip.isBlank()) {
+            tip(b, tooltip);
+            // Icon-only controls have no visible text for assistive technology
+            // to derive a name from. Keep the spoken name in step with the
+            // user-facing tooltip supplied by the caller.
+            b.setAccessibleText(tooltip);
+            b.setAccessibleHelp(tooltip);
+        }
         return b;
     }
 

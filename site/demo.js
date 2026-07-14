@@ -168,7 +168,7 @@ function settingsBody() {
       <div class="setting-row"><div><strong>Start after confirmation</strong><small>Begin confirmed transfers immediately.</small></div>${switchControl('Start after confirmation', false)}</div>`,
     appearance: `<h2>Appearance</h2><p class="settings-lede">Theme and interface language apply immediately.</p>
       <div class="setting-row"><div><strong>Theme</strong><small>Choose light or dark surfaces.</small></div><select class="setting-control" id="settings-theme" aria-label="Theme"><option value="dark" ${root.dataset.theme === 'dark' ? 'selected' : ''}>Dark</option><option value="light" ${root.dataset.theme === 'light' ? 'selected' : ''}>Light</option></select></div>
-      <div class="setting-row"><div><strong>Language mode</strong><small>English, playful Hong Kong Cantonese, or both.</small></div><select class="setting-control" aria-label="Language mode"><option>English</option><option>香港粵語</option><option>Bilingual</option></select></div>`,
+      <div class="setting-row"><div><strong>Language mode</strong><small>English, playful Hong Kong Cantonese, or both.</small></div><select class="setting-control" aria-label="Language mode"><option>English</option><option lang="yue">香港粵語</option><option>Bilingual</option></select></div>`,
     backup: `<h2>Backup</h2><p class="settings-lede">Encrypted settings backup stays a local file operation.</p>
       <div class="setting-row"><div><strong>Export encrypted settings</strong><small>Create an AES-256-GCM protected backup.</small></div><button class="app-action" type="button" data-settings-action="export">Export</button></div>
       <div class="setting-row"><div><strong>Import encrypted settings</strong><small>Validate and restore a settings backup.</small></div><button class="app-action" type="button" data-settings-action="import">Import</button></div>`,
@@ -391,7 +391,7 @@ document.addEventListener('keydown', (event) => {
 
 window.addEventListener('message', (event) => {
   if (event.origin !== location.origin) return;
-  if (event.data?.type === 'jd-screen') changeScreen(event.data.screen, false);
+  if (event.data?.type === 'jd-screen') changeScreen(event.data.screen, true);
   if (event.data?.type === 'jd-action' && event.data.action === 'add-links') openDrawer(document.querySelector('#add-links-button'));
   if (event.data?.type === 'jd-theme') setTheme(event.data.theme, false, false);
 });
