@@ -49,7 +49,7 @@
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
     -fx-wrap-text: true;
-    -fx-max-width: 1024px;
+    -fx-max-width: infinite;
 }
 
 .body {
@@ -57,7 +57,7 @@
     -fx-font-weight: 400;
     -fx-text-fill: -md-on-surface;
     -fx-wrap-text: true;
-    -fx-max-width: 1024px;
+    -fx-max-width: infinite;
 }
 
 .label-md {
@@ -73,7 +73,7 @@
     -fx-font-weight: 400;
     -fx-text-fill: -md-muted;
     -fx-wrap-text: true;
-    -fx-max-width: 1024px;
+    -fx-max-width: infinite;
 }
 
 .numeric,
@@ -469,7 +469,7 @@
 .workspace-tabs > .tab-header-area .tab:focused { -fx-border-color: -md-primary; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button { -fx-background-color: -md-muted; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button:hover { -fx-background-color: -md-error; }
-.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; -fx-wrap-text: true; -fx-max-width: 1024px; }
+.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; -fx-wrap-text: true; -fx-max-width: infinite; }
 .workspace-tabs > .tab-content-area { -fx-background-color: -md-background; }
 
 /* ------------------------------------------------------------- Buttons */
@@ -754,8 +754,8 @@
 
 .table-content-label {
     -fx-text-fill: -md-on-surface;
-    -fx-wrap-text: true;
-    -fx-max-width: 1024px;
+    -fx-max-width: infinite;
+
 }
 
 .data-table .tree-table-cell .arrow,
@@ -820,7 +820,7 @@
     -fx-font-size: 12px;
     -fx-font-weight: 600;
     -fx-wrap-text: true;
-    -fx-max-width: 512px;
+    -fx-max-width: 640px;
 }
 
 .status-chip.state-queued,
@@ -1401,8 +1401,8 @@
     -fx-padding: 11 16 11 16;
     -fx-effect: dropshadow(gaussian, -md-shadow, 14, 0.08, 0, 4);
 }
-.snackbar,
-.snack-bar { -fx-wrap-text: true; -fx-max-width: 500px; }
+.snackbar, .snack-bar { -fx-wrap-text: true; -fx-max-width: 800px; }
+
 .snackbar .label,
 .snack-bar .label { -fx-text-fill: -md-inverse-on-surface; -fx-wrap-text: true; }
 .snackbar.success,
