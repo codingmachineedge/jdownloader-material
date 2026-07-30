@@ -437,6 +437,7 @@
     -fx-font-size: 12px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-muted;
+    -fx-wrap-text: true;
 }
 
 .workspace-tabs {
@@ -1398,16 +1399,18 @@
     -fx-padding: 11 16 11 16;
     -fx-effect: dropshadow(gaussian, -md-shadow, 14, 0.08, 0, 4);
 }
+.snackbar,
+.snack-bar { -fx-wrap-text: true; -fx-max-width: 500px; }
 .snackbar .label,
-.snack-bar .label { -fx-text-fill: -md-inverse-on-surface; }
+.snack-bar .label { -fx-text-fill: -md-inverse-on-surface; -fx-wrap-text: true; }
 .snackbar.success,
 .snack-bar.success { -fx-background-color: -md-success-container; }
 .snackbar.success .label,
-.snack-bar.success .label { -fx-text-fill: -md-success; }
+.snack-bar.success .label { -fx-text-fill: -md-success; -fx-wrap-text: true; }
 .snackbar.error,
 .snack-bar.error { -fx-background-color: -md-error-container; }
 .snackbar.error .label,
-.snack-bar.error .label { -fx-text-fill: -md-error; }
+.snack-bar.error .label { -fx-text-fill: -md-error; -fx-wrap-text: true; }
 
 /* -------------------------------------------------------- Common states */
 .disabled,

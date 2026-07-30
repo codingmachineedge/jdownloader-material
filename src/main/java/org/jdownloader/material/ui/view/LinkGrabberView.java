@@ -155,7 +155,7 @@ public final class LinkGrabberView extends BorderPane {
             return new ReadOnlyStringWrapper("");
         });
         name.setPrefWidth(320);
-        name.setMinWidth(180);
+        name.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<Object, LinkAvailability> avail = new TreeTableColumn<>(i18n.text("column.availability"));
         avail.setCellValueFactory(p -> {
@@ -164,7 +164,8 @@ public final class LinkGrabberView extends BorderPane {
             return new ReadOnlyObjectWrapper<>(null);
         });
         avail.setCellFactory(availabilityCell());
-        avail.setPrefWidth(140);
+        avail.setPrefWidth(130);
+        avail.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<Object, String> host = new TreeTableColumn<>(i18n.text("column.host"));
         host.setCellValueFactory(p -> {
@@ -178,7 +179,8 @@ public final class LinkGrabberView extends BorderPane {
                 setText(empty ? null : "unknown".equalsIgnoreCase(value) ? i18n.text("host.unknown") : value);
             }
         });
-        host.setPrefWidth(150);
+        host.setPrefWidth(140);
+        host.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<Object, Number> size = new TreeTableColumn<>(i18n.text("column.size"));
         size.setCellValueFactory(p -> {
@@ -194,7 +196,8 @@ public final class LinkGrabberView extends BorderPane {
                 setText(empty || v == null || v.longValue() <= 0 ? "" : Formats.bytes(v.longValue()));
             }
         });
-        size.setPrefWidth(96);
+        size.setPrefWidth(80);
+        size.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<Object, String> url = new TreeTableColumn<>(i18n.text("column.url"));
         url.setCellValueFactory(p -> {
@@ -202,7 +205,8 @@ public final class LinkGrabberView extends BorderPane {
             if (o instanceof CrawledLink cl) return cl.urlProperty();
             return new ReadOnlyStringWrapper("");
         });
-        url.setPrefWidth(260);
+        url.setPrefWidth(240);
+        url.setMaxWidth(Double.MAX_VALUE);
 
         tree.getColumns().setAll(List.of(name, avail, host, size, url));
         return tree;

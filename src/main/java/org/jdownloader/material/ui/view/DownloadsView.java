@@ -186,22 +186,25 @@ public final class DownloadsView extends BorderPane {
         name.setCellValueFactory(p -> p.getValue().getValue().nameProperty());
         name.setCellFactory(DownloadCells.name());
         name.setPrefWidth(340);
-        name.setMinWidth(200);
+        name.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> size = new TreeTableColumn<>(i18n.text("column.size"));
         size.setCellValueFactory(p -> p.getValue().getValue().bytesTotalProperty());
         size.setCellFactory(DownloadCells.bytes());
-        size.setPrefWidth(96);
+        size.setPrefWidth(80);
+        size.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, String> host = new TreeTableColumn<>(i18n.text("column.host"));
         host.setCellValueFactory(p -> p.getValue().getValue().hostProperty());
         host.setCellFactory(DownloadCells.host(i18n));
-        host.setPrefWidth(150);
+        host.setPrefWidth(140);
+        host.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, DownloadState> status = new TreeTableColumn<>(i18n.text("column.status"));
         status.setCellValueFactory(p -> p.getValue().getValue().stateProperty());
         status.setCellFactory(DownloadCells.status(i18n));
-        status.setPrefWidth(130);
+        status.setPrefWidth(120);
+        status.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, String> details = new TreeTableColumn<>(i18n.text("column.details"));
         details.setCellValueFactory(p -> {
@@ -209,23 +212,26 @@ public final class DownloadsView extends BorderPane {
             return item instanceof DownloadLink link ? link.detailProperty() : new ReadOnlyStringWrapper("");
         });
         details.setCellFactory(DownloadCells.textWithTooltip());
-        details.setPrefWidth(180);
+        details.setPrefWidth(160);
+        details.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>(i18n.text("column.progress"));
         progress.setCellValueFactory(p -> p.getValue().getValue().progressProperty());
         progress.setCellFactory(DownloadCells.progress());
-        progress.setPrefWidth(220);
-        progress.setMinWidth(140);
+        progress.setPrefWidth(200);
+        progress.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> speed = new TreeTableColumn<>(i18n.text("column.speed"));
         speed.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         speed.setCellFactory(DownloadCells.speed());
-        speed.setPrefWidth(104);
+        speed.setPrefWidth(100);
+        speed.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> eta = new TreeTableColumn<>(i18n.text("column.eta"));
         eta.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         eta.setCellFactory(DownloadCells.eta());
-        eta.setPrefWidth(90);
+        eta.setPrefWidth(85);
+        eta.setMaxWidth(Double.MAX_VALUE);
 
         tree.getColumns().setAll(List.of(name, size, host, status, details, progress, speed, eta));
         tree.setContextMenu(buildContextMenu());
