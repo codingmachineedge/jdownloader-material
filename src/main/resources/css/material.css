@@ -1373,12 +1373,13 @@
 }
 .context-menu .menu-item:focused { -fx-background-color: -md-selection; }
 .context-menu .menu-item .label,
-.context-menu .menu-item:focused .label { -fx-text-fill: -md-on-surface; }
+.context-menu .menu-item:focused .label { -fx-text-fill: -md-on-surface; -fx-wrap-text: true; }
 .context-menu .separator .line { -fx-border-color: -md-border; }
 
 .tooltip {
     -fx-background-color: -md-inverse-surface;
     -fx-text-fill: -md-inverse-on-surface;
+    -fx-wrap-text: true;
     -fx-background-radius: 6;
     -fx-font-size: 12px;
     -fx-padding: 6 10 6 10;
