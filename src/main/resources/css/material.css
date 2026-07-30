@@ -63,6 +63,8 @@
 }
 
 .label-md {
+    -fx-wrap-text: true;
+    -fx-max-width: infinite;
     -fx-font-size: 12px;
     -fx-font-weight: 500;
     -fx-text-fill: -md-muted;
@@ -627,6 +629,8 @@
     -fx-font-weight: 500;
     -fx-text-fill: -md-muted;
     -fx-cursor: hand;
+    -fx-wrap-text: true;
+    -fx-max-width: infinite;
 }
 
 .filter-chip:hover { -fx-background-color: -md-surface-2; }
@@ -909,6 +913,8 @@
     -fx-text-fill: -md-muted;
     -fx-font-size: 12px;
     -fx-padding: 0 0 0 4;
+    -fx-wrap-text: true;
+    -fx-max-width: infinite;
 }
 
 .status-bar .status-message.error { -fx-text-fill: -md-error; }
@@ -967,6 +973,8 @@
     -fx-font-size: 14px;
     -fx-font-weight: 500;
     -fx-text-fill: -md-on-surface;
+    -fx-wrap-text: true;
+    -fx-max-width: infinite;
 }
 
 .settings-row .row-desc { -fx-text-fill: -md-muted; }
