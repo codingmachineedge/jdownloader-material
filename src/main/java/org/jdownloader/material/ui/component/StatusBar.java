@@ -39,7 +39,7 @@ public final class StatusBar extends HBox {
         Label activityMessage = new Label();
         activityMessage.getStyleClass().add("status-message");
         activityMessage.setTextOverrun(OverrunStyle.ELLIPSIS);
-        activityMessage.setMaxWidth(420);
+        // maxWidth removed — text overrun ellipsis handles long strings
         activityMessage.textProperty().bind(activity.messageProperty());
         activityMessage.visibleProperty().bind(activity.messageProperty().isNotEmpty());
         activityMessage.managedProperty().bind(activity.messageProperty().isNotEmpty());
@@ -71,7 +71,7 @@ public final class StatusBar extends HBox {
 
         HBox right = new HBox(8, speed, sep(), running, sep(), remaining);
         right.setAlignment(Pos.CENTER_RIGHT);
-        HBox.setHgrow(activityMessage, Priority.NEVER);
+        HBox.setHgrow(activityMessage, Priority.ALWAYS);
         getChildren().addAll(clipboard, retry, activityMessage, Mat.hSpacer(), right);
     }
 
