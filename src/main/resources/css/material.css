@@ -39,6 +39,8 @@
 
 .title,
 .drawer-title {
+    -fx-wrap-text: true;
+    -fx-max-width: infinite;
     -fx-font-size: 18px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
@@ -700,6 +702,7 @@
     -fx-font-weight: 500;
     -fx-alignment: center-left;
     -fx-padding: 0 10 0 10;
+    -fx-wrap-text: true;
 }
 
 .data-table .virtual-flow > .clipped-container > .sheet,
@@ -755,6 +758,7 @@
 .table-content-label {
     -fx-text-fill: -md-on-surface;
     -fx-max-width: infinite;
+    -fx-wrap-text: true;
 
 }
 
