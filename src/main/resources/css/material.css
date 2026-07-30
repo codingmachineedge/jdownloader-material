@@ -742,6 +742,7 @@
     -fx-padding: 0 10 0 10;
     -fx-alignment: center-left;
     -fx-font-size: 13px;
+    -fx-wrap-text: true;
 }
 
 .data-table .tree-table-row-cell:selected .tree-table-cell,
