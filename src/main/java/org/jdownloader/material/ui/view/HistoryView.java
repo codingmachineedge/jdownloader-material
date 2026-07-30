@@ -119,11 +119,11 @@ public final class HistoryView extends BorderPane {
 
         search.setPromptText(t("history.search"));
         search.getStyleClass().add("search-field");
-        search.setPrefWidth(250);
+        search.setMinWidth(200); search.setMaxWidth(Double.MAX_VALUE);
 
         scopeFilter.getItems().setAll(ScopeFilter.values());
         scopeFilter.setValue(ScopeFilter.ALL);
-        scopeFilter.setPrefWidth(180);
+        HBox.setHgrow(scopeFilter, Priority.ALWAYS);
         scopeFilter.setConverter(new StringConverter<>() {
             @Override public String toString(ScopeFilter value) {
                 return value == null ? "" : t(value.labelKey);
@@ -428,3 +428,4 @@ public final class HistoryView extends BorderPane {
         }
     }
 }
+

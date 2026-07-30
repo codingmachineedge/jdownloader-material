@@ -141,7 +141,6 @@ public final class SettingsView extends BorderPane {
         HBox.setHgrow(folder, Priority.ALWAYS);
         HBox folderCtl = new HBox(folder);
         folderCtl.setAlignment(Pos.CENTER_LEFT);
-        folderCtl.setPrefWidth(360);
 
         ComboBox<Settings.IfExists> ifExists = ifExistsSelector();
         ifExists.valueProperty().bindBidirectional(s.ifFileExistsProperty());
@@ -408,7 +407,7 @@ public final class SettingsView extends BorderPane {
                         .orElse(s.languageProperty().get());
             }
         });
-        selector.setPrefWidth(300);
+        HBox.setHgrow(selector, Priority.ALWAYS);
         selector.valueProperty().bindBidirectional(s.languageProperty());
         disposers.add(() -> selector.valueProperty().unbindBidirectional(s.languageProperty()));
         return selector;
@@ -460,7 +459,7 @@ public final class SettingsView extends BorderPane {
 
     private HBox slider(IntegerProperty prop, int min, int max, int step) {
         Slider slider = new Slider(min, max, prop.get());
-        slider.setPrefWidth(240);
+        HBox.setHgrow(slider, Priority.ALWAYS);
         slider.setBlockIncrement(step);
         slider.setMajorTickUnit(Math.max(step, (max - min) / 4.0));
         Label value = new Label(String.valueOf(prop.get()));

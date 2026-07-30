@@ -1214,6 +1214,7 @@
     -fx-background-radius: 9;
     -fx-padding: 8 12 8 12;
     -fx-text-fill: -md-on-surface;
+    -fx-wrap-text: true;
 }
 
 .combo-box-popup .list-cell:filled:hover,
