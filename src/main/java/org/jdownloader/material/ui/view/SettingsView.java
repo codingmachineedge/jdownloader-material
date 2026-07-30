@@ -205,7 +205,7 @@ public final class SettingsView extends BorderPane {
 
         TextField exportPath = new TextField(defaultPath);
         exportPath.setPromptText(t("settings.path_export"));
-        exportPath.setMaxWidth(640);
+        HBox.setHgrow(exportPath, Priority.ALWAYS); exportPath.setMaxWidth(Double.MAX_VALUE);
         PasswordField exportPassphrase = new PasswordField();
         exportPassphrase.setPromptText(t("settings.passphrase"));
         PasswordField exportConfirm = new PasswordField();
@@ -219,7 +219,7 @@ public final class SettingsView extends BorderPane {
 
         TextField importPath = new TextField();
         importPath.setPromptText(t("settings.path_import"));
-        importPath.setMaxWidth(640);
+        HBox.setHgrow(importPath, Priority.ALWAYS); importPath.setMaxWidth(Double.MAX_VALUE);
         PasswordField importPassphrase = new PasswordField();
         importPassphrase.setPromptText(t("settings.backup_passphrase"));
         Label importStatus = Mat.label(t("status.backup.ready_import"), "row-desc");
@@ -235,7 +235,7 @@ public final class SettingsView extends BorderPane {
         VBox card = new VBox(10, Mat.label(title, "title"), Mat.label(description, "row-desc"));
         card.getChildren().addAll(controls);
         card.getStyleClass().add("md-card-flat");
-        card.setMaxWidth(680);
+// card fills available space — 680px was a hostage to fortune
         return card;
     }
 
@@ -388,7 +388,7 @@ public final class SettingsView extends BorderPane {
                         .orElse(s.ifFileExistsProperty().get());
             }
         });
-        selector.setMaxWidth(200);
+        selector.setMaxWidth(Double.MAX_VALUE); // flex — 200px clipped bilingual text like a bad haircut
         return selector;
     }
 

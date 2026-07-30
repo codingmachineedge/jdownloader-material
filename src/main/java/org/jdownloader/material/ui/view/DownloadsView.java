@@ -252,8 +252,8 @@ public final class DownloadsView extends BorderPane {
         HBox.setHgrow(editName, Priority.ALWAYS);
         HBox.setHgrow(editDestination, Priority.ALWAYS);
         HBox fields = new HBox(10, editName, editDestination, applyProperties);
-        editName.setMaxWidth(380);
-        editDestination.setMaxWidth(520);
+        editName.setMaxWidth(Double.MAX_VALUE);
+        editDestination.setMaxWidth(Double.MAX_VALUE);
         fields.setAlignment(Pos.CENTER_LEFT);
 
         applyProperties.setOnAction(e -> applyProperties());
