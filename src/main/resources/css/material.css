@@ -48,6 +48,8 @@
     -fx-font-size: 15px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
+    -fx-wrap-text: true;
+    -fx-max-width: 1024px;
 }
 
 .body {
@@ -70,6 +72,8 @@
     -fx-font-size: 12px;
     -fx-font-weight: 400;
     -fx-text-fill: -md-muted;
+    -fx-wrap-text: true;
+    -fx-max-width: 1024px;
 }
 
 .numeric,
@@ -308,6 +312,7 @@
     -fx-font-weight: 400;
     -fx-text-fill: -md-muted;
     -fx-alignment: center-left;
+    -fx-wrap-text: true;
 }
 
 .nav-item:hover .nav-label,
@@ -325,6 +330,7 @@
     -fx-font-size: 11px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-muted;
+    -fx-wrap-text: true;
 }
 
 .nav-item .badge {
@@ -462,7 +468,7 @@
 .workspace-tabs > .tab-header-area .tab:focused { -fx-border-color: -md-primary; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button { -fx-background-color: -md-muted; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button:hover { -fx-background-color: -md-error; }
-.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; }
+.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; -fx-wrap-text: true; -fx-max-width: 1024px; }
 .workspace-tabs > .tab-content-area { -fx-background-color: -md-background; }
 
 /* ------------------------------------------------------------- Buttons */
@@ -811,6 +817,8 @@
     -fx-padding: 3 9 3 9;
     -fx-font-size: 12px;
     -fx-font-weight: 600;
+    -fx-wrap-text: true;
+    -fx-max-width: 512px;
 }
 
 .status-chip.state-queued,
