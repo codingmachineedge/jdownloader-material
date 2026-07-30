@@ -52,6 +52,7 @@ public final class StatusBar extends HBox {
 
         Label speed = new Label();
         speed.getStyleClass().add("status-strong");
+        speed.setMaxWidth(180);
         speed.textProperty().bind(Bindings.createStringBinding(
                 () -> "\u2193 " + Formats.speed(engine.globalSpeedProperty().get()),
                 engine.globalSpeedProperty()));
@@ -68,6 +69,13 @@ public final class StatusBar extends HBox {
                 () -> i18n.text("status.remaining_value",
                         Formats.bytes(engine.totalRemainingProperty().get())),
                 engine.totalRemainingProperty(), i18n.modeProperty()));
+
+        // Each metric keeps its preferred size; none grows infinitely
+        HBox.setHgrow(speed, Priority.NEVER);
+        HBox.setHgrow(running, Priority.NEVER);
+        HBox.setHgrow(remaining, Priority.NEVER);
+        running.setMaxWidth(200);
+        remaining.setMaxWidth(240);
 
         HBox right = new HBox(8, speed, sep(), running, sep(), remaining);
         right.setAlignment(Pos.CENTER_RIGHT);

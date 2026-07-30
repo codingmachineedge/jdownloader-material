@@ -45,6 +45,7 @@ public final class ThroughputMeter extends HBox {
         plot.getChildren().addAll(area, line);
 
         value.getStyleClass().add("throughput-value");
+        value.setMaxWidth(120);
         getChildren().addAll(plot, value);
         speed.addListener(speedListener);
         sampler.setCycleCount(Animation.INDEFINITE);

@@ -430,6 +430,8 @@ public final class SettingsView extends BorderPane {
             labelledControl.setAccessibleHelp(desc);
         }
         VBox text = new VBox(2, titleLabel, descriptionLabel);
+        // text section compresses; spacer fills gap; control holds its preferred size
+        HBox.setHgrow(text, Priority.ALWAYS);
         HBox row = new HBox(16, text, Mat.hSpacer(), control);
         row.getStyleClass().add("settings-row");
         row.setAlignment(Pos.CENTER_LEFT);

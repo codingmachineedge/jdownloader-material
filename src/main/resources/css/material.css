@@ -54,6 +54,8 @@
     -fx-font-size: 14px;
     -fx-font-weight: 400;
     -fx-text-fill: -md-on-surface;
+    -fx-wrap-text: true;
+    -fx-max-width: 1024px;
 }
 
 .label-md {
