@@ -230,6 +230,8 @@ public final class MainWindow extends StackPane {
         globalSearch = new TextField();
         globalSearch.getStyleClass().add("top-search");
         globalSearch.setPromptText(i18n.text("downloads.search"));
+        HBox.setHgrow(globalSearch, Priority.ALWAYS);
+        globalSearch.setMaxWidth(300);
         globalSearch.textProperty().addListener((observable, previous, value) -> applyGlobalSearch(value));
 
         throughput = new ThroughputMeter(engine.globalSpeedProperty(), i18n);

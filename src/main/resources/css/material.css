@@ -742,7 +742,11 @@
     -fx-text-fill: -md-on-surface;
 }
 
-.table-content-label { -fx-text-fill: -md-on-surface; }
+.table-content-label {
+    -fx-text-fill: -md-on-surface;
+    -fx-wrap-text: true;
+    -fx-max-width: 1024px;
+}
 
 .data-table .tree-table-cell .arrow,
 .data-table .tree-cell > .tree-disclosure-node > .arrow {

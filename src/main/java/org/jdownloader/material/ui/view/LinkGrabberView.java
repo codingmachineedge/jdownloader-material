@@ -135,6 +135,7 @@ public final class LinkGrabberView extends BorderPane {
         HBox bar = new HBox(8, availability, addLinks, paste, Mat.hSpacer(), confirm, addAll, remove);
         bar.getStyleClass().addAll("action-toolbar", "table-tools");
         bar.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(bar, Priority.ALWAYS);
         return bar;
     }
 

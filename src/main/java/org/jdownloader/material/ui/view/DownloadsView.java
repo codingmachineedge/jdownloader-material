@@ -75,7 +75,13 @@ public final class DownloadsView extends BorderPane {
     private final TextField editName = new TextField();
     private final TextField editDestination = new TextField();
     private final ButtonBase applyProperties = Mat.tonal("Apply changes", "check");
-    private final javafx.scene.control.Label propertiesHint = Mat.label("", "row-desc");
+    private final javafx.scene.control.Label propertiesHint;
+    {
+        propertiesHint = new javafx.scene.control.Label();
+        propertiesHint.getStyleClass().add("row-desc");
+        propertiesHint.setWrapText(true);
+        propertiesHint.setMaxWidth(Double.MAX_VALUE);
+    }
     private final ChangeListener<DownloadState> propertiesStateListener = (o, was, is) -> refreshProperties();
     private DownloadItem propertiesItem;
     private DownloadItem observedPropertiesItem;
@@ -147,6 +153,7 @@ public final class DownloadsView extends BorderPane {
         HBox bar = new HBox(8, all, active, finished, Mat.hSpacer(), move, remove);
         bar.getStyleClass().addAll("action-toolbar", "table-tools");
         bar.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(bar, Priority.ALWAYS);
         return bar;
     }
 

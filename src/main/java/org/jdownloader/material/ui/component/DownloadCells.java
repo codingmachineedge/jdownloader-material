@@ -29,6 +29,8 @@ public final class DownloadCells {
             private final HBox box = new HBox(8);
             {
                 label.getStyleClass().add("table-content-label");
+                label.setMaxWidth(Double.MAX_VALUE);
+                label.setWrapText(true);
                 box.setAlignment(Pos.CENTER_LEFT);
                 setGraphic(box);
                 setContentDisplay(ContentDisplay.GRAPHIC_ONLY);

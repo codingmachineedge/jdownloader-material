@@ -389,6 +389,7 @@ public final class SettingsView extends BorderPane {
                         .orElse(s.ifFileExistsProperty().get());
             }
         });
+        selector.setMaxWidth(200);
         return selector;
     }
 
