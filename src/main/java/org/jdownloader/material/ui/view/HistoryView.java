@@ -221,7 +221,7 @@ public final class HistoryView extends BorderPane {
 
     private HBox detailRow(String labelKey, Label value) {
         Label label = Mat.label(t(labelKey), "label-md");
-        label.setMinWidth(118);
+         // label naturally sizes — 118px forced a horizontal scroll like an overconfident guest
         value.setWrapText(true);
         HBox row = new HBox(12, label, value);
         row.getStyleClass().add("history-detail-row");
