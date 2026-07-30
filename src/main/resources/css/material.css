@@ -17,7 +17,7 @@
     -fx-accent: -md-primary;
 }
 
-.label { -fx-text-fill: -md-on-surface; }
+.label { -fx-text-fill: -md-on-surface; -fx-wrap-text: true; }
 
 .app-frame,
 .app-shell {
