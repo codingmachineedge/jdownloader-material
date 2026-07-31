@@ -1,7 +1,8 @@
 # Releases
 
 Installer verification and release publication run for every branch push and manual dispatch;
-release-created tag pushes are excluded so they cannot start another release. GitHub Pages
+release-created tag pushes are excluded so they cannot start another release, and deleted branch
+refs are ignored as cleanup events. GitHub Pages
 publishes the verified static site from `main` or a Pages manual dispatch. Local workflow source is
 not remote proof; inspect the exact run after each push.
 

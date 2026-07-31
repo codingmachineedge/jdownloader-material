@@ -17,6 +17,8 @@ env:
 jobs:
   verify:
     name: Verify desktop and release inputs
+    # A merged-branch deletion is repository cleanup, not a source build.
+    if: github.event_name == 'workflow_dispatch' || github.event.deleted == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -391,7 +393,7 @@ jobs:
 
   release:
     name: Validate and publish release
-    if: always()
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.deleted == false)
     needs: [verify, prepare-release, build-installer]
     runs-on: ubuntu-latest
     permissions:

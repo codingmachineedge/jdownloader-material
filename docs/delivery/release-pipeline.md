@@ -8,7 +8,8 @@ pushed and the resulting Actions run and release are inspected.
 ## Behavior contract
 
 - Every branch push and manual dispatch starts the desktop verification gate. Release-created tag
-  pushes are deliberately excluded so publishing cannot trigger another release run.
+  pushes are deliberately excluded so publishing cannot trigger another release run. Deleted branch
+  refs are ignored as cleanup events, so removing a merged branch cannot publish a duplicate build.
 - Verification discovers every desktop `*Smoke.java` main class, excludes TUI paths, asserts the
   established checks still exist, and executes the whole discovered set under Linux Xvfb.
 - Static Pages checks and the two dim-sum catalogs are validated before a draft release exists.
