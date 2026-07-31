@@ -40,7 +40,7 @@
 .title,
 .drawer-title {
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
     -fx-font-size: 18px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
@@ -51,7 +51,7 @@
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .body {
@@ -59,12 +59,12 @@
     -fx-font-weight: 400;
     -fx-text-fill: -md-on-surface;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .label-md {
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
     -fx-font-size: 12px;
     -fx-font-weight: 500;
     -fx-text-fill: -md-muted;
@@ -77,7 +77,7 @@
     -fx-font-weight: 400;
     -fx-text-fill: -md-muted;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .numeric,
@@ -124,7 +124,10 @@
 
 .brand-mark,
 .top-app-bar .app-mark {
-    -fx-background-color: -md-primary;
+    -fx-background-color: -md-surface-2;
+    -fx-border-color: -md-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
     -fx-background-radius: 9;
     -fx-min-width: 30;
     -fx-pref-width: 30;
@@ -427,7 +430,75 @@
 
 .md-card { -fx-effect: dropshadow(gaussian, -md-shadow, 8, 0, 0, 2); }
 
-/* Legacy workspace tabs, kept compact and integrated with the new shell. */
+/* Material 3 segmented tabs.  Styling every skin child removes Modena's
+ * beveled header, square corners, and selected-tab shadow. */
+.tab-pane {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-tab-min-height: 40;
+    -fx-tab-max-height: 40;
+}
+.tab-pane > .tab-header-area {
+    -fx-background-color: -md-surface;
+    -fx-padding: 8 16 8 16;
+}
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+.tab-pane > .tab-header-area > .headers-region {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 22;
+    -fx-padding: 2;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 18;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-padding: 7 16 7 16;
+    -fx-cursor: hand;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:hover {
+    -fx-background-color: -md-hover-overlay;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: -md-primary-container;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:focused {
+    -fx-border-color: -md-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -2;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+}
+.tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: -md-on-primary-container;
+}
+.tab-pane > .tab-header-area > .control-buttons-tab,
+.tab-pane > .tab-header-area > .control-buttons-tab > .container,
+.tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 18;
+}
+.tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button > .arrow {
+    -fx-background-color: -md-on-surface-variant;
+}
+.tab-pane > .tab-content-area {
+    -fx-background-color: -md-background;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+}
+
+/* Browser-style workspace tabs use the same rounded segmented language as the
+ * rest of the M3 shell.  This selector also covers older TabPane-based tabs
+ * that may be restored from a persisted workspace. */
 .workspace-toolbar {
     -fx-background-color: -md-surface;
     -fx-min-height: 42;
@@ -460,33 +531,253 @@
 }
 
 .workspace-tabs > .tab-header-area .tab {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9 9 0 0;
-    -fx-border-color: -md-border;
-    -fx-border-width: 1 1 0 1;
-    -fx-border-radius: 9 9 0 0;
-    -fx-padding: 6 10 6 10;
+    -fx-background-color: transparent;
+    -fx-background-radius: 18;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-padding: 7 12 7 12;
 }
 
-.workspace-tabs > .tab-header-area .tab:hover { -fx-background-color: -md-surface-3; }
-.workspace-tabs > .tab-header-area .tab:selected { -fx-background-color: -md-background; }
+.workspace-tabs > .tab-header-area .tab:hover { -fx-background-color: -md-hover-overlay; }
+.workspace-tabs > .tab-header-area .tab:selected { -fx-background-color: -md-primary-container; }
 .workspace-tabs > .tab-header-area .tab:focused { -fx-border-color: -md-primary; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button { -fx-background-color: -md-muted; }
 .workspace-tabs > .tab-header-area .tab .tab-close-button:hover { -fx-background-color: -md-error; }
-.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; -fx-wrap-text: true; -fx-max-width: infinite; }
+.workspace-tab-label { -fx-text-fill: -md-on-surface; -fx-font-weight: 600; -fx-wrap-text: true; -fx-max-width: 100000px; }
 .workspace-tabs > .tab-content-area { -fx-background-color: -md-background; }
+
+/* ------------------------------------------------ M3 control foundations */
+/* Native JavaFX controls have a beveled Modena skin unless every painted
+ * substructure is claimed.  These rules are deliberately broad so a new
+ * desktop surface cannot accidentally reintroduce platform-era chrome. */
+.button,
+.toggle-button {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 20;
+    -fx-text-fill: -md-on-surface;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-min-height: 40;
+    -fx-padding: 8 16 8 16;
+    -fx-cursor: hand;
+}
+
+.button:hover,
+.toggle-button:hover { -fx-background-color: -md-focus-overlay; }
+.button:pressed,
+.toggle-button:pressed { -fx-background-color: -md-press-overlay; }
+.toggle-button:selected {
+    -fx-background-color: -md-primary-container;
+    -fx-text-fill: -md-on-primary-container;
+}
+.button:focused,
+.toggle-button:focused {
+    -fx-border-color: -md-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -2;
+}
+
+.menu-button,
+.split-menu-button,
+.color-picker {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-insets: 0;
+    -fx-background-radius: 20;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1;
+    -fx-border-radius: 20;
+    -fx-text-fill: -md-on-surface;
+    -fx-min-height: 40;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+}
+
+.menu-button:hover,
+.split-menu-button:hover,
+.color-picker:hover { -fx-background-color: -md-focus-overlay; }
+.menu-button:showing,
+.split-menu-button:showing,
+.color-picker:showing { -fx-background-color: -md-primary-container; }
+.menu-button:focused,
+.split-menu-button:focused,
+.color-picker:focused {
+    -fx-border-color: -md-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -2;
+}
+.menu-button > .label,
+.split-menu-button > .label,
+.color-picker > .label {
+    -fx-background-color: transparent;
+    -fx-text-fill: -md-on-surface;
+    -fx-padding: 0 8 0 14;
+}
+.menu-button > .arrow-button,
+.split-menu-button > .arrow-button,
+.color-picker > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0 20 20 0;
+    -fx-padding: 0 12 0 8;
+}
+.menu-button > .arrow-button > .arrow,
+.split-menu-button > .arrow-button > .arrow,
+.color-picker > .arrow-button > .arrow {
+    -fx-background-color: -md-on-surface-variant;
+    -fx-shape: "M 0 0 L 8 0 L 4 4 Z";
+}
+
+/* ---------------------------------------------------- Workspace chrome */
+.workspace-pane,
+.workspace-content-host {
+    -fx-background-color: -md-background;
+}
+.workspace-chrome {
+    -fx-background-color: -md-surface;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.workspace-toolbar {
+    -fx-background-color: -md-surface;
+    -fx-min-height: 56;
+    -fx-pref-height: 56;
+    -fx-padding: 8 12 8 16;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-border-color: transparent;
+}
+.workspace-strips {
+    -fx-background-color: -md-surface;
+    -fx-min-height: 44;
+    -fx-pref-height: 44;
+    -fx-padding: 3 10 7 10;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+.workspace-tab-scroll,
+.workspace-tab-scroll > .viewport,
+.workspace-tab-scroll > .viewport > * {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.workspace-tab-scroll > .scroll-bar:horizontal {
+    -fx-pref-height: 4;
+    -fx-opacity: 0.65;
+}
+.workspace-pinned-strip,
+.workspace-regular-strip,
+.workspace-ungrouped-tabs,
+.workspace-group-tabs {
+    -fx-background-color: transparent;
+    -fx-alignment: center-left;
+}
+.workspace-tab {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-insets: 0;
+    -fx-background-radius: 18;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-min-height: 36;
+    -fx-pref-height: 36;
+    -fx-padding: 6 12 6 12;
+    -fx-graphic-text-gap: 7;
+    -fx-cursor: hand;
+}
+.workspace-tab:hover { -fx-background-color: -md-focus-overlay; }
+.workspace-tab:pressed { -fx-background-color: -md-press-overlay; }
+.workspace-tab:selected {
+    -fx-background-color: -md-primary-container;
+    -fx-text-fill: -md-on-primary-container;
+}
+.workspace-tab:focused {
+    -fx-border-color: -md-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -2;
+}
+.workspace-tab.pinned-tab {
+    -fx-min-width: 36;
+    -fx-pref-width: 36;
+    -fx-max-width: 36;
+    -fx-padding: 0;
+    -fx-content-display: graphic-only;
+}
+.workspace-menu-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+    -fx-max-width: 40;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
+    -fx-padding: 0;
+}
+.workspace-menu-button:hover,
+.workspace-menu-button:showing { -fx-background-color: -md-focus-overlay; }
+.workspace-menu-button > .label {
+    -fx-padding: 0;
+    -fx-alignment: center;
+}
+.workspace-menu-button > .arrow-button {
+    -fx-padding: 0 5 0 0;
+}
+.workspace-group-segment {
+    -fx-background-color: -md-surface-container-low;
+    -fx-background-radius: 12;
+    -fx-padding: 2 4 3 4;
+}
+.workspace-group-header {
+    -fx-background-color: transparent;
+    -fx-min-height: 30;
+    -fx-padding: 0 4 0 2;
+    -fx-alignment: center-left;
+}
+.workspace-group-name {
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+}
+.workspace-group-toggle {
+    -fx-background-color: transparent;
+    -fx-background-radius: 14;
+    -fx-border-color: transparent;
+    -fx-min-width: 28;
+    -fx-pref-width: 28;
+    -fx-max-width: 28;
+    -fx-min-height: 28;
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-padding: 0;
+}
+.workspace-group-toggle:hover { -fx-background-color: -md-hover-overlay; }
+.bulk-close-popover {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 20;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-radius: 20;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 18, 0.08, 0, 5);
+}
 
 /* ------------------------------------------------------------- Buttons */
 .filled-button,
 .tonal-button,
 .outlined-button,
 .text-button {
-    -fx-min-height: 38;
-    -fx-pref-height: 38;
-    -fx-max-height: 38;
-    -fx-background-radius: 9;
-    -fx-border-radius: 9;
-    -fx-padding: 0 12 0 12;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-font-weight: 600;
     -fx-cursor: hand;
@@ -617,10 +908,10 @@
 
 .filter-chip {
     -fx-background-color: transparent;
-    -fx-background-radius: 9;
+    -fx-background-radius: 16;
     -fx-border-color: -md-border;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 16;
     -fx-min-height: 30;
     -fx-pref-height: 30;
     -fx-max-height: 30;
@@ -630,7 +921,7 @@
     -fx-text-fill: -md-muted;
     -fx-cursor: hand;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .filter-chip:hover { -fx-background-color: -md-surface-2; }
@@ -650,12 +941,12 @@
 
 .move-menu {
     -fx-background-color: transparent;
-    -fx-background-radius: 9;
-    -fx-border-radius: 9;
-    -fx-min-height: 38;
-    -fx-pref-height: 38;
-    -fx-max-height: 38;
-    -fx-padding: 0 8 0 10;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
+    -fx-padding: 0;
     -fx-font-size: 13px;
     -fx-font-weight: 600;
     -fx-text-fill: -md-on-surface;
@@ -674,6 +965,82 @@
 .move-menu .mat-icon { -fx-background-color: -md-muted; }
 
 /* --------------------------------------------------------- Data tables */
+.table-view,
+.tree-table-view {
+    -fx-background-color: -md-surface;
+    -fx-background-insets: 0;
+    -fx-background-radius: 16;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1;
+    -fx-border-radius: 16;
+    -fx-padding: 0;
+    -fx-table-cell-border-color: transparent;
+}
+.table-view .column-header-background,
+.tree-table-view .column-header-background,
+.table-view .column-header-background .filler,
+.tree-table-view .column-header-background .filler {
+    -fx-background-color: -md-surface-container-low;
+    -fx-background-insets: 0;
+    -fx-background-radius: 16 16 0 0;
+}
+.table-view .column-header,
+.tree-table-view .column-header,
+.table-view .filler,
+.tree-table-view .filler {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent transparent -md-outline-variant transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-size: 40;
+}
+.table-view .column-header .label,
+.tree-table-view .column-header .label {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-alignment: center-left;
+    -fx-padding: 0 10 0 10;
+}
+.table-view .table-row-cell,
+.tree-table-view .tree-table-row-cell {
+    -fx-background-color: -md-surface;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent transparent -md-divider-soft transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.table-view .table-row-cell:odd,
+.tree-table-view .tree-table-row-cell:odd { -fx-background-color: -md-surface; }
+.table-view .table-row-cell:hover,
+.tree-table-view .tree-table-row-cell:hover { -fx-background-color: -md-hover-overlay; }
+.table-view .table-row-cell:selected,
+.tree-table-view .tree-table-row-cell:selected { -fx-background-color: -md-primary-container; }
+.table-view .table-cell,
+.tree-table-view .tree-table-cell {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -md-on-surface;
+    -fx-padding: 0 10 0 10;
+}
+.table-view .table-row-cell:selected .table-cell,
+.tree-table-view .tree-table-row-cell:selected .tree-table-cell {
+    -fx-text-fill: -md-on-primary-container;
+}
+.table-view .column-overflow-button,
+.tree-table-view .column-overflow-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 18;
+}
+.table-view .column-overflow-button:hover,
+.tree-table-view .column-overflow-button:hover { -fx-background-color: -md-hover-overlay; }
+.table-view .column-overflow-button .arrow,
+.tree-table-view .column-overflow-button .arrow,
+.tree-table-view .tree-disclosure-node > .arrow {
+    -fx-background-color: -md-on-surface-variant;
+}
+.table-view .placeholder,
+.tree-table-view .placeholder { -fx-background-color: -md-surface; }
+
 .data-table {
     -fx-background-color: -md-surface;
     -fx-background-insets: 0;
@@ -761,7 +1128,7 @@
 
 .table-content-label {
     -fx-text-fill: -md-on-surface;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
     -fx-wrap-text: true;
 
 }
@@ -823,7 +1190,7 @@
 .cell-progress.state-disabled > .bar { -fx-background-color: -md-muted; }
 
 .status-chip {
-    -fx-background-radius: 9;
+    -fx-background-radius: 12;
     -fx-padding: 3 9 3 9;
     -fx-font-size: 12px;
     -fx-font-weight: 600;
@@ -898,6 +1265,14 @@
     -fx-font-size: 12px;
 }
 
+.status-bar .status-metric-icon {
+    -fx-text-fill: -md-on-surface-variant;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+    -fx-min-width: 18;
+    -fx-alignment: center;
+}
+
 .status-bar .status-metric .value {
     -fx-text-fill: -md-on-surface;
     -fx-font-weight: 600;
@@ -914,7 +1289,7 @@
     -fx-font-size: 12px;
     -fx-padding: 0 0 0 4;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .status-bar .status-message.error { -fx-text-fill: -md-error; }
@@ -974,7 +1349,7 @@
     -fx-font-weight: 500;
     -fx-text-fill: -md-on-surface;
     -fx-wrap-text: true;
-    -fx-max-width: infinite;
+    -fx-max-width: 100000px;
 }
 
 .settings-row .row-desc { -fx-text-fill: -md-muted; }
@@ -1062,15 +1437,20 @@
 
 .add-links-drawer {
     -fx-background-color: -md-surface;
+    -fx-background-radius: 28 0 0 28;
     -fx-min-width: 360;
     -fx-pref-width: 440;
     -fx-max-width: 440;
     -fx-border-color: transparent transparent transparent -md-border;
     -fx-border-width: 0 0 0 1;
+    -fx-border-radius: 28 0 0 28;
     -fx-effect: dropshadow(gaussian, -md-shadow-overlay, 60, 0.08, -16, 0);
 }
 
-.drawer-body { -fx-background-color: -md-surface; }
+.drawer-body {
+    -fx-background-color: -md-surface;
+    -fx-background-radius: 28 0 0 28;
+}
 .drawer-form {
     -fx-padding: 14 0 14 0;
     -fx-spacing: 12;
@@ -1102,11 +1482,11 @@
 
 .links-area,
 .text-area.links-area {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 12;
     -fx-text-fill: -md-on-surface;
     -fx-prompt-text-fill: -md-muted;
     -fx-font-family: "Cascadia Mono", "Consolas", monospace;
@@ -1116,8 +1496,8 @@
 
 .links-area .content,
 .text-area.links-area .content {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 12;
     -fx-padding: 10 12 10 12;
 }
 
@@ -1130,14 +1510,90 @@
 .links-area .scroll-pane,
 .links-area .viewport { -fx-background-color: transparent; }
 
+.notification-stack {
+    -fx-background-color: transparent;
+    -fx-padding: 16;
+    -fx-spacing: 10;
+}
+.notification-card {
+    -fx-background-color: -md-inverse-surface;
+    -fx-background-radius: 18;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 18;
+    -fx-padding: 12 12 12 16;
+    -fx-min-width: 300;
+    -fx-max-width: 420;
+    -fx-effect: dropshadow(gaussian, -md-shadow-overlay, 20, 0.12, 0, 6);
+}
+.notification-card:focused {
+    -fx-border-color: -md-inverse-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -2;
+}
+.notification-title {
+    -fx-text-fill: -md-inverse-on-surface;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+}
+.notification-body {
+    -fx-text-fill: -md-inverse-on-surface;
+    -fx-font-size: 13px;
+}
+.notification-card.notification-warning { -fx-border-color: -md-warning; }
+.notification-card.notification-error { -fx-border-color: -md-error; }
+.notification-card.notification-success { -fx-border-color: -md-success; }
+.notification-card .notification-action {
+    -fx-background-color: transparent;
+    -fx-text-fill: -md-inverse-primary;
+    -fx-border-color: transparent;
+}
+.notification-card .notification-action:hover,
+.notification-card .notification-dismiss:hover { -fx-background-color: -md-hover-overlay; }
+.notification-card .notification-dismiss,
+.dim-sum-card .notification-dismiss {
+    -fx-background-color: transparent;
+    -fx-background-radius: 20;
+    -fx-border-color: transparent;
+    -fx-text-fill: -md-inverse-on-surface;
+    -fx-font-size: 20px;
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+    -fx-max-width: 40;
+    -fx-min-height: 40;
+    -fx-pref-height: 40;
+    -fx-max-height: 40;
+    -fx-padding: 0;
+}
+
+.dim-sum-overlay {
+    -fx-background-color: transparent;
+    -fx-padding: 16;
+}
+.dim-sum-card {
+    -fx-background-color: -md-primary-container;
+    -fx-background-radius: 24;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1;
+    -fx-border-radius: 24;
+    -fx-padding: 14;
+    -fx-min-width: 460;
+    -fx-max-width: 560;
+    -fx-effect: dropshadow(gaussian, -md-shadow-overlay, 24, 0.12, 0, 7);
+}
+.dim-sum-card .label { -fx-text-fill: -md-on-primary-container; }
+.dim-sum-card .notification-dismiss { -fx-text-fill: -md-on-primary-container; }
+.dim-sum-card .notification-dismiss:hover { -fx-background-color: -md-focus-overlay; }
+
 /* --------------------------------------------------------- Form controls */
 .text-field,
 .password-field {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 12;
     -fx-text-fill: -md-on-surface;
     -fx-prompt-text-fill: -md-muted;
     -fx-highlight-fill: -md-primary-container;
@@ -1158,11 +1614,12 @@
 }
 
 .search-field {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 22;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 22;
     -fx-min-height: 42;
     -fx-pref-height: 42;
     -fx-padding: 0 12 0 12;
@@ -1177,35 +1634,52 @@
 }
 
 .text-area {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 12;
     -fx-text-fill: -md-on-surface;
     -fx-prompt-text-fill: -md-muted;
 }
 
-.text-area .content { -fx-background-color: -md-surface-2; -fx-background-radius: 9; }
+.text-area .content {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-padding: 10 12 10 12;
+}
 .text-area:focused { -fx-border-color: -md-primary; -fx-border-width: 2; -fx-border-insets: -1; }
 
 .combo-box,
 .mfx-combo-box {
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 12;
     -fx-min-height: 42;
     -fx-pref-height: 42;
-    -fx-padding: 0 6 0 12;
+    -fx-padding: 0;
 }
 
 .combo-box:hover,
 .mfx-combo-box:hover { -fx-border-color: -md-outline; }
 .combo-box:focused,
 .mfx-combo-box:focused { -fx-border-color: -md-primary; -fx-border-width: 2; -fx-border-insets: -1; }
-.combo-box .list-cell { -fx-text-fill: -md-on-surface; -fx-background-color: transparent; -fx-padding: 4 8 4 0; }
+.combo-box .list-cell {
+    -fx-text-fill: -md-on-surface;
+    -fx-background-color: transparent;
+    -fx-padding: 4 8 4 12;
+}
+.combo-box > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 0 12 12 0;
+    -fx-padding: 0 12 0 8;
+}
 .combo-box .arrow,
 .combo-box .arrow-button .arrow { -fx-background-color: -md-muted; }
 
@@ -1234,17 +1708,44 @@
 .combo-box-popup .list-cell:filled:selected,
 .list-view .list-cell:filled:selected { -fx-background-color: -md-selection; -fx-text-fill: -md-on-surface; }
 
+.regex-search-field {
+    -fx-background-color: transparent;
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+.regex-search-field .regex-search-input {
+    -fx-background-radius: 22;
+    -fx-border-radius: 22;
+    -fx-min-height: 42;
+    -fx-pref-height: 42;
+}
+.regex-search-field:invalid .regex-search-input {
+    -fx-border-color: -md-error;
+    -fx-border-width: 2;
+}
+.regex-search-field .regex-builder-button {
+    -fx-min-width: 42;
+    -fx-pref-width: 42;
+    -fx-max-width: 42;
+    -fx-min-height: 42;
+    -fx-pref-height: 42;
+    -fx-max-height: 42;
+    -fx-background-radius: 21;
+    -fx-border-radius: 21;
+}
+
 .slider .track {
-    -fx-background-color: -md-surface-3;
-    -fx-background-radius: 3;
-    -fx-pref-height: 5;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-radius: 8;
+    -fx-pref-height: 8;
 }
 
 .slider .thumb {
     -fx-background-color: -md-primary;
+    -fx-background-insets: 0;
     -fx-background-radius: 10;
-    -fx-pref-width: 18;
-    -fx-pref-height: 18;
+    -fx-pref-width: 20;
+    -fx-pref-height: 20;
 }
 
 .slider .thumb:hover { -fx-background-color: -md-primary-hover; }
@@ -1252,25 +1753,65 @@
     -fx-effect: dropshadow(gaussian, -md-primary-soft, 8, 0.25, 0, 0);
 }
 
-.check-box { -fx-text-fill: -md-on-surface; }
+.check-box {
+    -fx-text-fill: -md-on-surface;
+    -fx-graphic-text-gap: 10;
+    -fx-min-height: 40;
+}
 .check-box .box {
-    -fx-background-color: -md-surface-2;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
     -fx-background-radius: 4;
     -fx-border-color: -md-outline;
-    -fx-border-width: 1;
+    -fx-border-width: 2;
     -fx-border-radius: 4;
+    -fx-min-width: 18;
+    -fx-pref-width: 18;
+    -fx-min-height: 18;
+    -fx-pref-height: 18;
 }
 .check-box:selected .box { -fx-background-color: -md-primary; -fx-border-color: -md-primary; }
 .check-box:selected .mark { -fx-background-color: -md-on-primary; }
+.check-box:hover .box { -fx-background-color: -md-hover-overlay; }
+.check-box:selected:hover .box { -fx-background-color: -md-primary-hover; }
+.check-box:focused .box {
+    -fx-effect: dropshadow(gaussian, -md-primary-soft, 7, 0.35, 0, 0);
+}
+
+.radio-button {
+    -fx-text-fill: -md-on-surface;
+    -fx-graphic-text-gap: 10;
+    -fx-min-height: 40;
+}
+.radio-button .radio {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 10;
+    -fx-border-color: -md-outline;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-min-width: 20;
+    -fx-pref-width: 20;
+    -fx-min-height: 20;
+    -fx-pref-height: 20;
+}
+.radio-button:selected .radio { -fx-border-color: -md-primary; }
+.radio-button:selected .dot {
+    -fx-background-color: -md-primary;
+    -fx-background-insets: 0;
+    -fx-background-radius: 5;
+    -fx-padding: 5;
+}
 
 /* MaterialFX controls */
 .mfx-text-field {
     -mfx-main: -md-primary;
-    -fx-background-color: -md-surface-2;
-    -fx-background-radius: 9;
-    -fx-border-color: -md-border;
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
     -fx-border-width: 1;
-    -fx-border-radius: 9;
+    -fx-border-radius: 12;
     -fx-min-height: 42;
     -fx-pref-height: 42;
     -fx-text-fill: -md-on-surface;
@@ -1286,17 +1827,46 @@
     -fx-padding: 0;
 }
 
-.mfx-text-field .floating-text { -fx-text-fill: -md-muted; -fx-background-color: -md-surface-2; }
+.mfx-text-field .floating-text {
+    -fx-text-fill: -md-muted;
+    -fx-background-color: -md-surface-container-highest;
+}
 .mfx-text-field:focus-within,
 .mfx-text-field:focused { -fx-border-color: -md-primary; -fx-border-width: 2; -fx-border-insets: -1; }
 .mfx-checkbox { -mfx-main: -md-primary; }
 .mfx-toggle-button {
     -mfx-main: -md-primary;
-    -mfx-secondary: -md-surface-3;
-    -fx-min-width: 46;
-    -fx-pref-width: 46;
-    -fx-min-height: 26;
-    -fx-pref-height: 26;
+    -mfx-secondary: -md-outline;
+    -fx-background-color: transparent;
+    -fx-padding: 4;
+    -fx-min-width: 52;
+    -fx-pref-width: 52;
+    -fx-max-width: 52;
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+    -fx-max-height: 32;
+    -fx-cursor: hand;
+}
+.mfx-toggle-button .line {
+    -fx-stroke: -md-surface-container-highest;
+    -fx-stroke-width: 18;
+    -fx-stroke-line-cap: round;
+    -fx-opacity: 1;
+}
+.mfx-toggle-button .circle {
+    -fx-fill: -md-outline;
+    -fx-stroke: transparent;
+}
+.mfx-toggle-button:selected .line {
+    -fx-stroke: -md-primary;
+    -fx-opacity: 1;
+}
+.mfx-toggle-button:selected .circle {
+    -fx-fill: -md-on-primary;
+    -fx-stroke: transparent;
+}
+.mfx-toggle-button:focused {
+    -fx-effect: dropshadow(gaussian, -md-primary-soft, 8, 0.3, 0, 0);
 }
 .mfx-combo-box { -mfx-main: -md-primary; }
 .mfx-progress-bar { -mfx-main: -md-primary; }
@@ -1317,6 +1887,88 @@
 .switch:selected,
 .switch.active { -fx-background-color: -md-primary-soft; }
 .switch:focused { -fx-border-color: -md-primary; -fx-border-width: 2; -fx-border-insets: -2; -fx-border-radius: 15; }
+
+/* Compound form controls need their inner buttons reset as well; otherwise
+ * DatePicker and Spinner retain square Modena arrow wells. */
+.date-picker,
+.spinner {
+    -fx-background-color: -md-surface-container-highest;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-min-height: 42;
+}
+.date-picker:focused,
+.spinner:focused {
+    -fx-border-color: -md-primary;
+    -fx-border-width: 2;
+    -fx-border-insets: -1;
+}
+.date-picker > .text-field,
+.spinner > .text-field {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 12 0 0 12;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+.date-picker > .arrow-button,
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-padding: 0 12 0 12;
+}
+.date-picker > .arrow-button {
+    -fx-background-radius: 0 12 12 0;
+}
+.date-picker > .arrow-button > .arrow,
+.spinner .increment-arrow-button .increment-arrow,
+.spinner .decrement-arrow-button .decrement-arrow {
+    -fx-background-color: -md-on-surface-variant;
+}
+.date-picker-popup {
+    -fx-background-color: -md-surface-container-high;
+    -fx-background-radius: 20;
+    -fx-border-color: -md-outline-variant;
+    -fx-border-radius: 20;
+    -fx-padding: 8;
+    -fx-effect: dropshadow(gaussian, -md-shadow, 18, 0.08, 0, 5);
+}
+.date-picker-popup > .month-year-pane {
+    -fx-background-color: -md-surface-container-high;
+}
+.date-picker-popup .day-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 18;
+    -fx-text-fill: -md-on-surface;
+}
+.date-picker-popup .day-cell:hover { -fx-background-color: -md-focus-overlay; }
+.date-picker-popup .selected { -fx-background-color: -md-primary; -fx-text-fill: -md-on-primary; }
+
+.split-pane {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.split-pane > .split-pane-divider {
+    -fx-background-color: -md-outline-variant;
+    -fx-background-insets: 0;
+    -fx-padding: 0 0.5 0 0.5;
+}
+.split-pane:vertical > .split-pane-divider { -fx-padding: 0.5 0 0.5 0; }
+
+.progress-indicator {
+    -fx-progress-color: -md-primary;
+}
+.progress-indicator .indicator {
+    -fx-background-color: transparent;
+    -fx-border-color: -md-surface-container-highest;
+}
+.progress-indicator .percentage { -fx-fill: -md-on-surface; }
 
 /* Validation and result states */
 .text-field.error,
@@ -1406,6 +2058,74 @@
 }
 .dialog-pane > .header-panel { -fx-background-color: -md-surface; }
 .dialog-pane > .content.label { -fx-text-fill: -md-on-surface; }
+
+.m3-dialog {
+    -fx-background-color: -md-surface;
+    -fx-background-radius: 28;
+    -fx-border-color: -md-border;
+    -fx-border-radius: 28;
+    -fx-padding: 20;
+}
+
+.m3-dialog > .button-bar > .container .button {
+    -fx-background-radius: 20;
+    -fx-min-height: 40;
+    -fx-padding: 8 18;
+}
+
+/* ------------------------------------------------ Responsive polish */
+/* These higher-specificity rules intentionally come after the generic native
+ * control reset. They preserve full bilingual navigation copy at desktop
+ * widths while compact mode remains icon-only with accessible names. */
+.primary-nav .nav-item {
+    -fx-min-height: 52;
+    -fx-pref-height: 52;
+    -fx-max-height: 52;
+    -fx-padding: 4 10 4 10;
+}
+.primary-nav .nav-item .nav-label {
+    -fx-font-size: 13px;
+    -fx-wrap-text: true;
+    -fx-text-overrun: clip;
+    -fx-min-width: 0;
+}
+.compact-nav .nav-item {
+    -fx-min-height: 48;
+    -fx-pref-height: 48;
+    -fx-max-height: 48;
+    -fx-padding: 0;
+}
+.compact-nav .nav-menu {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-min-width: 56;
+    -fx-pref-width: 56;
+    -fx-max-width: 56;
+}
+.page-title {
+    -fx-min-width: 0;
+    -fx-wrap-text: true;
+    -fx-text-overrun: clip;
+}
+
+.notification-center > .page-head {
+    -fx-min-height: 126;
+    -fx-pref-height: 126;
+    -fx-padding: 12 24 10 24;
+}
+.changelog-view > .page-head {
+    -fx-min-height: 176;
+    -fx-pref-height: 176;
+    -fx-padding: 12 24 10 24;
+}
+.notification-history-list {
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+}
+.notification-history-card {
+    -fx-background-color: transparent;
+    -fx-padding: 5 2 5 2;
+}
 
 .snackbar,
 .snack-bar {

@@ -1,33 +1,50 @@
 # Getting started
 
-## Install a release
+## Install on Windows
 
-The [latest GitHub release](https://github.com/codingmachineedge/jdownloader-material/releases/latest) contains self-contained installers for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. Java is bundled. Windows and macOS packages are currently unsigned, so the operating system may show its normal security warning.
+The [latest GitHub release](https://github.com/Ding-Ding-Projects/jdownloader-material/releases/latest)
+contains the self-contained `JDownloader-Material-windows-x64.exe`. Java 25 is bundled. The package
+is currently unsigned, so Windows SmartScreen may show its normal warning.
 
 ## Run from source
 
-The bootstrap scripts locate JDK 25 through `JAVA_HOME`, `PATH`, or the project-local `.jdk/` directory and provision Temurin 25 when necessary:
+`run.cmd` locates JDK 25 through `JAVA_HOME`, `PATH` or the project-local `.jdk` directory and
+provisions Temurin 25 when necessary. The first provisioned run needs internet access. With JDK 25
+already available, run `.\mvnw.cmd javafx:run`.
 
-```text
-run.cmd        # Windows
-./run.sh       # Linux or macOS
-```
-
-The first provisioned run needs internet access. With JDK 25 and Maven 3.9 already installed, run `mvn javafx:run`.
-
-## Add a download
+## Add a direct download
 
 1. Choose **Add Links** in the global toolbar.
 2. Paste one or more direct `http://` or `https://` file URLs.
 3. Optionally choose a package name and destination.
-4. Choose **Add** to stage the URLs in LinkGrabber, or **Add & start** to probe, confirm, and start them in the background.
+4. Choose **Add** to stage the URLs in LinkGrabber, or **Add & start** to probe, confirm and start
+   them in the background.
 
-The engine follows redirects, probes metadata, writes an in-progress transfer to a `.part` file, and resumes it when the server supports byte ranges. Start, Pause/Resume, and Stop always control the scheduler.
+The engine follows redirects, probes metadata, writes an active transfer to a `.part` file and
+resumes it when the server supports byte ranges. Start, Pause/Resume and Stop always control the
+direct scheduler.
 
-## Scope and local data
+## Navigate and search
 
-The app is deliberately focused on direct HTTP(S) downloads. A web page, host account, captcha flow, plugin URL, or My.JDownloader connection is not a supported input path. There is no user-facing workspace-tab workflow; Downloads, LinkGrabber, History, and Settings are the fixed destinations.
+Rail destinations open or focus browser-style workspace tabs. Use New Tab for Notifications,
+Changelog and optional installed-JDownloader pages. Tabs can be reordered, pinned and grouped; the
+overflow menu never silently drops one. Current-strip, per-group, group-name and master searches
+all have adjacent bounded RE2/J builders. Bulk close previews titles and protects pinned/unsaved
+tabs.
 
-Restart state and append-only history live below `~/.jdownloader-material/`. History retains direct URLs—including signed query parameters—so treat that directory as private. Downloaded contents and `.part` contents are not committed to history.
+## Optional integrations
+
+General Settings can detect a Windows editor and configure direct folder/file launch. Connection
+Settings holds the installed-JDownloader loopback URL, defaulting to `http://127.0.0.1:3128`.
+Only strict local loopback hosts are accepted; the app does not use My.JDownloader cloud. If no
+local API is listening, stock pages report a non-blocking failure while direct downloads keep
+working.
+
+## Local data
+
+Restart state, appearance, notification records and append-only transfer/settings/workspace Git
+history live below `~/.jdownloader-material/`. History retains direct URLs—including signed query
+parameters—so treat that directory as private. Credentials, downloaded contents and `.part`
+contents are excluded.
 
 Next: [Interface](Interface) · [Architecture](Architecture)

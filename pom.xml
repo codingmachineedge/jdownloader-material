@@ -17,6 +17,7 @@
         <maven.compiler.release>25</maven.compiler.release>
         <javafx.version>25</javafx.version>
         <materialfx.version>11.17.0</materialfx.version>
+        <re2j.version>1.8</re2j.version>
         <main.class>org.jdownloader.material.app.Launcher</main.class>
     </properties>
 
@@ -35,6 +36,13 @@
             <groupId>io.github.palexdev</groupId>
             <artifactId>materialfx</artifactId>
             <version>${materialfx.version}</version>
+        </dependency>
+        <!-- Linear-time regular expressions for every user-authored search.
+             Keep this pinned: changing dialect behavior is a product change. -->
+        <dependency>
+            <groupId>com.google.re2j</groupId>
+            <artifactId>re2j</artifactId>
+            <version>${re2j.version}</version>
         </dependency>
         <!-- Embedded, private Git history. This is bundled with the app so the
              history manager never depends on a separately installed Git client. -->

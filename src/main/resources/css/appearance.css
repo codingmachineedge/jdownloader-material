@@ -1,0 +1,279 @@
+/* Material 3 appearance-editor foundation.  Runtime profile values are applied
+ * as inline JavaFX CSS by AppearanceCss; these rules provide the editor's own
+ * responsive, accessible chrome and ensure the editor can customize itself. */
+.appearance-editor {
+    -appearance-surface: #fffbfe;
+    -appearance-surface-container: #f3edf7;
+    -appearance-surface-container-high: #ece6f0;
+    -appearance-on-surface: #1d1b20;
+    -appearance-on-surface-variant: #49454f;
+    -appearance-outline: #79747e;
+    -appearance-primary: #6750a4;
+    -appearance-on-primary: #ffffff;
+    -appearance-error: #ba1a1a;
+    -fx-background-color: -appearance-surface;
+    -fx-text-fill: -appearance-on-surface;
+    -fx-border-color: -appearance-outline;
+    -fx-border-width: 1;
+    -fx-background-radius: 28;
+    -fx-border-radius: 28;
+}
+
+.appearance-editor:appearance-dark {
+    -appearance-surface: #141218;
+    -appearance-surface-container: #211f26;
+    -appearance-surface-container-high: #2b2930;
+    -appearance-on-surface: #e6e0e9;
+    -appearance-on-surface-variant: #cac4d0;
+    -appearance-outline: #938f99;
+    -appearance-primary: #d0bcff;
+    -appearance-on-primary: #381e72;
+    -appearance-error: #ffb4ab;
+}
+
+.appearance-editor .label,
+.infinite-color-picker .label,
+.font-picker .label {
+    -fx-text-fill: -appearance-on-surface;
+}
+
+.appearance-editor-header {
+    -fx-padding: 18 20 14 20;
+    -fx-background-color: -appearance-surface-container;
+    -fx-background-radius: 24 24 0 0;
+}
+
+.appearance-editor-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+}
+
+.appearance-target-label,
+.appearance-capability {
+    -fx-text-fill: -appearance-on-surface-variant;
+    -fx-font-size: 12px;
+}
+
+.appearance-capability.warning {
+    -fx-text-fill: -appearance-error;
+    -fx-font-weight: 600;
+}
+
+.appearance-surface-search {
+    -fx-spacing: 4;
+}
+
+.appearance-editor-surface-search {
+    -fx-padding: 8 20 10 20;
+    -fx-background-color: -appearance-surface-container;
+}
+
+.appearance-surface-search > .regex-search-field {
+    -fx-max-width: 100000px;
+}
+
+.appearance-surface-search .regex-search-input {
+    -fx-min-height: 40px;
+}
+
+.appearance-search-status {
+    -fx-font-size: 12px;
+    -fx-text-fill: -appearance-on-surface-variant;
+}
+
+.appearance-search-status.invalid {
+    -fx-text-fill: -appearance-error;
+    -fx-font-weight: 600;
+}
+
+.appearance-search-results {
+    -fx-background-color: -appearance-surface-container;
+    -fx-border-color: -appearance-outline;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.appearance-confirmation {
+    -fx-background-color: -appearance-surface;
+    -fx-border-color: -appearance-outline;
+    -fx-border-width: 1;
+    -fx-background-radius: 24;
+    -fx-border-radius: 24;
+}
+
+.appearance-confirmation-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+}
+
+.appearance-confirmation-body {
+    -fx-text-fill: -appearance-on-surface-variant;
+}
+
+.appearance-confirmation-proceed {
+    -fx-background-color: -appearance-error;
+    -fx-text-fill: -appearance-on-error;
+}
+
+.appearance-editor-close {
+    -fx-min-width: 40px;
+    -fx-min-height: 40px;
+    -fx-background-radius: 20;
+}
+
+.appearance-editor-tabs {
+    -fx-padding: 0 12 8 12;
+    -fx-background-color: -appearance-surface;
+}
+
+.appearance-editor-tabs > .tab-header-area {
+    -fx-background-color: -appearance-surface;
+    -fx-padding: 8 12 10 12;
+}
+
+.appearance-editor-tabs > .tab-header-area > .tab-header-background {
+    -fx-background-color: transparent;
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region {
+    -fx-background-color: -appearance-surface-container-high;
+    -fx-background-radius: 22;
+    -fx-padding: 2;
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 18;
+    -fx-border-color: transparent;
+    -fx-border-radius: 18;
+    -fx-padding: 8 14 8 14;
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region > .tab:hover {
+    -fx-background-color: derive(-appearance-surface-container-high, -6%);
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: -appearance-primary;
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: -appearance-on-primary;
+}
+
+.appearance-editor-tabs > .tab-header-area > .headers-region > .tab:focused,
+.appearance-editor .button:focused,
+.appearance-editor .text-field:focused,
+.appearance-editor .combo-box:focused,
+.appearance-editor .list-view:focused {
+    -fx-border-color: -appearance-primary;
+    -fx-border-width: 2;
+    -fx-border-radius: 8;
+}
+
+.appearance-editor .scroll-pane,
+.appearance-editor .scroll-pane > .viewport,
+.appearance-editor .tab-content-area {
+    -fx-background-color: -appearance-surface;
+}
+
+.appearance-editor .button {
+    -fx-background-color: -appearance-surface-container-high;
+    -fx-text-fill: -appearance-on-surface;
+    -fx-background-radius: 20;
+    -fx-padding: 9 16 9 16;
+    -fx-min-height: 40px;
+    -fx-cursor: hand;
+}
+
+.appearance-editor .button:hover {
+    -fx-background-color: derive(-appearance-surface-container-high, -7%);
+}
+
+.appearance-editor .text-field,
+.appearance-editor .combo-box,
+.appearance-editor .list-view,
+.appearance-editor .color-picker {
+    -fx-background-color: -appearance-surface-container;
+    -fx-background-insets: 0;
+    -fx-text-fill: -appearance-on-surface;
+    -fx-background-radius: 12;
+    -fx-border-color: -appearance-outline;
+    -fx-border-radius: 12;
+    -fx-min-height: 40px;
+}
+
+.appearance-editor .combo-box > .arrow-button,
+.appearance-editor .color-picker > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 12 12 0;
+}
+
+.appearance-editor .combo-box > .arrow-button > .arrow,
+.appearance-editor .color-picker > .arrow-button > .arrow {
+    -fx-background-color: -appearance-on-surface-variant;
+}
+
+.appearance-editor .text-field.invalid {
+    -fx-border-color: -appearance-error;
+    -fx-border-width: 2;
+}
+
+.appearance-section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+    -fx-padding: 8 0 4 0;
+}
+
+.appearance-editor-status {
+    -fx-padding: 8 20 12 20;
+    -fx-text-fill: -appearance-error;
+    -fx-background-color: -appearance-surface-container;
+    -fx-background-radius: 0 0 24 24;
+}
+
+.appearance-color-preview {
+    -fx-background-radius: 12;
+    -fx-border-color: -appearance-outline;
+    -fx-border-radius: 12;
+}
+
+.appearance-swatch {
+    -fx-min-width: 40px;
+    -fx-min-height: 40px;
+    -fx-pref-width: 40px;
+    -fx-pref-height: 40px;
+    -fx-padding: 0;
+    -fx-border-color: -appearance-outline;
+    -fx-border-radius: 20;
+    -fx-background-radius: 20;
+}
+
+.appearance-density-compact .button,
+.appearance-density-compact .text-field,
+.appearance-density-compact .combo-box,
+.appearance-density-compact .color-picker {
+    -fx-min-height: 40px;
+    -fx-padding: 6 12 6 12;
+}
+
+.appearance-density-comfortable .button,
+.appearance-density-comfortable .text-field,
+.appearance-density-comfortable .combo-box,
+.appearance-density-comfortable .color-picker {
+    -fx-min-height: 48px;
+    -fx-padding: 12 18 12 18;
+}
+
+.appearance-density-compact .list-cell,
+.appearance-density-compact .table-row-cell,
+.appearance-density-compact .tree-table-row-cell {
+    -fx-cell-size: 36px;
+}
+
+.appearance-density-comfortable .list-cell,
+.appearance-density-comfortable .table-row-cell,
+.appearance-density-comfortable .tree-table-row-cell {
+    -fx-cell-size: 48px;
+}

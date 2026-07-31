@@ -27,8 +27,11 @@ import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.model.CrawledLink;
 import org.jdownloader.material.model.CrawledPackage;
 import org.jdownloader.material.model.LinkAvailability;
+import org.jdownloader.material.search.SafeSearchEvaluator;
+import org.jdownloader.material.search.SearchSpec;
 import org.jdownloader.material.ui.component.ActivityStatus;
 import org.jdownloader.material.ui.component.Mat;
+import org.jdownloader.material.ui.component.M3Dialogs;
 import org.jdownloader.material.util.Formats;
 
 import java.util.LinkedHashSet;
@@ -60,7 +63,8 @@ public final class LinkGrabberView extends BorderPane {
     };
     private volatile boolean disposed;
     private boolean rebuildScheduled;
-    private String filter = "";
+    private final SafeSearchEvaluator searchEvaluator = new SafeSearchEvaluator();
+    private SearchSpec searchSpec = SearchSpec.empty();
     private AvailabilityFilter availabilityFilter = AvailabilityFilter.ALL;
 
     public LinkGrabberView(DownloadEngine engine, ActivityStatus activity, Runnable openAddLinks, I18n i18n) {
@@ -144,7 +148,7 @@ public final class LinkGrabberView extends BorderPane {
         tree.setShowRoot(false);
         tree.setRoot(root);
         tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        tree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        tree.setColumnResizePolicy(TreeTableView.UNCONSTRAINED_RESIZE_POLICY);
         tree.setPlaceholder(Mat.label(i18n.text("empty.linkgrabber"), "empty-table-hint"));
 
         TreeTableColumn<Object, String> name = new TreeTableColumn<>(i18n.text("column.name"));
@@ -154,6 +158,7 @@ public final class LinkGrabberView extends BorderPane {
             if (o instanceof CrawledLink cl) return cl.nameProperty();
             return new ReadOnlyStringWrapper("");
         });
+        name.setMinWidth(320);
         name.setPrefWidth(320);
         name.setMaxWidth(Double.MAX_VALUE);
 
@@ -164,6 +169,7 @@ public final class LinkGrabberView extends BorderPane {
             return new ReadOnlyObjectWrapper<>(null);
         });
         avail.setCellFactory(availabilityCell());
+        avail.setMinWidth(130);
         avail.setPrefWidth(130);
         avail.setMaxWidth(Double.MAX_VALUE);
 
@@ -179,6 +185,7 @@ public final class LinkGrabberView extends BorderPane {
                 setText(empty ? null : "unknown".equalsIgnoreCase(value) ? i18n.text("host.unknown") : value);
             }
         });
+        host.setMinWidth(140);
         host.setPrefWidth(140);
         host.setMaxWidth(Double.MAX_VALUE);
 
@@ -196,6 +203,7 @@ public final class LinkGrabberView extends BorderPane {
                 setText(empty || v == null || v.longValue() <= 0 ? "" : Formats.bytes(v.longValue()));
             }
         });
+        size.setMinWidth(80);
         size.setPrefWidth(80);
         size.setMaxWidth(Double.MAX_VALUE);
 
@@ -205,6 +213,7 @@ public final class LinkGrabberView extends BorderPane {
             if (o instanceof CrawledLink cl) return cl.urlProperty();
             return new ReadOnlyStringWrapper("");
         });
+        url.setMinWidth(240);
         url.setPrefWidth(240);
         url.setMaxWidth(Double.MAX_VALUE);
 
@@ -308,14 +317,14 @@ public final class LinkGrabberView extends BorderPane {
         tree.getSelectionModel().clearSelection();
         root.getChildren().clear();
         for (CrawledPackage pkg : engine.crawledPackages()) {
-            boolean pkgMatch = filter.isEmpty() || pkg.name().toLowerCase().contains(filter);
+            boolean pkgMatch = searchSpec.expression().isEmpty() || searchEvaluator.matches(searchSpec, pkg.name());
             TreeItem<Object> pi = new TreeItem<>(pkg);
             pi.setExpanded(pkg.expandedProperty().get());
             pi.expandedProperty().addListener((o, wasExpanded, isExpanded) -> pkg.expandedProperty().set(isExpanded));
             for (CrawledLink l : pkg.links()) {
-                boolean textMatch = filter.isEmpty() || pkgMatch
-                        || l.name().toLowerCase().contains(filter)
-                        || l.host().toLowerCase().contains(filter);
+                boolean textMatch = searchSpec.expression().isEmpty() || pkgMatch
+                        || searchEvaluator.matches(searchSpec, l.name())
+                        || searchEvaluator.matches(searchSpec, l.host());
                 if (textMatch && availabilityFilter.matches(l.availability())) {
                     pi.getChildren().add(new TreeItem<>(l));
                 }
@@ -332,9 +341,13 @@ public final class LinkGrabberView extends BorderPane {
 
     /** Applies the search field hosted by the global application toolbar. */
     public void setFilter(String value) {
-        String next = value == null ? "" : value.trim().toLowerCase();
-        if (next.equals(filter)) return;
-        filter = next;
+        setSearchSpec(SearchSpec.plain(value == null ? "" : value.trim()));
+    }
+
+    public void setSearchSpec(SearchSpec value) {
+        SearchSpec next = value == null ? SearchSpec.empty() : value;
+        if (next.equals(searchSpec)) return;
+        searchSpec = next;
         requestRebuild();
     }
 
@@ -394,10 +407,14 @@ public final class LinkGrabberView extends BorderPane {
         Set<CrawledPackage> selectedPackages = selectedPackageRows();
         Set<CrawledLink> selectedLinks = selectedLinkRows(selectedPackages);
         if (selectedPackages.isEmpty() && selectedLinks.isEmpty()) return;
+        int n = selectedPackages.size() + selectedLinks.size();
+        if (!M3Dialogs.confirm(this, i18n.text("linkgrabber.remove_confirm_title"),
+                i18n.text("linkgrabber.remove_confirm_header", n),
+                i18n.text("linkgrabber.remove_confirm_body"),
+                i18n.text("stock.remote.confirm_cancel"), i18n.text("linkgrabber.remove_confirm_action"))) return;
         engine.removeCrawled(selectedPackages);
         engine.removeCrawledLinks(selectedLinks);
 
-        int n = selectedPackages.size() + selectedLinks.size();
         activity.info(i18n.text(n == 1 ? "activity.removed.one" : "activity.removed.many", n));
     }
 

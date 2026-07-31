@@ -5,6 +5,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import org.jdownloader.material.engine.DownloadEngine;
@@ -16,25 +17,34 @@ public final class StatusBar extends HBox {
 
     private final ActivityStatus activity;
     private final ChangeListener<Boolean> errorListener;
+    private final ChangeListener<Number> widthListener;
+    private final Label clipboardCopy;
+    private final Label retryCopy;
 
     public StatusBar(DownloadEngine engine, I18n i18n, ActivityStatus activity) {
         this.activity = activity;
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
 
-        Label clipboard = new Label();
-        clipboard.getStyleClass().add("status-metric");
-        clipboard.textProperty().bind(Bindings.createStringBinding(
+        clipboardCopy = new Label();
+        clipboardCopy.getStyleClass().add("status-metric");
+        clipboardCopy.textProperty().bind(Bindings.createStringBinding(
                 () -> i18n.text(engine.settings().clipboardMonitoringProperty().get()
                         ? "status.clipboard_on" : "status.clipboard_off"),
                 engine.settings().clipboardMonitoringProperty(), i18n.modeProperty()));
+        Label clipboardIcon = compactMetric("▣", clipboardCopy);
+        HBox clipboard = new HBox(5, clipboardIcon, clipboardCopy);
+        clipboard.setAlignment(Pos.CENTER_LEFT);
 
-        Label retry = new Label();
-        retry.getStyleClass().add("status-metric");
-        retry.textProperty().bind(Bindings.createStringBinding(
+        retryCopy = new Label();
+        retryCopy.getStyleClass().add("status-metric");
+        retryCopy.textProperty().bind(Bindings.createStringBinding(
                 () -> i18n.text(engine.retryScheduledProperty().get()
                         ? "status.retry_scheduled" : "status.auto_retry_ready"),
                 engine.retryScheduledProperty(), i18n.modeProperty()));
+        Label retryIcon = compactMetric("↻", retryCopy);
+        HBox retry = new HBox(5, retryIcon, retryCopy);
+        retry.setAlignment(Pos.CENTER_LEFT);
 
         Label activityMessage = new Label();
         activityMessage.getStyleClass().add("status-message");
@@ -81,6 +91,27 @@ public final class StatusBar extends HBox {
         right.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(activityMessage, Priority.ALWAYS);
         getChildren().addAll(clipboard, retry, activityMessage, Mat.hSpacer(), right);
+        widthListener = (observable, previous, current) -> updateResponsiveState(current.doubleValue());
+        widthProperty().addListener(widthListener);
+        updateResponsiveState(getWidth());
+    }
+
+    private Label compactMetric(String glyph, Label fullCopy) {
+        Label icon = new Label(glyph);
+        icon.getStyleClass().add("status-metric-icon");
+        icon.accessibleTextProperty().bind(fullCopy.textProperty());
+        Tooltip tooltip = new Tooltip();
+        tooltip.textProperty().bind(fullCopy.textProperty());
+        Tooltip.install(icon, tooltip);
+        return icon;
+    }
+
+    private void updateResponsiveState(double width) {
+        boolean compact = width > 0 && width < 1000;
+        clipboardCopy.setVisible(!compact);
+        clipboardCopy.setManaged(!compact);
+        retryCopy.setVisible(!compact);
+        retryCopy.setManaged(!compact);
     }
 
     private Label sep() {
@@ -91,5 +122,8 @@ public final class StatusBar extends HBox {
 
     public void dispose() {
         activity.errorProperty().removeListener(errorListener);
+        widthProperty().removeListener(widthListener);
+        clipboardCopy.textProperty().unbind();
+        retryCopy.textProperty().unbind();
     }
 }

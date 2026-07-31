@@ -1,0 +1,28 @@
+# version	date	category	commit	english	cantonese
+v0.1.2	2026-07-09	Build	849f0f9	Used a macOS-compatible package version.	改用 macOS 相容嘅套件版本。
+v0.1.3	2026-07-10	Documentation	1692f20	Documented the Material interface with screenshots.	用實際截圖記錄 Material 介面。
+v0.1.4	2026-07-10	Downloads	b48205d	Made download workflows fully non-blocking.	令下載流程全程唔塞住介面。
+v0.1.5	2026-07-10	Downloads	61d82db	Added resilient direct HTTP downloads and release automation.	加入更穩陣嘅直接 HTTP 下載同發佈自動化。
+v0.1.6	2026-07-10	Downloads	a1e5012	Improved the non-blocking download workflow.	改善唔阻塞介面嘅下載流程。
+v0.1.7	2026-07-10	Accessibility	86ea131	Added labels to application toolbar actions.	為應用程式工具列動作加上標籤。
+v0.1.8	2026-07-10	Localization	75eb0e4	Added English and Hong Kong Cantonese language modes.	加入英文同香港廣東話語言模式。
+v0.1.9	2026-07-10	History	8dcc8d5	Added append-only local Git history management.	加入只增不改嘅本機 Git 歷史管理。
+v0.1.10	2026-07-10	Workspace	221bc78	Added persistent workspace tabs and application branding.	加入可保存嘅工作區分頁同應用程式品牌。
+v0.1.11	2026-07-11	Design	495503d	Integrated the Material design-system interface rewrite.	整合 Material 設計系統介面重寫。
+v0.1.12	2026-07-12	Build	b904c1b	Expanded Java and build-output ignore rules.	擴充 Java 同建置輸出忽略規則。
+v0.1.13	2026-07-13	Accessibility	c317e0c	Integrated UI smoke and accessibility verification.	整合介面冒煙測試同無障礙驗證。
+v0.1.14	2026-07-16	Documentation	feae35e	Recorded the repository completion policy.	記錄儲存庫完成政策。
+v0.1.15	2026-07-30	Layout	bc9a735	Allowed status-bar activity text to use available space.	俾狀態列活動文字用盡可用空間。
+v0.1.16	2026-07-30	Layout	b11f5a0	Constrained growing text and enabled wrapping across views.	限制不停長大嘅文字，並喺各畫面啟用換行。
+v0.1.17	2026-07-30	Layout	3720500	Bounded status metrics, throughput labels, and settings text.	限制狀態數值、速度標籤同設定文字尺寸。
+v0.1.18	2026-07-30	Layout	67a2235	Added wrapping safeguards for navigation and section labels.	為導覽同分段標籤加入換行保障。
+v0.1.19	2026-07-30	Layout	5035b3c	Fixed table columns and notification text wrapping.	修正表格欄位同通知文字換行。
+v0.1.20	2026-07-30	Layout	adb1b55	Added table-cell wrapping safeguards.	加入表格儲存格換行保障。
+v0.1.21	2026-07-30	Layout	b7ef7bc	Replaced rigid widths with flexible History, Settings, and popup layouts.	用彈性配置取代歷史、設定同彈出選單嘅硬闊度。
+v0.1.22	2026-07-30	Layout	41b2443	Enabled global label wrapping for bilingual copy.	為雙語文字啟用全域標籤換行。
+v0.1.23	2026-07-30	Layout	c35dbe6	Removed the remaining rigid pixel widths.	移除剩低嘅硬編碼像素闊度。
+v0.1.24	2026-07-30	Layout	529d976	Removed the History detail width that forced horizontal scrolling.	移除逼歷史詳情橫向捲動嘅闊度限制。
+v0.1.25	2026-07-30	Layout	7edfe79	Relaxed text-container maximum widths on wide displays.	放寬闊螢幕文字容器嘅最大闊度。
+v0.1.26	2026-07-30	Layout	21d46e0	Enabled wrapping in context menus and tooltips.	為右鍵選單同提示啟用換行。
+v0.1.27	2026-07-30	Layout	48ff944	Made title, table, and column-header wrapping explicit.	明確啟用標題、表格同欄頭換行。
+v0.1.28	2026-07-30	Layout	49d970f	Expanded four remaining text labels to prevent clipping.	擴闊最後四個文字標籤，避免截字。

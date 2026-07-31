@@ -1,6 +1,7 @@
 package org.jdownloader.material.ui.view;
 
 import io.github.palexdev.materialfx.controls.MFXToggleButton;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Locale;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
@@ -16,6 +19,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.AccessibleRole;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Control;
@@ -26,6 +30,10 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Labeled;
+import javafx.scene.control.TextInputControl;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -36,28 +44,69 @@ import org.jdownloader.material.engine.LanguageMode;
 import org.jdownloader.material.engine.Settings;
 import org.jdownloader.material.engine.SettingsIO;
 import org.jdownloader.material.i18n.I18n;
+import org.jdownloader.material.integration.ExternalEditorActions;
+import org.jdownloader.material.integration.ExternalEditorService;
+import org.jdownloader.material.notification.NotificationService;
 import org.jdownloader.material.ui.Icons;
 import org.jdownloader.material.ui.component.Mat;
+import org.jdownloader.material.ui.component.M3Dialogs;
+import org.jdownloader.material.search.SearchSpec;
+import org.jdownloader.material.ui.search.SearchField;
 
 /** Material preferences screen: a page rail on the left, setting rows on the right. */
 public final class SettingsView extends BorderPane {
 
     private final Settings s;
     private final I18n i18n;
+    private final ExternalEditorActions externalEditors;
+    private final NotificationService notifications;
     private final StackPane content = new StackPane();
     private final ToggleGroup nav = new ToggleGroup();
     private final Map<String, ToggleButton> tabs = new HashMap<>();
     private final Map<String, ScrollPane> pages = new HashMap<>();
+    private final Map<String, Node> pageBodies = new HashMap<>();
+    private final Map<String, SearchField> pageSearches = new HashMap<>();
     private final List<Runnable> disposers = new ArrayList<>();
+    private final SearchField globalSearch;
+    private final javafx.scene.control.MenuButton searchResults = new javafx.scene.control.MenuButton();
+    private final Label searchStatus = Mat.label("", "caption");
+    private ComboBox<EditorOption> externalEditorChoice;
+    private TextField externalEditorCommand;
+    private Label externalEditorStatus;
+    private ButtonBase refreshExternalEditors;
+    private boolean updatingExternalEditorChoice;
+    private volatile boolean disposed;
     private String selectedTabKey;
 
     public SettingsView(Settings settings, I18n i18n) {
-        this(settings, i18n, "settings.tab.general");
+        this(settings, i18n, null, null, "settings.tab.general");
     }
 
     public SettingsView(Settings settings, I18n i18n, String selectedTabKey) {
+        this(settings, i18n, null, null, selectedTabKey);
+    }
+
+    public SettingsView(Settings settings, I18n i18n, ExternalEditorActions externalEditors) {
+        this(settings, i18n, externalEditors, null, "settings.tab.general");
+    }
+
+    public SettingsView(Settings settings, I18n i18n, ExternalEditorActions externalEditors,
+                        NotificationService notifications) {
+        this(settings, i18n, externalEditors, notifications, "settings.tab.general");
+    }
+
+    public SettingsView(Settings settings, I18n i18n, ExternalEditorActions externalEditors,
+                        String selectedTabKey) {
+        this(settings, i18n, externalEditors, null, selectedTabKey);
+    }
+
+    private SettingsView(Settings settings, I18n i18n, ExternalEditorActions externalEditors,
+                         NotificationService notifications, String selectedTabKey) {
         this.s = settings;
         this.i18n = i18n;
+        this.externalEditors = externalEditors;
+        this.notifications = notifications;
+        this.globalSearch = new SearchField(i18n, "settings.search.all");
         this.selectedTabKey = selectedTabKey == null ? "settings.tab.general" : selectedTabKey;
         getStyleClass().addAll("content-area", "page-view");
 
@@ -71,7 +120,13 @@ public final class SettingsView extends BorderPane {
         addTab(rail, "settings.tab.backup", "shield", backupPage());
         addTab(rail, "settings.tab.about", "info", aboutPage());
 
-        var header = new HBox(Mat.label(t("settings.title"), "headline", "page-title"));
+        Label heading = Mat.label(t("settings.title"), "headline", "page-title");
+        HBox.setHgrow(globalSearch, Priority.ALWAYS);
+        searchResults.setText(t("settings.search.results"));
+        searchResults.setAccessibleText(t("settings.search.results"));
+        HBox headerRow = new HBox(12, heading, Mat.hSpacer(), globalSearch, searchResults);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        VBox header = new VBox(4, headerRow, searchStatus);
         header.getStyleClass().addAll("view-header", "page-head");
         setTop(header);
         BorderPane panel = new BorderPane();
@@ -79,6 +134,8 @@ public final class SettingsView extends BorderPane {
         panel.setLeft(rail);
         panel.setCenter(content);
         setCenter(panel);
+        globalSearch.searchSpecProperty().addListener((observable, previous, current) -> refreshSearches());
+        refreshSearches();
     }
 
     private void addTab(VBox rail, String titleKey, String icon, Node page) {
@@ -89,11 +146,18 @@ public final class SettingsView extends BorderPane {
         tab.setMaxWidth(Double.MAX_VALUE);
         tab.setAlignment(Pos.CENTER_LEFT);
         tab.setToggleGroup(nav);
-        ScrollPane sp = new ScrollPane(page);
+        SearchField localSearch = new SearchField(i18n, "settings.search.tab");
+        localSearch.searchSpecProperty().addListener((observable, previous, current) -> refreshPage(titleKey));
+        VBox wrapper = new VBox(8, localSearch, page);
+        wrapper.getStyleClass().add("settings-searchable-page");
+        VBox.setVgrow(page, Priority.ALWAYS);
+        ScrollPane sp = new ScrollPane(wrapper);
         sp.setFitToWidth(true);
         sp.getStyleClass().add("edge-to-edge");
         tabs.put(titleKey, tab);
         pages.put(titleKey, sp);
+        pageBodies.put(titleKey, page);
+        pageSearches.put(titleKey, localSearch);
         tab.setOnAction(e -> showTab(titleKey));
         rail.getChildren().add(tab);
         if (titleKey.equals(selectedTabKey)) {
@@ -124,6 +188,77 @@ public final class SettingsView extends BorderPane {
         selectedTabKey = tabKey;
         tab.setSelected(true);
         content.getChildren().setAll(page);
+        refreshPage(tabKey);
+    }
+
+    /** Applies the workspace-level search while retaining each tab's independent local query. */
+    public void setSearchSpec(SearchSpec spec) {
+        globalSearch.setSearchSpec(spec == null ? SearchSpec.empty() : spec);
+    }
+
+    private void refreshSearches() {
+        searchResults.getItems().clear();
+        SearchSpec global = globalSearch.searchSpec();
+        int total = 0;
+        for (Map.Entry<String, Node> entry : pageBodies.entrySet()) {
+            long count = searchableChildren(entry.getValue()).stream()
+                    .filter(node -> matches(globalSearch, global, searchableText(node))).count();
+            if (count > 0) {
+                total += (int) count;
+                String tabKey = entry.getKey();
+                javafx.scene.control.MenuItem result = new javafx.scene.control.MenuItem(
+                        t(tabKey) + " · " + t("settings.search.match_count", count));
+                result.setOnAction(event -> showTab(tabKey));
+                searchResults.getItems().add(result);
+            }
+        }
+        searchStatus.setText(global.expression().isBlank() ? ""
+                : total == 0 ? t("settings.search.no_match")
+                : t("settings.search.summary", total, searchResults.getItems().size()));
+        searchResults.setDisable(searchResults.getItems().isEmpty());
+        pages.keySet().forEach(this::refreshPage);
+    }
+
+    private void refreshPage(String tabKey) {
+        Node body = pageBodies.get(tabKey);
+        SearchField local = pageSearches.get(tabKey);
+        if (body == null || local == null) return;
+        SearchSpec globalSpec = globalSearch.searchSpec();
+        SearchSpec localSpec = local.searchSpec();
+        for (Node node : searchableChildren(body)) {
+            String text = searchableText(node);
+            boolean visible = matches(globalSearch, globalSpec, text) && matches(local, localSpec, text);
+            node.setVisible(visible);
+            node.setManaged(visible);
+        }
+    }
+
+    private static List<Node> searchableChildren(Node body) {
+        if (body instanceof VBox box) return List.copyOf(box.getChildren());
+        return List.of(body);
+    }
+
+    private boolean matches(SearchField field, SearchSpec spec, String text) {
+        return spec.expression().isBlank()
+                || (field.validation().valid() && field.evaluator().matches(spec, text));
+    }
+
+    private static String searchableText(Node node) {
+        StringBuilder result = new StringBuilder();
+        appendText(node, result);
+        return result.toString();
+    }
+
+    private static void appendText(Node node, StringBuilder output) {
+        if (node instanceof Labeled labelled && labelled.getText() != null) output.append(labelled.getText()).append(' ');
+        if (node instanceof TextInputControl input) {
+            if (input.getText() != null) output.append(input.getText()).append(' ');
+            if (input.getPromptText() != null) output.append(input.getPromptText()).append(' ');
+        }
+        if (node instanceof ComboBox<?> combo && combo.getValue() != null) output.append(combo.getValue()).append(' ');
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) appendText(child, output);
+        }
     }
 
     // ------------------------------------------------------------- Pages
@@ -139,23 +274,157 @@ public final class SettingsView extends BorderPane {
         folder.textProperty().bindBidirectional(s.downloadFolderProperty());
         disposers.add(() -> folder.textProperty().unbindBidirectional(s.downloadFolderProperty()));
         HBox.setHgrow(folder, Priority.ALWAYS);
-        HBox folderCtl = new HBox(folder);
+        folder.setMaxWidth(Double.MAX_VALUE);
+        ButtonBase openFolder = Mat.tonal(t("external_editor.open_folder"), "folder");
+        openFolder.setAccessibleHelp(t("external_editor.open_folder_help"));
+        openFolder.setDisable(externalEditors == null);
+        openFolder.setOnAction(event -> {
+            if (externalEditors != null) externalEditors.openDownloadFolder();
+        });
+        HBox folderCtl = new HBox(8, folder, openFolder);
         folderCtl.setAlignment(Pos.CENTER_LEFT);
 
         ComboBox<Settings.IfExists> ifExists = ifExistsSelector();
         ifExists.valueProperty().bindBidirectional(s.ifFileExistsProperty());
         disposers.add(() -> ifExists.valueProperty().unbindBidirectional(s.ifFileExistsProperty()));
 
+        externalEditorCommand = new TextField(s.externalEditorCommandProperty().get());
+        externalEditorCommand.setPromptText(t("settings.external_editor_placeholder"));
+        externalEditorCommand.textProperty().bindBidirectional(s.externalEditorCommandProperty());
+        disposers.add(() -> externalEditorCommand.textProperty()
+                .unbindBidirectional(s.externalEditorCommandProperty()));
+        externalEditorCommand.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(externalEditorCommand, Priority.ALWAYS);
+        Node editorChooser = externalEditorChooser();
+
         return page(
                 sectionTitle(t("settings.section.downloads")),
                 row(t("settings.default_folder"), t("desc.default_folder"), folderCtl),
                 row(t("settings.simultaneous"), t("desc.simultaneous"),
                         slider(s.maxSimultaneousDownloadsProperty(), 1, 10, 1)),
-                row(t("settings.if_exists"), t("desc.if_exists"), ifExists)
+                row(t("settings.if_exists"), t("desc.if_exists"), ifExists),
+                sectionTitle(t("settings.section.experience")),
+                row(t("settings.dim_sum"), t("desc.dim_sum"), toggle(s.dimSumSurpriseEnabledProperty())),
+                row(t("settings.quiet_hours"), t("desc.quiet_hours"), toggle(s.quietHoursProperty())),
+                row(t("settings.notification_history"), t("desc.notification_history"),
+                        toggle(s.notificationHistoryEnabledProperty())),
+                sectionTitle(t("settings.section.external_editor")),
+                row(t("settings.external_editor_choice"), t("desc.external_editor_choice"), editorChooser),
+                row(t("settings.external_editor"), t("desc.external_editor"), externalEditorCommand)
         );
     }
 
+    private Node externalEditorChooser() {
+        externalEditorChoice = new ComboBox<>();
+        externalEditorChoice.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(externalEditorChoice, Priority.ALWAYS);
+        externalEditorChoice.valueProperty().addListener((observable, previous, current) -> {
+            if (updatingExternalEditorChoice || current == null) return;
+            s.externalEditorSelectionProperty().set(current.id());
+            updateExternalEditorCommandState();
+        });
+        ChangeListener<String> selectionListener = (observable, previous, current) ->
+                rebuildExternalEditorChoices(externalEditors == null ? List.of() : externalEditors.detectedEditors());
+        s.externalEditorSelectionProperty().addListener(selectionListener);
+        disposers.add(() -> s.externalEditorSelectionProperty().removeListener(selectionListener));
+
+        refreshExternalEditors = Mat.icon("reconnect", t("settings.external_editor_refresh_help"));
+        refreshExternalEditors.setDisable(externalEditors == null);
+        refreshExternalEditors.setOnAction(event -> refreshExternalEditors());
+        HBox chooser = new HBox(8, externalEditorChoice, refreshExternalEditors);
+        chooser.setAlignment(Pos.CENTER_LEFT);
+
+        externalEditorStatus = Mat.label("", "row-desc");
+        externalEditorStatus.setWrapText(true);
+        externalEditorStatus.setMaxWidth(Double.MAX_VALUE);
+        rebuildExternalEditorChoices(externalEditors == null ? List.of() : externalEditors.detectedEditors());
+        if (externalEditors != null) refreshExternalEditors();
+        return new VBox(4, chooser, externalEditorStatus);
+    }
+
+    private void refreshExternalEditors() {
+        if (externalEditors == null || disposed) return;
+        refreshExternalEditors.setDisable(true);
+        setExternalEditorStatus(t("settings.external_editor_detecting"));
+        notifyInfo(t("settings.section.external_editor"), t("settings.external_editor_detecting"));
+        externalEditors.refreshDetectedEditors().whenComplete((editors, failure) -> Platform.runLater(() -> {
+            if (disposed) return;
+            refreshExternalEditors.setDisable(false);
+            if (failure == null) {
+                rebuildExternalEditorChoices(editors);
+                refreshSearches();
+                notifySuccess(t("settings.section.external_editor"),
+                        t("settings.external_editor_detected", editors.size()));
+            } else {
+                setExternalEditorStatus(t("settings.external_editor_detection_failed"));
+                notifyError(t("settings.section.external_editor"), t("settings.external_editor_detection_failed"));
+            }
+        }));
+    }
+
+    private void rebuildExternalEditorChoices(List<ExternalEditorService.Editor> editors) {
+        List<ExternalEditorService.Editor> safe = editors == null ? List.of() : List.copyOf(editors);
+        List<EditorOption> choices = new ArrayList<>();
+        choices.add(new EditorOption(ExternalEditorService.AUTO_SELECTION, safe.isEmpty()
+                ? t("settings.external_editor_auto")
+                : t("settings.external_editor_auto_with", safe.getFirst().name())));
+        safe.forEach(editor -> choices.add(new EditorOption(editor.id(), editor.name())));
+        String selected = s.externalEditorSelectionProperty().get();
+        boolean selectionAvailable = choices.stream().anyMatch(option -> option.id().equals(selected));
+        if (!selectionAvailable && !ExternalEditorService.CUSTOM_SELECTION.equals(selected)
+                && selected != null && !selected.isBlank()) {
+            choices.add(new EditorOption(selected, t("settings.external_editor_missing", selected)));
+        }
+        choices.add(new EditorOption(ExternalEditorService.CUSTOM_SELECTION,
+                t("settings.external_editor_custom")));
+        updatingExternalEditorChoice = true;
+        try {
+            externalEditorChoice.getItems().setAll(choices);
+            selectExternalEditor(selected);
+        } finally {
+            updatingExternalEditorChoice = false;
+        }
+        updateExternalEditorCommandState();
+        setExternalEditorStatus(safe.isEmpty() ? t("settings.external_editor_none_detected")
+                : t("settings.external_editor_detected", safe.size()));
+    }
+
+    private void selectExternalEditor(String id) {
+        if (externalEditorChoice == null) return;
+        String selected = id == null || id.isBlank() ? ExternalEditorService.AUTO_SELECTION : id;
+        EditorOption option = externalEditorChoice.getItems().stream()
+                .filter(candidate -> candidate.id().equals(selected)).findFirst()
+                .orElseGet(() -> externalEditorChoice.getItems().stream()
+                        .filter(candidate -> candidate.id().equals(ExternalEditorService.AUTO_SELECTION))
+                        .findFirst().orElse(null));
+        updatingExternalEditorChoice = true;
+        try {
+            externalEditorChoice.setValue(option);
+        } finally {
+            updatingExternalEditorChoice = false;
+        }
+        updateExternalEditorCommandState();
+    }
+
+    private void updateExternalEditorCommandState() {
+        if (externalEditorCommand == null || externalEditorChoice == null) return;
+        EditorOption selected = externalEditorChoice.getValue();
+        boolean custom = selected != null
+                && ExternalEditorService.CUSTOM_SELECTION.equals(selected.id());
+        externalEditorCommand.setDisable(!custom);
+    }
+
+    private void setExternalEditorStatus(String text) {
+        externalEditorStatus.setText(text);
+        externalEditorStatus.setAccessibleText(text);
+    }
+
     private Node connectionPage() {
+        TextField remoteBase = new TextField(s.remoteApiBaseUrlProperty().get());
+        remoteBase.setPromptText(t("settings.remote_api_placeholder"));
+        remoteBase.textProperty().bindBidirectional(s.remoteApiBaseUrlProperty());
+        disposers.add(() -> remoteBase.textProperty().unbindBidirectional(s.remoteApiBaseUrlProperty()));
+        HBox.setHgrow(remoteBase, Priority.ALWAYS);
         return page(
                 sectionTitle(t("settings.section.bandwidth")),
                 row(t("settings.speed_limit_enable"), t("desc.speed_limit_enable"),
@@ -163,7 +432,9 @@ public final class SettingsView extends BorderPane {
                 row(t("settings.speed_limit"), t("desc.speed_limit"),
                         slider(s.speedLimitKbpsProperty(), 128, 20000, 128)),
                 row(t("settings.host_connections"), t("desc.host_connections"),
-                        slider(s.maxConnectionsPerHostProperty(), 1, 20, 1))
+                        slider(s.maxConnectionsPerHostProperty(), 1, 20, 1)),
+                sectionTitle(t("settings.section.remote_api")),
+                row(t("settings.remote_api"), t("desc.remote_api"), remoteBase)
         );
     }
 
@@ -190,12 +461,20 @@ public final class SettingsView extends BorderPane {
     }
 
     private Node appearancePage() {
+        Label disclosure = Mat.label(t("settings.funny_disclosure"), "row-desc");
+        disclosure.setWrapText(true);
         return page(
                 sectionTitle(t("settings.section.appearance")),
                 row(t("settings.dark_theme"), t("desc.dark_theme"), toggle(s.darkThemeProperty())),
                 row(t("settings.speed_in_title"), t("desc.speed_in_title"),
                         toggle(s.speedInTitleProperty())),
-                row(t("settings.language"), t("desc.language"), languageSelector())
+                row(t("settings.language"), t("desc.language"), languageSelector()),
+                row(t("settings.english_funny"), t("desc.english_funny"),
+                        slider(s.englishFunnyLevelProperty(), 1, 5, 1)),
+                row(t("settings.cantonese_funny"), t("desc.cantonese_funny"),
+                        slider(s.cantoneseFunnyLevelProperty(), 1, 5, 1)),
+                disclosure,
+                row(t("settings.reduced_motion"), t("desc.reduced_motion"), toggle(s.reducedMotionProperty()))
         );
     }
 
@@ -258,11 +537,14 @@ public final class SettingsView extends BorderPane {
 
         final Path output;
         try {
-            output = Path.of(rawPath);
+            output = Path.of(rawPath).toAbsolutePath().normalize();
         } catch (RuntimeException ex) {
             status.setText(t("status.backup.invalid_path"));
             return;
         }
+        if (Files.exists(output) && !M3Dialogs.confirm(this, t("settings.export_overwrite_title"),
+                t("settings.export_overwrite_header"), t("settings.export_overwrite_body", output),
+                t("stock.remote.confirm_cancel"), t("settings.export_button"))) return;
         Properties snapshot = SettingsIO.snapshot(s);
         char[] secret = SettingsIO.chars(passphrase);
         passphraseField.clear();
@@ -278,14 +560,20 @@ public final class SettingsView extends BorderPane {
                 }
             }
         };
-        task.setOnRunning(e -> status.setText(t("status.backup.exporting")));
+        task.setOnRunning(e -> {
+            status.setText(t("status.backup.exporting"));
+            notifyInfo(t("settings.export"), t("status.backup.exporting"));
+        });
         task.setOnSucceeded(e -> {
             button.setDisable(false);
             status.setText(t("status.backup.exported", output.toAbsolutePath()));
+            notifySuccess(t("settings.export"), t("status.backup.exported", output.toAbsolutePath()));
         });
         task.setOnFailed(e -> {
             button.setDisable(false);
-            status.setText(t("status.backup.export_failed", taskMessage(task.getException())));
+            String message = t("status.backup.export_failed", taskMessage(task.getException()));
+            status.setText(message);
+            notifyError(t("settings.export"), message);
         });
         button.setDisable(true);
         status.setText(t("status.backup.exporting"));
@@ -324,15 +612,28 @@ public final class SettingsView extends BorderPane {
                 }
             }
         };
-        task.setOnRunning(e -> status.setText(t("status.backup.importing")));
+        task.setOnRunning(e -> {
+            status.setText(t("status.backup.importing"));
+            notifyInfo(t("settings.import"), t("status.backup.importing"));
+        });
         task.setOnSucceeded(e -> {
             button.setDisable(false);
-            SettingsIO.apply(task.getValue(), s);
-            status.setText(t("status.backup.imported", input.toAbsolutePath()));
+            if (M3Dialogs.confirm(this, t("settings.import_confirm_title"),
+                    t("settings.import_confirm_header"), t("settings.import_confirm_body", input.toAbsolutePath()),
+                    t("stock.remote.confirm_cancel"), t("settings.import_button"))) {
+                SettingsIO.apply(task.getValue(), s);
+                status.setText(t("status.backup.imported", input.toAbsolutePath()));
+                notifySuccess(t("settings.import"), t("status.backup.imported", input.toAbsolutePath()));
+            } else {
+                status.setText(t("status.backup.import_cancelled"));
+                notifyInfo(t("settings.import"), t("status.backup.import_cancelled"));
+            }
         });
         task.setOnFailed(e -> {
             button.setDisable(false);
-            status.setText(t("status.backup.import_failed", taskMessage(task.getException())));
+            String message = t("status.backup.import_failed", taskMessage(task.getException()));
+            status.setText(message);
+            notifyError(t("settings.import"), message);
         });
         button.setDisable(true);
         status.setText(t("status.backup.importing"));
@@ -359,10 +660,27 @@ public final class SettingsView extends BorderPane {
 
     private Node aboutPage() {
         String version = System.getProperty("jdownloader.material.version", "0.1.0");
-        var mark = new StackPane(Icons.of("download", 28, "icon-on-primary"));
+        Node logo = Icons.of("download", 28, "icon-on-primary");
+        var resource = SettingsView.class.getResource("/icons/app.png");
+        if (resource != null) {
+            Image image = new Image(resource.toExternalForm(), 48, 48, true, true, false);
+            if (!image.isError()) {
+                ImageView imageView = new ImageView(image);
+                imageView.setFitWidth(48);
+                imageView.setFitHeight(48);
+                imageView.setPreserveRatio(true);
+                imageView.setSmooth(true);
+                imageView.setAccessibleRole(AccessibleRole.IMAGE_VIEW);
+                imageView.setAccessibleText("JDownloader Material");
+                logo = imageView;
+            }
+        }
+        var mark = new StackPane(logo);
         mark.getStyleClass().add("app-mark");
         mark.setMinSize(56, 56);
         mark.setMaxSize(56, 56);
+        mark.setAccessibleRole(AccessibleRole.IMAGE_VIEW);
+        mark.setAccessibleText("JDownloader Material");
         var about = new VBox(6,
                 Mat.label(t("app.title"), "display"),
                 Mat.label(t("about.version", version), "body"),
@@ -489,7 +807,28 @@ public final class SettingsView extends BorderPane {
     }
 
     public void dispose() {
+        if (disposed) return;
+        disposed = true;
+        globalSearch.dispose();
+        pageSearches.values().forEach(SearchField::dispose);
+        pageSearches.clear();
         disposers.forEach(Runnable::run);
         disposers.clear();
+    }
+
+    private void notifyInfo(String title, String body) {
+        if (notifications != null) notifications.info(title, body);
+    }
+
+    private void notifySuccess(String title, String body) {
+        if (notifications != null) notifications.success(title, body);
+    }
+
+    private void notifyError(String title, String body) {
+        if (notifications != null) notifications.error(title, body);
+    }
+
+    private record EditorOption(String id, String label) {
+        @Override public String toString() { return label; }
     }
 }

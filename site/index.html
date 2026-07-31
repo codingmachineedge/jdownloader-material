@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="JDownloader Material is an independent JavaFX workspace for direct HTTP(S) downloads, with LinkGrabber, local history, light and dark themes, and native installers.">
+  <meta name="description" content="JDownloader Material is a Windows JavaFX workspace for direct HTTP(S) downloads, browser-style tabs, safe RE2/J search, local history, live Material 3 appearance and an optional installed-JDownloader loopback bridge.">
   <meta name="theme-color" content="#111318">
   <meta property="og:type" content="website">
   <meta property="og:title" content="JDownloader Material">
-  <meta property="og:description" content="A focused JavaFX workspace for direct HTTP(S) downloads.">
-  <meta property="og:url" content="https://codingmachineedge.github.io/jdownloader-material/">
+  <meta property="og:description" content="A tabbed Material 3 Windows workspace for direct downloads and optional strict-loopback control of an installed JDownloader instance.">
+  <meta property="og:url" content="https://ding-ding-projects.github.io/jdownloader-material/">
   <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="https://codingmachineedge.github.io/jdownloader-material/">
+  <link rel="canonical" href="https://ding-ding-projects.github.io/jdownloader-material/">
   <link rel="icon" href="assets/jdownloader-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
-  <title>JDownloader Material — direct downloads, clearly managed</title>
+  <link rel="stylesheet" href="material-system.css">
+  <title>JDownloader Material — tabbed Windows download workspace</title>
   <script>
     (() => {
       document.documentElement.classList.add('js');
@@ -32,48 +33,158 @@
         <img src="assets/jdownloader-mark.svg" width="36" height="36" alt="">
         <span>
           <strong>JDownloader Material</strong>
-          <small>Direct HTTP(S) workspace</small>
+          <small>Windows download workspace</small>
         </span>
       </a>
       <nav class="header-nav" aria-label="Main navigation">
-        <a href="#workflow">Workflow</a>
-        <a href="#interface">Interface</a>
-        <a href="#under-the-hood">Details</a>
-        <a href="https://github.com/codingmachineedge/jdownloader-material/tree/main/docs">Docs</a>
+        <a href="#workflow" data-site-tab-link="workflow">Workflow</a>
+        <a href="#interface" data-site-tab-link="interface">Interface</a>
+        <a href="#under-the-hood" data-site-tab-link="under-the-hood">Details</a>
+        <a href="#contracts" data-site-tab-link="contracts">Features</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/tree/main/docs">Docs</a>
       </nav>
       <details class="header-menu">
         <summary aria-label="Open main navigation">Menu</summary>
         <nav aria-label="Main navigation">
-          <a href="#workflow">Workflow</a>
-          <a href="#interface">Interface</a>
-          <a href="#under-the-hood">Details</a>
-          <a href="https://github.com/codingmachineedge/jdownloader-material/tree/main/docs">Docs</a>
+          <a href="#workflow" data-site-tab-link="workflow">Workflow</a>
+          <a href="#interface" data-site-tab-link="interface">Interface</a>
+          <a href="#under-the-hood" data-site-tab-link="under-the-hood">Details</a>
+          <a href="#contracts" data-site-tab-link="contracts">Features</a>
+          <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/tree/main/docs">Docs</a>
         </nav>
       </details>
       <div class="header-actions">
+        <label class="header-language" for="header-language"><span class="visually-hidden">Language mode</span>
+          <select id="header-language" data-language-picker aria-label="Language mode">
+            <option value="en">English</option>
+            <option value="yue" lang="yue">香港粵語</option>
+            <option value="both">English · 香港粵語</option>
+          </select>
+        </label>
+        <button class="icon-button" type="button" data-open-notifications aria-label="Open notification history" aria-haspopup="dialog" aria-controls="notification-center">
+          <span aria-hidden="true">●</span><span class="notification-count" data-notification-count hidden>0</span>
+        </button>
         <button class="icon-button theme-button" type="button" data-theme-toggle aria-label="Switch to light theme" aria-pressed="false">
           <span class="theme-glyph" aria-hidden="true"></span>
         </button>
-        <a class="button button-small button-primary" href="https://github.com/codingmachineedge/jdownloader-material/releases/latest">Get the latest release</a>
+        <a class="button button-small button-secondary" href="#settings" data-site-tab-link="settings" data-copy-key="settings.open">Settings</a>
+        <a class="button button-small button-primary header-release" href="https://github.com/Ding-Ding-Projects/jdownloader-material/releases/latest"><span class="release-label-wide">Get the latest release</span><span class="release-label-compact">Release</span></a>
       </div>
     </div>
   </header>
 
+  <section class="site-tabs-shell" aria-label="Site pages">
+    <div class="site-tabbar shell">
+      <div class="site-tabstrip" role="tablist" aria-label="JDownloader Material site pages" aria-orientation="horizontal">
+        <button id="site-tab-top" type="button" role="tab" aria-controls="top" aria-selected="true" tabindex="0" draggable="true" data-site-tab="top" data-tab-group="start" data-copy-key="tab.overview">Overview</button>
+        <button id="site-tab-workflow" type="button" role="tab" aria-controls="workflow" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="workflow" data-tab-group="start" data-copy-key="tab.workflow">Workflow</button>
+        <button id="site-tab-interface" type="button" role="tab" aria-controls="interface" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="interface" data-tab-group="workspace" data-copy-key="tab.interface">Interface demo</button>
+        <button id="site-tab-under-the-hood" type="button" role="tab" aria-controls="under-the-hood" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="under-the-hood" data-tab-group="workspace" data-copy-key="tab.architecture">Architecture</button>
+        <button id="site-tab-contracts" type="button" role="tab" aria-controls="contracts" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="contracts" data-tab-group="learn" data-copy-key="tab.features">Features</button>
+        <button id="site-tab-guide" type="button" role="tab" aria-controls="guide" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="guide" data-tab-group="learn" data-copy-key="tab.guide">Feature guide</button>
+        <button id="site-tab-download" type="button" role="tab" aria-controls="download" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="download" data-tab-group="system" data-copy-key="tab.install">Install</button>
+        <button id="site-tab-settings" type="button" role="tab" aria-controls="settings" aria-selected="false" tabindex="-1" draggable="true" data-site-tab="settings" data-tab-group="system" data-copy-key="tab.settings">Settings</button>
+      </div>
+      <div class="site-tab-tools">
+        <label class="visually-hidden" for="site-tab-search">Search current tab strip</label>
+        <input id="site-tab-search" type="search" maxlength="256" autocomplete="off" placeholder="Search tabs" aria-describedby="site-tab-search-status">
+        <button class="tab-tool-button" type="button" data-site-tab-regex aria-haspopup="dialog" aria-controls="site-tab-regex-builder" aria-expanded="false" title="Open regex builder">.*</button>
+        <button class="tab-tool-button" type="button" data-edit-site-tab aria-label="Edit active tab appearance" aria-haspopup="dialog" aria-controls="site-tab-appearance" aria-expanded="false"><span class="tab-tool-label-wide">Edit tab appearance…</span><span class="tab-tool-label-compact" aria-hidden="true">Appearance</span></button>
+        <details class="site-tab-overflow">
+          <summary aria-label="Open complete tab list">All tabs</summary>
+          <nav aria-label="Complete site tab list">
+            <a href="#top" data-site-tab-link="top">Overview</a>
+            <a href="#workflow" data-site-tab-link="workflow">Workflow</a>
+            <a href="#interface" data-site-tab-link="interface">Interface demo</a>
+            <a href="#under-the-hood" data-site-tab-link="under-the-hood">Architecture</a>
+            <a href="#contracts" data-site-tab-link="contracts">Features</a>
+            <a href="#guide" data-site-tab-link="guide">Feature guide</a>
+            <a href="#download" data-site-tab-link="download">Install</a>
+            <a href="#settings" data-site-tab-link="settings">Settings</a>
+          </nav>
+        </details>
+        <output id="site-tab-search-status" class="visually-hidden" aria-live="polite">8 tabs</output>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-tab-regex-builder" class="site-tab-popover" role="dialog" aria-modal="false" aria-labelledby="site-tab-regex-title" hidden>
+    <div class="popover-heading">
+      <div><strong id="site-tab-regex-title">Tab-search regex builder</strong><small>Browser ECMAScript regex · evaluated locally against visible tab labels</small></div>
+      <button type="button" data-close-site-popover aria-label="Close regex builder">×</button>
+    </div>
+    <fieldset>
+      <legend>Match mode</legend>
+      <label><input type="radio" name="site-tab-search-mode" value="plain" checked> Plain text</label>
+      <label><input type="radio" name="site-tab-search-mode" value="regex"> Regular expression</label>
+    </fieldset>
+    <label for="site-tab-pattern">Synchronized pattern</label>
+    <input id="site-tab-pattern" type="text" maxlength="256" autocomplete="off">
+    <div class="regex-guides" aria-label="Guided pattern fragments">
+      <button type="button" data-regex-guide="literal">Literal</button>
+      <button type="button" data-regex-guide="[A-Za-z]">Class</button>
+      <button type="button" data-regex-guide="^$">Anchors</button>
+      <button type="button" data-regex-guide="()">Group</button>
+      <button type="button" data-regex-guide="(?:a|b)">Alternation</button>
+      <button type="button" data-regex-guide="{1,3}">Quantifier</button>
+    </div>
+    <fieldset>
+      <legend>Flags</legend>
+      <label><input type="checkbox" value="i" data-site-regex-flag checked> Case-insensitive</label>
+      <label><input type="checkbox" value="m" data-site-regex-flag> Multiline</label>
+      <label><input type="checkbox" value="s" data-site-regex-flag> Dotall</label>
+    </fieldset>
+    <label for="site-tab-sample">Bounded sample text</label>
+    <textarea id="site-tab-sample" maxlength="2048" rows="3" placeholder="Try a label or sample here"></textarea>
+    <output id="site-tab-regex-validation" class="popover-status" aria-live="polite">Plain text mode · 6 matching tabs</output>
+    <div class="popover-actions">
+      <button type="button" data-copy-site-pattern>Copy pattern</button>
+      <button type="button" data-close-site-popover>Done</button>
+    </div>
+  </div>
+
+  <div id="site-tab-appearance" class="site-tab-popover" role="dialog" aria-modal="false" aria-labelledby="site-tab-appearance-title" hidden>
+    <div class="popover-heading">
+      <div><strong id="site-tab-appearance-title">Edit tab appearance…</strong><small id="site-tab-appearance-target">Overview</small></div>
+      <button type="button" data-close-site-popover aria-label="Close appearance editor">×</button>
+    </div>
+    <div class="appearance-grid">
+      <label>Background <input type="color" value="#d1e4e2" data-tab-style="background"></label>
+      <label>Text <input type="color" value="#00382f" data-tab-style="color"></label>
+      <label>Font
+        <select data-tab-style="fontFamily">
+          <option value="system-ui, sans-serif">System sans</option>
+          <option value="'Segoe UI Variable', 'Segoe UI', sans-serif">Segoe UI</option>
+          <option value="Georgia, serif">Serif</option>
+          <option value="'Cascadia Mono', Consolas, monospace">Monospace</option>
+        </select>
+      </label>
+      <label>Size <input type="range" min="12" max="22" step="1" value="14" data-tab-style="fontSize"></label>
+      <label>Weight <select data-tab-style="fontWeight"><option>400</option><option selected>600</option><option>700</option><option>800</option></select></label>
+      <label>Radius <input type="range" min="0" max="24" step="1" value="12" data-tab-style="borderRadius"></label>
+    </div>
+    <p class="popover-status">Changes apply live to this tab and persist only in this browser. Use Reset to restore Material defaults.</p>
+    <div class="popover-actions">
+      <button type="button" data-reset-site-tab>Reset tab</button>
+      <button type="button" data-close-site-popover>Done</button>
+    </div>
+  </div>
+
   <main id="main">
-    <section class="hero" id="top" aria-labelledby="hero-title">
+    <section class="hero site-tab-panel" id="top" role="tabpanel" aria-labelledby="site-tab-top" tabindex="0">
       <div class="hero-glow" aria-hidden="true"></div>
       <div class="shell hero-grid">
         <div class="hero-copy reveal">
           <p class="eyebrow"><span class="eyebrow-dot"></span> Independent JavaFX desktop project</p>
           <h1 id="hero-title">Direct downloads,<br><span>without losing the thread.</span></h1>
-          <p class="hero-lede">Paste direct HTTP(S) links, inspect them in LinkGrabber, queue transfers, and return to an append-only local history — all in a responsive Material 3 workspace.</p>
+          <p class="hero-lede">Paste direct HTTP(S) links, inspect them in LinkGrabber, queue transfers, or open stock pages from an installed local JDownloader — all in a tabbed, searchable and deeply customizable Material 3 workspace.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/codingmachineedge/jdownloader-material/releases/latest">
+            <a class="button button-primary" href="https://github.com/Ding-Ding-Projects/jdownloader-material/releases/latest">
               Download latest release <span aria-hidden="true">↓</span>
             </a>
-            <a class="button button-secondary" href="https://github.com/codingmachineedge/jdownloader-material">View source on GitHub</a>
+            <a class="button button-secondary" href="https://github.com/Ding-Ding-Projects/jdownloader-material">View source on GitHub</a>
           </div>
-          <p class="release-note">Self-contained installers for Windows x64, Linux x64, and macOS on Apple Silicon or Intel.</p>
+          <p class="release-note">One self-contained Windows x64 installer with Java 25 and the project icon.</p>
         </div>
 
         <div class="hero-console reveal" role="region" aria-label="Sample download activity" data-delay="1">
@@ -116,18 +227,18 @@
       <div class="shell fact-strip reveal" data-delay="2" role="list" aria-label="Project technology and language support">
         <div role="listitem"><span class="fact-index">01</span><strong>Java 25</strong><small>Bundled in installers</small></div>
         <div role="listitem"><span class="fact-index">02</span><strong>JavaFX 25</strong><small>Desktop-native interface</small></div>
-        <div role="listitem"><span class="fact-index">03</span><strong>Light + dark</strong><small>Immediate theme switch</small></div>
-        <div role="listitem"><span class="fact-index">04</span><strong>EN · <span lang="yue">粵</span> · bilingual</strong><small>Three language modes</small></div>
+        <div role="listitem"><span class="fact-index">03</span><strong>Live M3 appearance</strong><small>Per-element editing</small></div>
+        <div role="listitem"><span class="fact-index">04</span><strong>EN · <span lang="yue">粵</span> · bilingual</strong><small>Two independent funny levels</small></div>
       </div>
     </section>
 
-    <section class="section workflow-section" id="workflow" aria-labelledby="workflow-title">
+    <section class="section workflow-section site-tab-panel" id="workflow" role="tabpanel" aria-labelledby="site-tab-workflow" tabindex="0" hidden>
       <div class="shell section-grid">
         <div class="section-intro reveal">
           <p class="eyebrow">A clear transfer flow</p>
           <h2 id="workflow-title">From copied link to completed file.</h2>
           <p>Every stage has its own place, so a probe, retry, or history write does not interrupt the rest of the workspace.</p>
-          <a class="text-link" href="https://github.com/codingmachineedge/jdownloader-material/blob/main/docs/UI_GUIDE.md">Read the UI guide <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/UI_GUIDE.md">Read the UI guide <span aria-hidden="true">→</span></a>
         </div>
         <ol class="workflow-list reveal" data-delay="1">
           <li>
@@ -149,7 +260,7 @@
       </div>
     </section>
 
-    <section class="section interface-section" id="interface" aria-labelledby="interface-title">
+    <section class="section interface-section site-tab-panel" id="interface" role="tabpanel" aria-labelledby="site-tab-interface" tabindex="0" hidden>
       <div class="shell">
         <div class="interface-heading reveal">
           <div>
@@ -180,7 +291,7 @@
       </div>
     </section>
 
-    <section class="section details-section" id="under-the-hood" aria-labelledby="details-title">
+    <section class="section details-section site-tab-panel" id="under-the-hood" role="tabpanel" aria-labelledby="site-tab-under-the-hood" tabindex="0" hidden>
       <div class="shell">
         <div class="details-heading reveal">
           <p class="eyebrow">Built around real transfer work</p>
@@ -200,10 +311,25 @@
             <div class="history-trace" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
           </article>
           <article class="detail-panel reveal" data-delay="2">
-            <span class="detail-kicker">Desktop shell</span>
-            <h3>Stable controls, focused navigation.</h3>
-            <p>Global transfer actions and search stay in the top bar, core screens stay in the responsive rail, and Add links opens as a non-blocking drawer.</p>
-            <div class="tab-stack" aria-hidden="true"><i>Toolbar</i><i>Navigation</i><i>Drawer</i></div>
+            <span class="detail-kicker">Workspace</span>
+            <h3>Tabs that remember their structure.</h3>
+            <p>Reorder, pin, group, collapse, search and bulk-close pages. Structural changes append to a private local Git timeline.</p>
+            <div class="tab-stack" aria-hidden="true"><i>Pinned</i><i>Grouped</i><i>Overflow</i></div>
+          </article>
+          <article class="detail-panel reveal">
+            <span class="detail-kicker">Safe search</span>
+            <h3>Plain text first; bounded RE2/J when asked.</h3>
+            <p>Every field owns an anchored builder with flags, guided fragments, validation, sample matches, captures and export.</p>
+          </article>
+          <article class="detail-panel reveal" data-delay="1">
+            <span class="detail-kicker">Appearance</span>
+            <h3>Edit the element you are looking at.</h3>
+            <p>Global Material 3 controls and stable per-element states cover fonts, translated colors, geometry, spacing, presets and reset.</p>
+          </article>
+          <article class="detail-panel reveal" data-delay="2">
+            <span class="detail-kicker">Local integrations</span>
+            <h3>Editors and installed JDownloader, without cloud detours.</h3>
+            <p>Structured Windows editor launches and a strict-loopback, bounded, confirmation-gated JDownloader bridge remain optional.</p>
           </article>
         </div>
 
@@ -212,48 +338,323 @@
             <caption>Current project capabilities</caption>
             <thead><tr><th scope="col">Area</th><th scope="col">Included</th><th scope="col">Where to learn more</th></tr></thead>
             <tbody>
-              <tr><th scope="row">Transfers</th><td>Direct HTTP(S), resume, speed cap, retry, collision handling</td><td><a href="https://github.com/codingmachineedge/jdownloader-material/blob/main/docs/ENGINE_API.md">Engine API</a></td></tr>
-              <tr><th scope="row">History</th><td>Append-only local timelines for Downloads, LinkGrabber, and settings</td><td><a href="https://github.com/codingmachineedge/jdownloader-material/blob/main/docs/HISTORY.md">History guide</a></td></tr>
-              <tr><th scope="row">Presentation</th><td>Light/dark themes and English, Hong Kong Cantonese, or bilingual copy</td><td><a href="https://github.com/codingmachineedge/jdownloader-material/blob/main/docs/DESIGN_SYSTEM.md">Design system</a></td></tr>
-              <tr><th scope="row">Delivery</th><td>Self-contained installers for Windows, Linux, and macOS</td><td><a href="https://github.com/codingmachineedge/jdownloader-material/releases/latest">Latest release</a></td></tr>
+              <tr><th scope="row">Transfers</th><td>Direct HTTP(S), resume, speed cap, retry, collision handling</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/ENGINE_API.md">Engine API</a></td></tr>
+              <tr><th scope="row">Workspace</th><td>Persistent tabs, pinning, groups, four searches and guarded bulk close</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/navigation/README.md">Navigation</a></td></tr>
+              <tr><th scope="row">Search</th><td>Plain-first, bounded RE2/J builders across desktop fields</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/search/README.md">Search</a></td></tr>
+              <tr><th scope="row">History</th><td>Append-only local timelines for Downloads, LinkGrabber, Settings and workspace</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/HISTORY.md">History</a></td></tr>
+              <tr><th scope="row">Appearance</th><td>Live Material 3 global and per-element fonts, colors, states and presets</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/appearance/README.md">Appearance</a></td></tr>
+              <tr><th scope="row">Language</th><td>English, Hong Kong Cantonese, bilingual and two independent funny levels</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/experience/language-and-humour.md">Language and voice</a></td></tr>
+              <tr><th scope="row">Experience</th><td>Notifications/history, changelog and exactly-once 1% dim sum</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/experience/README.md">Desktop experience</a></td></tr>
+              <tr><th scope="row">Integrations</th><td>Windows external editor and installed-JDownloader strict-loopback bridge</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/integrations/README.md">Integrations</a></td></tr>
+              <tr><th scope="row">Delivery</th><td>One self-contained Windows x64 EXE plus one local dim-sum photo</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/releases/latest">Latest release</a></td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <section class="download-section" aria-labelledby="download-title">
+    <section class="section details-section site-tab-panel" id="contracts" role="tabpanel" aria-labelledby="site-tab-contracts" tabindex="0" hidden>
+      <div class="shell">
+        <div class="details-heading reveal">
+          <p class="eyebrow">Factual implementation status</p>
+          <h2 id="contracts-title">Feature contracts, without crystal-ball release notes.</h2>
+          <p>The desktop implementation is documented here; push, release, Pages and wiki evidence remain separate until GitHub reports it.</p>
+        </div>
+        <div class="capability-table-wrap reveal">
+          <table class="capability-table">
+            <caption>Desktop feature-contract categories</caption>
+            <thead><tr><th scope="col">Category</th><th scope="col">Current status</th><th scope="col">Documentation</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Experience</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/experience/README.md">Language, notifications, changelog, dim sum</a></td></tr>
+              <tr><th scope="row">Appearance</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/appearance/README.md">Appearance editor</a></td></tr>
+              <tr><th scope="row">Navigation</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/navigation/README.md">Tabs and groups</a></td></tr>
+              <tr><th scope="row">Search</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/search/README.md">RE2/J builder</a></td></tr>
+              <tr><th scope="row">Data</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/data/README.md">Local histories</a></td></tr>
+              <tr><th scope="row">Integrations</th><td>Implemented</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/integrations/README.md">Editor and loopback bridge</a></td></tr>
+              <tr><th scope="row">Delivery</th><td>Implemented locally; remote proof pending</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/delivery/README.md">Windows CI and release evidence</a></td></tr>
+              <tr><th scope="row">HTTP/API</th><td>Not applicable</td><td><a href="https://github.com/Ding-Ding-Projects/jdownloader-material/blob/main/docs/api/README.md">Postman decision</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section guide-section site-tab-panel" id="guide" role="tabpanel" aria-labelledby="site-tab-guide" tabindex="0" hidden>
+      <div class="shell">
+        <div class="details-heading reveal">
+          <p class="eyebrow" data-copy-key="guide.eyebrow">In-site documentation</p>
+          <h2 data-copy-key="guide.title">Every shipped desktop feature, explained here.</h2>
+          <p data-copy-key="guide.intro">Search the articles locally. Each contract names behavior, configuration, failure modes, security, verification, and related reading.</p>
+        </div>
+        <div class="m3-search-surface" data-search-surface data-search-id="guide" data-search-scope="[data-doc-article]">
+          <label for="guide-search" data-copy-key="search.guide">Search feature articles</label>
+          <div class="m3-search-row"><input id="guide-search" type="search" maxlength="256" autocomplete="off"><button type="button" data-search-builder-button aria-haspopup="dialog" aria-expanded="false" aria-label="Open full regex builder">.*</button></div>
+          <output data-search-status aria-live="polite">11 articles</output>
+        </div>
+        <nav class="article-jump" aria-label="Feature article shortcuts">
+          <a href="#article-transfers">Transfers</a><a href="#article-tabs">Tabs</a><a href="#article-search">Search</a><a href="#article-appearance">Appearance</a><a href="#article-language">Language</a><a href="#article-notifications">Notifications</a><a href="#article-dimsum">Dim sum</a><a href="#article-changelog">Changelog</a><a href="#article-history">History</a><a href="#article-integrations">Integrations</a><a href="#article-delivery">Delivery</a>
+        </nav>
+        <div class="article-grid" data-article-grid>
+          <article id="article-transfers" class="feature-article" data-doc-article data-appearance-target="article.transfers">
+            <p class="detail-kicker">Transfers</p><h3>Direct HTTP(S) queue</h3>
+            <h4>Behavior</h4><p>LinkGrabber probes direct URLs, then the Downloads queue starts, pauses, resumes, reorders and retries transfers away from the JavaFX thread. Partial files use resumable <code>.part</code> state.</p>
+            <h4>Configuration</h4><p>Settings cover destination, collision policy, global and per-host concurrency, speed cap, retry policy and clipboard monitoring.</p>
+            <h4>Failure modes</h4><p>Timeouts, invalid redirects, range refusal, disk errors and size mismatch become actionable non-blocking notifications; resumability falls back safely when a host cannot continue.</p>
+            <h4>Security</h4><p>Only explicit HTTP(S) URLs are fetched. Paths are normalized, retained signed URLs are not shown in diagnostics, and background work never asks for cloud credentials.</p>
+            <h4>Verification</h4><p><code>DirectHttpEngineSmoke</code> and <code>DirectHistorySmoke</code> cover transfer, retry, restart and history behavior.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-history">Local history</a> · <a href="#article-notifications">Notifications</a></p>
+          </article>
+          <article id="article-tabs" class="feature-article" data-doc-article data-appearance-target="article.tabs">
+            <p class="detail-kicker">Navigation</p><h3>Persistent browser-style tabs</h3>
+            <h4>Behavior</h4><p>Tabs reorder, pin, group, collapse, overflow and restore their full structure. Four independent searches cover the current strip, one group, group names and every tab.</p>
+            <h4>Configuration</h4><p>Use Settings › Navigation or a tab context menu. Pinned tabs stay in a protected leading region; groups keep names, colors, order and collapsed state.</p>
+            <h4>Failure modes</h4><p>Empty or invalid bulk-close queries never run. Pinned tabs remain excluded until explicitly included, and a preview identifies every affected visible label.</p>
+            <h4>Security</h4><p>Search evaluates only local visible labels under bounded inputs. Closing a tab never inspects hidden page content.</p>
+            <h4>Verification</h4><p>The site smoke checks roving focus, overflow, independent search state, persistence keys, pin/group controls and previewed inverse bulk close.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-search">Safe search</a> · <a href="#article-appearance">Appearance</a></p>
+          </article>
+          <article id="article-search" class="feature-article" data-doc-article data-appearance-target="article.search">
+            <p class="detail-kicker">Search</p><h3>Plain-first bounded regex builders</h3>
+            <h4>Behavior</h4><p>Every search owns an adjacent anchored builder with literals, classes, anchors, groups, alternation, quantifiers, raw pattern, flags, sample text, matches, captures, copy and export.</p>
+            <h4>Configuration</h4><p>Plain text is always the default. Regex is an explicit local choice; query, pattern, flags and validation remain synchronized only within the originating field.</p>
+            <h4>Failure modes</h4><p>Inputs are capped, zero-width matches advance safely, invalid expressions remain visible, and patterns with common nested-quantifier hazards are refused before evaluation.</p>
+            <h4>Security</h4><p>Patterns and samples never leave the browser or enter analytics. The site has no outbound search endpoint.</p>
+            <h4>Verification</h4><p>Static and browser checks cover valid, invalid, Unicode, multiline, zero-width, captures, no-match and adversarial cases.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-tabs">Tabs</a> · <a href="#article-changelog">Changelog</a></p>
+          </article>
+          <article id="article-appearance" class="feature-article" data-doc-article data-appearance-target="article.appearance">
+            <p class="detail-kicker">Material 3</p><h3>Per-element appearance system</h3>
+            <h4>Behavior</h4><p>Right-click an element or press <kbd>Shift</kbd>+<kbd>F10</kbd> to open its anchored non-modal editor. Global tokens and per-state overrides apply live, including to the editor itself.</p>
+            <h4>Configuration</h4><p>Font family, axes, size, weight, decoration, spacing, effects, direction and alignment sit beside continuous color controls and translated color-space values. Presets export and import as JSON.</p>
+            <h4>Failure modes</h4><p>Unsupported browser font axes remain visible with a capability explanation. Invalid colors are preserved in the entry field and never silently replace the saved value.</p>
+            <h4>Security</h4><p>Profiles stay in local storage unless the visitor explicitly downloads or imports a file. Imports are size-, schema- and value-checked.</p>
+            <h4>Verification</h4><p>The smoke contract asserts deep controls, self-theming targets, profile round-trip hooks, reset paths, contrast output and every required translated color space.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-language">Language</a> · <a href="#article-tabs">Tabs</a></p>
+          </article>
+          <article id="article-language" class="feature-article" data-doc-article data-appearance-target="article.language">
+            <p class="detail-kicker">Language and voice</p><h3>English, Hong Kong Cantonese and bilingual</h3>
+            <h4>Behavior</h4><p>Language mode persists. Bilingual mode keeps English primary and adds compact Cantonese. Independent 1–5 funny levels style English and Cantonese copy without changing facts.</p>
+            <h4>Configuration</h4><p>The header and Settings share one language value. Two sliders are independent and resettable; the disclosure states that the tone also affects errors and warnings.</p>
+            <h4>Failure modes</h4><p>A missing translation falls back to English while preserving the action, affected item and recovery path. Long bilingual labels wrap instead of clipping.</p>
+            <h4>Security</h4><p>Tone never removes security facts or makes destructive effects ambiguous. Humor targets code absurdity, never the visitor or their data.</p>
+            <h4>Verification</h4><p>Browser checks switch all three modes, all five levels, narrow widths and persisted restart state.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-notifications">Notifications</a> · <a href="#article-dimsum">Dim sum</a></p>
+          </article>
+          <article id="article-notifications" class="feature-article" data-doc-article data-appearance-target="article.notifications">
+            <p class="detail-kicker">Feedback</p><h3>Corner notifications and reviewable history</h3>
+            <h4>Behavior</h4><p>Information and success messages auto-dismiss in the bottom-right stack. Warnings and errors persist until dismissed. Every item remains in a bounded searchable history.</p>
+            <h4>Configuration</h4><p>Settings control quiet mode. Actions can retry, undo, open or show details without turning an informational event into a blocking modal.</p>
+            <h4>Failure modes</h4><p>When storage is unavailable the live stack still works and reports that history could not persist.</p>
+            <h4>Security</h4><p>History is local, bounded and sanitized; it never stores credentials, signed URLs or imported profile content.</p>
+            <h4>Verification</h4><p>Checks cover stacking, live announcements, timeout policy, dismiss targets, history bounds and independent safe search.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-search">Search</a> · <a href="#article-language">Language</a></p>
+          </article>
+          <article id="article-dimsum" class="feature-article" data-doc-article data-appearance-target="article.dimsum">
+            <p class="detail-kicker">Startup delight</p><h3>Exactly one-percent dim-sum surprise</h3>
+            <h4>Behavior</h4><p>After first run, an eligible launch draws fresh cryptographic randomness once. A winning 1-in-100 draw shows one bilingual dish card without focus theft or startup delay.</p>
+            <h4>Configuration</h4><p>The surprise can be disabled persistently. Language and funny levels style its surrounding copy while the factual dish names and alt text stay unchanged.</p>
+            <h4>Failure modes</h4><p>It never appears on first run, during an error/update/mid-task marker, twice in one session, with reduced-motion animation, or after opt-out.</p>
+            <h4>Security</h4><p>Four catalogued photos are bundled below <code>site/assets/dimsum</code>; there is no request, tracker or third-party CDN.</p>
+            <h4>Verification</h4><p>The smoke checks catalog/image presence, eligibility gates, a single guarded random draw and the 1-of-100 comparison.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-language">Language</a> · <a href="#article-notifications">Notifications</a></p>
+          </article>
+          <article id="article-changelog" class="feature-article" data-doc-article data-appearance-target="article.changelog">
+            <p class="detail-kicker">Release history</p><h3>Factual all-version changelog</h3>
+            <h4>Behavior</h4><p>The desktop viewer composes text search with typed or calendar date ranges and exports the exact filtered Markdown view.</p>
+            <h4>Configuration</h4><p>Locale dates and ISO dates are accepted. Presets cover recent ranges; invalid partial input remains editable with inline feedback.</p>
+            <h4>Failure modes</h4><p>Missing historical notes are stated as missing; no entry, date or fix is invented.</p>
+            <h4>Security</h4><p>Filtering is local and exports only the visible public changelog records.</p>
+            <h4>Verification</h4><p>Desktop completeness checks cover composed filters, no-match state, copy and range-labelled export.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-delivery">Delivery</a> · <a href="#article-search">Search</a></p>
+          </article>
+          <article id="article-history" class="feature-article" data-doc-article data-appearance-target="article.history">
+            <p class="detail-kicker">Data</p><h3>Append-only local Git history</h3>
+            <h4>Behavior</h4><p>Downloads, LinkGrabber, workspace structure and non-secret settings snapshot meaningful changes in an isolated application-data repository.</p>
+            <h4>Configuration</h4><p>History supports labels, retention, pruning and export. It never places a <code>.git</code> directory inside a visitor-owned download folder.</p>
+            <h4>Failure modes</h4><p>An unchanged state creates no revision. A history-write failure is reported but never blocks the operation the visitor requested.</p>
+            <h4>Security</h4><p>History stays local; encrypted records remain ciphertext and stable identifiers preserve authenticated-encryption bindings across restore.</p>
+            <h4>Verification</h4><p>JGit and direct-history smokes prove restore-as-new-revision, redo, no-op suppression and isolated paths.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-transfers">Transfers</a> · <a href="#article-appearance">Appearance</a></p>
+          </article>
+          <article id="article-integrations" class="feature-article" data-doc-article data-appearance-target="article.integrations">
+            <p class="detail-kicker">Integrations</p><h3>External editors and installed JDownloader</h3>
+            <h4>Behavior</h4><p>Windows editor launch uses structured process arguments. The optional JDownloader bridge exposes typed local Remote API operations without My.JDownloader cloud.</p>
+            <h4>Configuration</h4><p>Editor choice persists. Bridge URLs accept only strict loopback HTTP(S), with bounded requests, responses and timeouts.</p>
+            <h4>Failure modes</h4><p>Missing editors and stopped JDownloader instances become non-blocking actionable errors. Redirects are never followed and destructive requests require one-use confirmation.</p>
+            <h4>Security</h4><p>Credentials, fragments, traversal and non-loopback authorities are rejected. Diagnostic strings omit bodies and secret parameters.</p>
+            <h4>Verification</h4><p>Loopback-only server tests cover route encoding, cancellation, bounds, redirects, confirmation tokens and secret-safe diagnostics.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-notifications">Notifications</a> · <a href="#article-transfers">Transfers</a></p>
+          </article>
+          <article id="article-delivery" class="feature-article" data-doc-article data-appearance-target="article.delivery">
+            <p class="detail-kicker">Delivery</p><h3>Test-gated Windows release</h3>
+            <h4>Behavior</h4><p>Every branch push and manual dispatch runs desktop smoke checks before a Windows hosted runner builds one self-contained x64 EXE.</p>
+            <h4>Configuration</h4><p>Unique monotonic tags use workflow run and attempt numbers. A deterministic catalog entry supplies one bundled dim-sum photo and bilingual code name.</p>
+            <h4>Failure modes</h4><p>A failed check publishes no release. Later failure removes only the incomplete draft; unexpected assets, sizes or upload states refuse publication.</p>
+            <h4>Security</h4><p>Hosted runners are disposable, pull requests do not run the release path, tokens stay in <code>GH_TOKEN</code>, and tag events cannot create an automation loop.</p>
+            <h4>Verification</h4><p>A qualifying published release must be non-draft and contain exactly the EXE plus one decodable bundled image.</p>
+            <p class="related"><strong>Related:</strong> <a href="#article-changelog">Changelog</a> · <a href="#article-dimsum">Dim sum</a></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section settings-section site-tab-panel" id="settings" role="tabpanel" aria-labelledby="site-tab-settings" tabindex="0" hidden>
+      <div class="shell">
+        <div class="details-heading reveal"><p class="eyebrow" data-copy-key="settings.eyebrow">Local preferences</p><h2 data-copy-key="settings.title">Settings that apply live and stay on this device.</h2><p data-copy-key="settings.disclosure">Funny levels style every message, including errors and warnings; facts and choices never change. Reset either language at any time.</p></div>
+        <div class="settings-layout">
+          <div class="settings-tabs" role="tablist" aria-label="Settings pages">
+            <button id="settings-tab-general" type="button" role="tab" aria-selected="true" aria-controls="settings-general" tabindex="0" data-settings-tab="general">General</button>
+            <button id="settings-tab-appearance" type="button" role="tab" aria-selected="false" aria-controls="settings-appearance-panel" tabindex="-1" data-settings-tab="appearance">Appearance</button>
+            <button id="settings-tab-navigation" type="button" role="tab" aria-selected="false" aria-controls="settings-navigation" tabindex="-1" data-settings-tab="navigation">Tabs &amp; groups</button>
+          </div>
+
+          <section id="settings-general" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-general" data-settings-panel="general">
+            <div class="m3-search-surface" data-search-surface data-search-id="settings-general" data-search-scope="#settings-general [data-setting-row]">
+              <label for="settings-general-search">Search General settings</label><div class="m3-search-row"><input id="settings-general-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open full regex builder">.*</button></div><output data-search-status aria-live="polite"></output>
+            </div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.language"><div><strong>Language mode</strong><small>English, playful Hong Kong Cantonese, or compact bilingual copy.</small></div><select data-language-picker><option value="en">English</option><option value="yue" lang="yue">香港粵語</option><option value="both">English · 香港粵語</option></select></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.funny-en"><div><strong>English funny level</strong><small><output data-funny-en-output>1</output> of 5 · voice changes, facts do not.</small></div><input type="range" min="1" max="5" value="1" data-funny-en aria-label="English funny level"></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.funny-yue"><div><strong lang="yue">粵語搞笑程度</strong><small><output data-funny-yue-output>1</output> / 5 · 只轉語氣，唔會改事實。</small></div><input type="range" min="1" max="5" value="1" data-funny-yue aria-label="Cantonese funny level"></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.theme"><div><strong>Theme</strong><small>Material color roles update without reload.</small></div><select data-theme-picker><option value="dark">Dark</option><option value="light">Light</option></select></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.density"><div><strong>Density</strong><small>Comfortable, compact or spacious sizing.</small></div><select data-density-picker><option value="comfortable">Comfortable</option><option value="compact">Compact</option><option value="spacious">Spacious</option></select></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.accent"><div><strong>Accent seed</strong><small>Continuous color input with live Material role generation.</small></div><input type="color" value="#73d7c2" data-accent-picker aria-label="Accent seed color"></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.dimsum"><div><strong>Dim-sum startup surprise</strong><small>Eligible launches use a fresh exact 1% draw; off is honored absolutely.</small></div><label class="switch"><input type="checkbox" data-dimsum-enabled checked><span>Enabled</span></label></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.quiet"><div><strong>Quiet mode</strong><small>Suppresses optional sound and dim-sum motion; errors remain visible.</small></div><label class="switch"><input type="checkbox" data-quiet-mode><span>Quiet</span></label></div>
+            <div class="settings-actions"><button type="button" data-reset-voice>Reset language and funny levels</button><button type="button" data-test-notification>Send sample notification</button></div>
+          </section>
+
+          <section id="settings-appearance-panel" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance" hidden>
+            <div class="m3-search-surface" data-search-surface data-search-id="settings-appearance" data-search-scope="#settings-appearance-panel [data-setting-row]">
+              <label for="settings-appearance-search">Search Appearance settings</label><div class="m3-search-row"><input id="settings-appearance-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open full regex builder">.*</button></div><output data-search-status aria-live="polite"></output>
+            </div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.element-editor"><div><strong>Edit the element in front of you</strong><small>Right-click any marked surface, press <kbd>Shift</kbd>+<kbd>F10</kbd>, or use the keyboard button.</small></div><button type="button" data-open-global-appearance>Edit page appearance…</button></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.presets"><div><strong>Named presets</strong><small>Material Teal, High Contrast and Quiet Paper are included; user profiles persist.</small></div><select data-profile-preset><option value="material-teal">Material Teal</option><option value="high-contrast">High Contrast</option><option value="quiet-paper">Quiet Paper</option></select></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.profile-io"><div><strong>Profile portability</strong><small>Export/import a bounded JSON file; unsupported values are retained with a capability note.</small></div><div class="inline-actions"><button type="button" data-export-profile>Export</button><label class="button-like">Import<input type="file" accept="application/json,.json" data-import-profile></label></div></div>
+            <div class="setting-card" data-setting-row data-appearance-target="settings.reset"><div><strong>Reset appearance</strong><small>Per-element reset is in the editor. Global reset asks before clearing every local override.</small></div><button type="button" data-reset-all-appearance>Reset all…</button></div>
+          </section>
+
+          <section id="settings-navigation" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-navigation" data-settings-panel="navigation" hidden>
+            <div class="m3-search-surface" data-search-surface data-search-id="settings-navigation" data-search-scope="#settings-navigation [data-setting-row]">
+              <label for="settings-navigation-search">Search Tabs &amp; groups settings</label><div class="m3-search-row"><input id="settings-navigation-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open full regex builder">.*</button></div><output data-search-status aria-live="polite"></output>
+            </div>
+            <div class="tab-manager" data-setting-row data-appearance-target="settings.tab-manager">
+              <div class="tab-manager-heading"><div><strong>Tab manager</strong><small>Results state group, pinned state and panel. Activate or manage without losing the query.</small></div><button type="button" data-restore-tabs>Restore closed tabs</button></div>
+              <div class="tab-search-grid">
+                <div class="m3-search-surface" data-search-surface data-search-id="group-tabs" data-search-scope="tab-model"><label for="group-tab-search">Search inside one group</label><select data-group-scope aria-label="Group scope"></select><div class="m3-search-row"><input id="group-tab-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open group-tab regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+                <div class="m3-search-surface" data-search-surface data-search-id="group-names" data-search-scope="group-model"><label for="group-name-search">Search tab groups</label><div class="m3-search-row"><input id="group-name-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open group-name regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+                <div class="m3-search-surface" data-search-surface data-search-id="master-tabs" data-search-scope="tab-model"><label for="master-tab-search">Master tab search</label><div class="m3-search-row"><input id="master-tab-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open master-tab regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+              </div>
+              <ul class="tab-search-results" data-tab-search-results aria-label="Tab search results"></ul>
+              <div class="group-editor" data-group-editor><h3>Groups</h3><div data-group-list></div><div class="inline-actions"><input type="text" maxlength="40" data-new-group-name placeholder="New group name" aria-label="New group name"><button type="button" data-add-group>Add group</button></div></div>
+              <div class="bulk-close-grid">
+                <div class="m3-search-surface" data-search-surface data-search-id="close-containing" data-search-scope="tab-model"><label for="close-containing">Close tabs containing text</label><div class="m3-search-row"><input id="close-containing" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open containing regex builder">.*</button></div><label>Scope <select data-bulk-scope="containing"><option value="all">All groups</option><option value="current">Selected group only</option></select></label><label><input type="checkbox" data-include-pinned="containing"> Include pinned after preview</label><button type="button" data-preview-bulk-close="containing">Preview containing…</button><output data-search-status aria-live="polite"></output></div>
+                <div class="m3-search-surface" data-search-surface data-search-id="close-not-containing" data-search-scope="tab-model"><label for="close-not-containing">Close tabs not containing text</label><div class="m3-search-row"><input id="close-not-containing" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open inverse regex builder">.*</button></div><label>Scope <select data-bulk-scope="not-containing"><option value="all">All groups</option><option value="current">Selected group only</option></select></label><label><input type="checkbox" data-include-pinned="not-containing"> Include pinned after preview</label><button type="button" data-preview-bulk-close="not-containing">Preview inverse…</button><output data-search-status aria-live="polite"></output></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section site-tab-panel" id="download" role="tabpanel" aria-labelledby="site-tab-download" tabindex="0" hidden>
       <div class="shell download-inner reveal">
         <div>
           <p class="eyebrow">Ready when you are</p>
-          <h2 id="download-title">Choose the installer for your desktop.</h2>
+          <h2 id="download-title">Install the Windows desktop app.</h2>
           <p>The release bundles Java 25, so a separate Java or Maven installation is not required.</p>
         </div>
         <div class="download-actions">
-          <a class="button button-primary" href="https://github.com/codingmachineedge/jdownloader-material/releases/latest">View latest release <span aria-hidden="true">→</span></a>
-          <span>Windows x64 · Linux x64 · macOS arm64/x64</span>
+          <a class="button button-primary" href="https://github.com/Ding-Ding-Projects/jdownloader-material/releases/latest">View latest release <span aria-hidden="true">→</span></a>
+          <span>Windows x64 · Java 25 included</span>
         </div>
       </div>
     </section>
   </main>
 
+  <aside id="notification-center" class="m3-side-sheet" role="dialog" aria-modal="false" aria-labelledby="notification-center-title" hidden data-appearance-target="chrome.notification-center">
+    <div class="sheet-heading"><div><p class="detail-kicker">Reviewable local history</p><h2 id="notification-center-title">Notifications</h2></div><button type="button" data-close-notifications aria-label="Close notification history">×</button></div>
+    <div class="m3-search-surface" data-search-surface data-search-id="notifications" data-search-scope="notification-model"><label for="notification-search">Search notification history</label><div class="m3-search-row"><input id="notification-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open notification regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+    <div class="notification-history" data-notification-history></div>
+    <div class="sheet-actions"><button type="button" data-clear-notifications>Clear local history</button><button type="button" data-close-notifications>Done</button></div>
+  </aside>
+
+  <aside id="m3-appearance-editor" class="m3-side-sheet appearance-workbench" role="dialog" aria-modal="false" aria-labelledby="appearance-workbench-title" hidden data-appearance-target="chrome.appearance-editor">
+    <div class="sheet-heading"><div><p class="detail-kicker">Anchored element editor</p><h2 id="appearance-workbench-title">Edit appearance…</h2><small data-appearance-target-label>Page</small></div><button type="button" data-close-appearance aria-label="Close appearance editor">×</button></div>
+    <div class="m3-search-surface" data-search-surface data-search-id="appearance-editor" data-search-scope="#m3-appearance-editor [data-editor-control]"><label for="appearance-editor-search">Search this editor</label><div class="m3-search-row"><input id="appearance-editor-search" type="search" maxlength="256"><button type="button" data-search-builder-button aria-label="Open editor regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+    <div class="editor-scroll">
+      <fieldset class="editor-section" data-editor-control data-appearance-target="chrome.font-picker"><legend>Font picker · Word-depth typography</legend>
+        <div class="m3-search-surface compact-search" data-search-surface data-search-id="font-picker" data-search-scope="#font-family-options option"><label for="font-picker-search">Search installed and bundled font choices</label><div class="m3-search-row"><input id="font-picker-search" type="search" maxlength="128"><button type="button" data-search-builder-button aria-label="Open font regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+        <label>Family <input type="text" list="font-family-options" value="system-ui" data-style-property="fontFamily"></label>
+        <datalist id="font-family-options"><option value="system-ui"><option value="Segoe UI Variable"><option value="Segoe UI"><option value="Arial"><option value="Calibri"><option value="Cambria"><option value="Georgia"><option value="Cascadia Mono"><option value="Consolas"><option value="Noto Sans CJK HK"><option value="Microsoft JhengHei UI"></datalist>
+        <p class="capability-note">Browsers do not expose an enumerable installed-font list. Free entry accepts any local family; listed names are probed at render time and keep CJK-safe fallbacks.</p>
+        <div class="control-grid three"><label>Size <input type="number" min="8" max="96" step="0.5" value="16" data-style-property="fontSize"></label><label>Stepped size <input type="range" min="8" max="48" step="1" value="16" data-style-property="fontSizeRange"></label><label>Weight <select data-style-property="fontWeight"><option>100</option><option>300</option><option selected>400</option><option>500</option><option>600</option><option>700</option><option>900</option></select></label></div>
+        <div class="control-grid three"><label>Style <select data-style-property="fontStyle"><option>normal</option><option>italic</option><option>oblique</option></select></label><label>Variable axes <input type="text" maxlength="120" placeholder="'wght' 650, 'wdth' 95" data-style-property="fontVariationSettings"></label><label>Capitalization <select data-style-property="textTransform"><option value="none">Normal</option><option value="uppercase">UPPERCASE</option><option value="lowercase">lowercase</option><option value="capitalize">Title Case</option></select></label></div>
+        <div class="control-grid three"><label>Underline <select data-style-property="underline"><option value="none">None</option><option value="solid">Single</option><option value="double">Double</option><option value="dotted">Dotted</option><option value="wavy">Wavy</option></select></label><label>Underline color <input type="color" value="#73d7c2" data-style-property="decorationColor"></label><label>Strike <select data-style-property="strike"><option value="none">None</option><option value="single">Single</option><option value="double">Double</option></select></label></div>
+        <div class="control-grid four"><label><input type="checkbox" data-style-property="overline"> Overline</label><label><input type="checkbox" data-style-property="smallCaps"> Small caps</label><label><input type="checkbox" data-style-property="superscript"> Superscript</label><label><input type="checkbox" data-style-property="subscript"> Subscript</label></div>
+        <div class="control-grid four"><label>Letter spacing <input type="number" min="-3" max="20" step="0.1" value="0" data-style-property="letterSpacing"></label><label>Word spacing <input type="number" min="-3" max="40" step="0.1" value="0" data-style-property="wordSpacing"></label><label>Line height <input type="number" min="0.8" max="3" step="0.05" value="1.5" data-style-property="lineHeight"></label><label>Baseline <input type="number" min="-20" max="20" step="0.5" value="0" data-style-property="baselineOffset"></label></div>
+        <div class="control-grid three"><label>Direction <select data-style-property="direction"><option value="inherit">Inherit</option><option value="ltr">Left to right</option><option value="rtl">Right to left</option></select></label><label>Alignment <select data-style-property="textAlign"><option>start</option><option>center</option><option>end</option><option>justify</option></select></label><label>Live sample <input class="font-live-sample" type="text" value="JDownloader Material · 點心好嘢" aria-label="Typography live sample"></label></div>
+      </fieldset>
+
+      <fieldset class="editor-section infinite-color-picker" data-editor-control data-appearance-target="chrome.color-picker"><legend>Infinite color picker and translator</legend>
+        <div class="m3-search-surface compact-search" data-search-surface data-search-id="color-picker" data-search-scope="#m3-appearance-editor [data-color-space-row]"><label for="color-picker-search">Search color spaces and values</label><div class="m3-search-row"><input id="color-picker-search" type="search" maxlength="128"><button type="button" data-search-builder-button aria-label="Open color regex builder">.*</button></div><output data-search-status aria-live="polite"></output></div>
+        <div class="spectrum-field" data-color-field tabindex="0" role="slider" aria-label="Saturation and value field" aria-valuetext="Saturation 72%, value 84%"><span></span></div>
+        <label>Hue <input type="range" min="0" max="360" value="168" data-color-hue></label><label>Alpha <input type="range" min="0" max="100" value="100" data-color-alpha></label>
+        <div class="color-entry"><input type="color" value="#73d7c2" data-color-native aria-label="Native color chooser"><label>Any supported representation <input type="text" value="#73d7c2" maxlength="160" data-color-entry></label><button type="button" data-apply-color>Apply</button></div>
+        <output class="color-validation" data-color-validation aria-live="polite">sRGB · in gamut</output>
+        <div class="color-preview-row"><span data-color-preview aria-label="Current color preview"></span><output data-color-contrast>Contrast is being calculated.</output></div>
+        <table class="color-translations"><caption>Bidirectional color translations</caption><tbody data-color-translations></tbody></table>
+      </fieldset>
+
+      <fieldset class="editor-section" data-editor-control><legend>Surface, effects, shape and spacing</legend>
+        <div class="control-grid four"><label>Text <input type="color" value="#e1e3e8" data-style-property="color"></label><label>Highlight <input type="color" value="#1f3532" data-style-property="backgroundColor"></label><label>Border <input type="color" value="#8ea5a0" data-style-property="borderColor"></label><label>Border width <input type="number" min="0" max="12" step="1" value="0" data-style-property="borderWidth"></label></div>
+        <div class="control-grid four"><label>Radius <input type="number" min="0" max="64" step="1" value="12" data-style-property="borderRadius"></label><label>Padding <input type="number" min="0" max="64" step="1" value="0" data-style-property="padding"></label><label>Outline <input type="number" min="0" max="12" value="0" data-style-property="outlineWidth"></label><label>Glow <input type="number" min="0" max="40" value="0" data-style-property="glow"></label></div>
+        <div class="control-grid three"><label>Shadow X <input type="number" min="-30" max="30" value="0" data-style-property="shadowX"></label><label>Shadow Y <input type="number" min="-30" max="30" value="4" data-style-property="shadowY"></label><label>Shadow blur <input type="number" min="0" max="60" value="12" data-style-property="shadowBlur"></label></div>
+        <label>Interaction state <select data-appearance-state><option value="normal">Normal</option><option value="hover">Hover</option><option value="focus">Focus</option><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
+      </fieldset>
+    </div>
+    <div class="sheet-actions"><label>Property <select data-reset-property aria-label="Appearance property to reset"></select></label><button type="button" data-reset-appearance-property>Reset property</button><button type="button" data-reset-appearance-target>Reset element</button><button type="button" data-save-appearance-preset>Save preset…</button><button type="button" data-close-appearance>Done</button></div>
+  </aside>
+
+  <div id="m3-context-menu" class="m3-context-menu" role="menu" hidden><button type="button" role="menuitem" data-context-edit>Edit appearance…</button><button type="button" role="menuitem" data-context-pin>Pin / unpin tab</button><button type="button" role="menuitem" data-context-move>Move tab to group…</button></div>
+
+  <dialog id="bulk-close-dialog" class="m3-decision-dialog" aria-labelledby="bulk-close-title"><form method="dialog"><h2 id="bulk-close-title">Review tabs before closing</h2><p data-bulk-close-summary></p><ul data-bulk-close-preview></ul><p class="dialog-warning">Pinned tabs are excluded unless the preview explicitly includes them. Closing never bypasses an unsaved-work prompt.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm" data-confirm-bulk-close>Close listed tabs</button></div></form></dialog>
+  <dialog id="reset-appearance-dialog" class="m3-decision-dialog" aria-labelledby="reset-appearance-title"><form method="dialog"><h2 id="reset-appearance-title">Reset every appearance override?</h2><p>This removes the local page profile, per-element styles and user presets. The built-in presets remain available.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm" data-confirm-reset-appearance>Reset all</button></div></form></dialog>
+
+  <aside id="first-run-disclosure" class="first-run-card" role="status" aria-live="polite" hidden data-appearance-target="chrome.first-run"><strong>Language and tone are yours to set.</strong><p>Funny levels style all messages—including errors and warnings—without changing facts. Settings can change or reset them at any time.</p><button type="button" data-dismiss-first-run>Got it</button></aside>
+  <aside id="dim-sum-surprise" class="dim-sum-card" role="status" aria-live="polite" hidden data-appearance-target="chrome.dimsum"><img data-dimsum-image src="assets/dimsum/har-gow.png" width="160" height="160" alt="Shrimp dumpling in a bamboo steamer"><div><p class="detail-kicker">One-percent steam-basket hello</p><strong data-dimsum-name>Shrimp dumpling · 蝦餃</strong><p data-dimsum-copy>A tiny local treat; no network fetch joined the table.</p></div><button type="button" data-dismiss-dimsum aria-label="Dismiss dim-sum surprise">×</button></aside>
+  <div id="toast-region" class="toast-region" aria-label="Notifications" aria-live="polite" aria-relevant="additions" data-appearance-target="chrome.toasts"></div>
+
+  <template id="safe-search-builder-template">
+    <div class="m3-regex-builder" role="dialog" aria-modal="false" hidden>
+      <div class="popover-heading"><div><strong data-builder-title>Full regex builder</strong><small>Browser ECMAScript · bounded local evaluation</small></div><button type="button" data-builder-close aria-label="Close regex builder">×</button></div>
+      <fieldset><legend>Match mode</legend><label><input type="radio" data-builder-mode value="plain" checked> Plain text</label><label><input type="radio" data-builder-mode value="regex"> Regular expression</label></fieldset>
+      <label>Raw synchronized pattern <input type="text" maxlength="256" data-builder-pattern></label>
+      <div class="regex-guides" aria-label="Guided construction"><button type="button" data-builder-guide="literal">Literal</button><button type="button" data-builder-guide="[A-Za-z]">Class</button><button type="button" data-builder-guide="^$">Anchors</button><button type="button" data-builder-guide="()">Group</button><button type="button" data-builder-guide="(?:a|b)">Alternation</button><button type="button" data-builder-guide="{1,3}">Quantifier</button></div>
+      <fieldset><legend>Flags</legend><label><input type="checkbox" value="i" data-builder-flag checked> Case-insensitive</label><label><input type="checkbox" value="m" data-builder-flag> Multiline</label><label><input type="checkbox" value="s" data-builder-flag> Dotall</label><label><input type="checkbox" value="u" data-builder-flag checked> Unicode</label></fieldset>
+      <label>Bounded sample text <textarea maxlength="2048" rows="4" data-builder-sample></textarea></label>
+      <output data-builder-validation aria-live="polite">Plain text mode</output><ol data-builder-matches aria-label="Live matches and capture groups"></ol>
+      <div class="popover-actions"><button type="button" data-builder-copy>Copy</button><button type="button" data-builder-export>Export JSON</button><button type="button" data-builder-close>Done</button></div>
+    </div>
+  </template>
+
   <footer class="site-footer">
     <div class="shell footer-grid">
       <div class="footer-brand">
         <img src="assets/jdownloader-mark.svg" width="32" height="32" alt="">
-        <p><strong>JDownloader Material</strong><span>An independently implemented direct HTTP(S) download workspace.</span></p>
+        <p><strong>JDownloader Material</strong><span>An independently implemented Windows download workspace.</span></p>
       </div>
       <nav aria-label="Project links">
-        <a href="https://github.com/codingmachineedge/jdownloader-material">Repository</a>
-        <a href="https://github.com/codingmachineedge/jdownloader-material/releases">Releases</a>
-        <a href="https://github.com/codingmachineedge/jdownloader-material/tree/main/docs">Documentation</a>
-        <a href="https://github.com/codingmachineedge/jdownloader-material/wiki">Wiki</a>
-        <a href="https://github.com/codingmachineedge/jdownloader-material/issues">Issues</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material">Repository</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/releases">Releases</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/tree/main/docs">Documentation</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/wiki">Wiki</a>
+        <a href="https://github.com/Ding-Ding-Projects/jdownloader-material/issues">Issues</a>
       </nav>
-      <p class="identity-note">The JDownloader name and core are the work of AppWork GmbH. This independent project has its own focused interface, engine, and local data model.</p>
+      <p class="identity-note">The JDownloader name, core and local Remote API are the work of AppWork GmbH. This independent project has its own interface, direct engine and local data model; its optional bridge stays on loopback.</p>
     </div>
   </footer>
 
   <script src="main.js" defer></script>
+  <script src="material-system.js" defer></script>
 </body>
 </html>

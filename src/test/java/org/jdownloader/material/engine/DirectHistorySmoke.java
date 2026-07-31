@@ -99,7 +99,7 @@ public final class DirectHistorySmoke {
                             == org.jdownloader.material.model.DownloadState.ERROR),
                     "Invalid direct link did not enter the terminal error state");
             require(onFx(() -> history.entries().stream().anyMatch(entry ->
-                            "Download failed".equals(entry.summary()))),
+                            entry.summary().startsWith("Download failed"))),
                     "Terminal download failure was not checkpointed in local history");
 
             Path historyRoot = profile.resolve("history");

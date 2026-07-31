@@ -141,6 +141,7 @@ abstract class AbstractHistoryService implements HistoryService {
         HistorySnapshot captured = Objects.requireNonNull(snapshot, "snapshot");
         submitTask(HistoryStatus.RECORDING, () -> {
             ensureInitialized();
+            if (!timeline.isEmpty() && captured.contentEquals(readSnapshot(timeline.getLast()))) return;
             append(pending.withStatus(HistoryStatus.COMMITTED), captured, true);
         }, error -> addFailure(pending, error));
     }

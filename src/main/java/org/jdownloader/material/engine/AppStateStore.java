@@ -129,7 +129,8 @@ final class AppStateStore {
     static void restore(Properties state, Settings settings, List<DownloadPackage> output,
                         List<CrawledPackage> crawledOutput) {
         SettingsIO.apply(state, settings);
-        I18n i18n = new I18n(settings.languageProperty());
+        I18n i18n = new I18n(settings.languageProperty(),
+                settings.englishFunnyLevelProperty(), settings.cantoneseFunnyLevelProperty());
         int packageCount = boundedInt(state.getProperty("queue.packageCount"), 0, MAX_PACKAGES);
         for (int packageIndex = 0; packageIndex < packageCount; packageIndex++) {
             String prefix = "queue.package." + packageIndex + ".";

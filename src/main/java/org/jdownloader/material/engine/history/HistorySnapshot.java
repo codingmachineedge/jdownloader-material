@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.Arrays;
 
 /**
  * Immutable, deterministic state captured by the history system. Each snapshot
@@ -145,6 +146,14 @@ public final class HistorySnapshot {
 
     public byte[] linkGrabberBytes() {
         return copy(linkGrabber);
+    }
+
+    /** Byte-for-byte equality of the canonical files used to suppress no-op revisions. */
+    public boolean contentEquals(HistorySnapshot other) {
+        return other != null
+                && Arrays.equals(settings, other.settings)
+                && Arrays.equals(downloads, other.downloads)
+                && Arrays.equals(linkGrabber, other.linkGrabber);
     }
 
     public String settingsText() {

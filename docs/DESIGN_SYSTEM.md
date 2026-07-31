@@ -6,9 +6,10 @@ activity take priority over decoration. The visual posture is cool and operation
 blue-charcoal surfaces, one mint-teal primary, cool-blue secondary signals, thin borders, and
 restrained elevation.
 
-This document describes the JavaFX implementation in `theme-light.css`, `theme-dark.css`, and
-`material.css`. It does not imply unimplemented My.JDownloader, account, captcha, plugin, proxy, or
-updater surfaces.
+This document describes the JavaFX implementation in `theme-light.css`, `theme-dark.css`,
+`material.css`, `appearance.css` and the appearance model/UI packages. Stock account, captcha,
+plugin, extraction and update pages are controls for an installed JDownloader instance over strict
+loopback; they are not inert mockups or My.JDownloader cloud surfaces.
 
 ## Brand mark
 
@@ -109,18 +110,19 @@ Panels are usually border-defined; the deep overlay shadow is reserved for the d
 
 ## Layout
 
-The shell places the 52 px toolbar across the top, persistent navigation on the left, one active
-content destination in the center, and the 30 px status bar across the bottom. The global toolbar
-owns transfer controls and page-aware search. The navigation rail swaps Downloads, LinkGrabber,
-History, and Settings without creating duplicate view instances.
+The shell places the 52 px toolbar across the top, persistent navigation on the left, a browser-style
+workspace in the center and the 30 px status bar across the bottom. The global toolbar owns transfer
+controls and page-aware search. Rail actions open or focus workspace tabs; pinned tabs retain a
+protected region and grouped regular tabs scroll horizontally with a complete overflow menu.
 
 At widths below 980 px, the rail collapses to 72 px, text labels hide, and global search and the
 throughput trace are removed from layout. This is a compact desktop fallback, not a mobile card
 conversion. Tables retain their own constrained column behavior.
 
-Settings is a nested split composition: a 220 px section list and scroll-managed rows. History is a
-roughly 44/56 timeline/preview split. Add Links is a right-hand overlay rather than another primary
-destination.
+Settings is a nested split composition with global/per-section search and scroll-managed rows.
+History is a roughly 44/56 timeline/preview split. Add Links is a right-hand overlay but may also
+live in a workspace tab. Notifications, changelog and installed-JDownloader feature pages follow the
+same panel, focus and appearance rules.
 
 ## Components
 
@@ -128,12 +130,15 @@ destination.
   throughput, theme, clipboard monitoring, and window controls.
 - **Primary navigation** — 42 px destinations with recognizable 20 px icons, visible selected
   fill, hover feedback, focus outline, and compact tooltips.
+- **Workspace tabs/groups** — protected compact pinned region, titled regular tabs, group headers,
+  overflow, four searches and complete context/keyboard actions.
 - **Buttons** — filled, tonal, outlined, text, and 38 px icon variants. Destructive controls use
   the error role and an explicit text verb where space permits.
 - **Data tables** — package/file hierarchy, 34 px headers, 48 px rows, subtle separators, hover and
   selection layers, status chips/dots, 5 px progress, and monospace telemetry.
 - **Inputs and filters** — 42 px surface-2 fields with 9 px radius; app-bar search is the only pill
-  field. Filter chips are 30 px high.
+  field. Every search carries an adjacent anchored regex-builder affordance. Filter chips are 30 px
+  high.
 - **Status bar** — global speed, running count, remaining bytes, retry state, and fixed activity
   feedback.
 - **History** — bordered split view with timeline entries, semantic chips, metadata rows, and a
@@ -142,6 +147,10 @@ destination.
   except where Backup needs a grouped form.
 - **Add Links drawer** — scrim, close control, 62 px header/footer, URL/package/destination fields,
   inline outcome copy, and grouped actions.
+- **Notifications** — bottom-right stacked cards with title/body/action/dismiss and severity roles;
+  warnings/errors remain until dismissed.
+- **Appearance editor** — anchored, non-modal tabs for global values, typography, colors, generic
+  per-property controls and presets/import/export/reset. Pickers register as appearance targets.
 
 ## State and interaction
 
@@ -151,8 +160,21 @@ table rows. Disabled controls use 46 percent opacity.
 
 The drawer cancels an in-flight transition before starting another. Its slide lasts 260 ms; the
 scrim fades for 220 ms on open and 180 ms on close. Focus moves to the URL field when opening, and
-Escape, the scrim, Cancel, or Close dismisses it. Other feedback remains inline in tables, pages,
-and the fixed status bar.
+Escape, the scrim, Cancel, or Close dismisses it. Routine app-wide feedback uses the non-blocking
+notification stack; local state remains inline in tables, pages and the fixed status bar.
+
+## Runtime appearance customization
+
+The profile owns theme, density, seed/accent colors, font family/source/scale/weight and CJK
+fallback. Stable target ids layer state-specific typography, color, geometry, spacing and icon
+properties over those globals. Unsupported JavaFX properties remain visible with a capability
+message and survive persistence/import instead of disappearing.
+
+The continuous color control preserves alpha and translates named, HEX/HEX8, RGB/A, HSL/A,
+HSV/HSB, HWB, CIELAB/LCH, OKLab/OKLCH and CMYK while reporting gamut/clipping and contrast. The font
+control searches installed/bundled families, previews each family, accepts stepped/free sizes and
+provides weight, posture, decoration, axes, spacing, line height and CJK fallback. Context menu,
+Shift+right-click and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> reach the anchored editor.
 
 ## Accessibility contract
 
@@ -171,10 +193,7 @@ Use terse, factual terms: Downloads, LinkGrabber, History, Settings, Add Links, 
 Availability, Progress, Speed, ETA, clipboard monitoring, and transient retry. Buttons start with a
 direct verb. Supporting copy explains consequence rather than marketing benefit.
 
-The current product is a direct HTTP(S) download app. New designs must not imply My.JDownloader,
-host accounts, captcha solving, proxy management, plugin management, extraction, or update systems
-until both the engine capability and the corresponding UI are implemented.
-
-The handoff's third primary-navigation example is My.JDownloader. This implementation deliberately
-uses the same visual slot for the real History surface instead: the engine has no My.JDownloader
-adapter, and reproducing credential or Connect controls as inert UI would misrepresent capability.
+The app's own engine remains a focused direct HTTP(S) downloader. It does not embed JDownloader core
+or connect to My.JDownloader cloud. Account, captcha, plugin, extraction, update and system controls
+must always identify their strict-loopback dependency on an installed JDownloader instance and
+degrade honestly when it is absent.

@@ -11,7 +11,10 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.UUID;
@@ -36,7 +39,8 @@ import org.eclipse.jgit.lib.PersonIdent;
  */
 public final class GitWorkspaceStore implements AutoCloseable {
 
-    private static final String SCHEMA = "1";
+    private static final String SCHEMA = "2";
+    private static final String LEGACY_SCHEMA = "1";
     private static final long MAX_IMPORT_BYTES = 1024L * 1024L;
     private static final String WORKSPACE_FILE = "workspace.properties";
     private static final String TABS_DIRECTORY = "tabs";
@@ -81,7 +85,8 @@ public final class GitWorkspaceStore implements AutoCloseable {
             if (snapshot.tab(tab.id()) != null) throw new IllegalArgumentException("Workspace tab id already exists");
             List<WorkspaceTab> tabs = new ArrayList<>(snapshot.tabs());
             tabs.add(tab);
-            return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs, tab.id()), tab, false);
+            return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs, tab.id(), snapshot.groups()),
+                    List.of(), false);
         });
     }
 
@@ -90,7 +95,88 @@ public final class GitWorkspaceStore implements AutoCloseable {
         Objects.requireNonNull(updated, "updated");
         return mutate("Updated " + updated.title(), "update", updated.id(), snapshot -> {
             if (snapshot.tab(updated.id()) == null) throw new IllegalArgumentException("The tab is no longer open");
-            return new Mutation(snapshot.replacing(updated), updated, false);
+            return new Mutation(snapshot.replacing(updated), List.of(), false);
+        });
+    }
+
+    /** Reorders a tab without changing its pinned/group metadata. */
+    public CompletableFuture<WorkspaceSnapshot> moveTab(UUID tabId, int requestedIndex) {
+        return mutate("Moved workspace tab", "move", tabId, snapshot -> {
+            WorkspaceTab moved = snapshot.tab(tabId);
+            if (moved == null) throw new IllegalArgumentException("The tab is no longer open");
+            List<WorkspaceTab> tabs = new ArrayList<>(snapshot.tabs());
+            tabs.remove(moved);
+            int index = Math.max(0, Math.min(requestedIndex, tabs.size()));
+            tabs.add(index, moved);
+            return new Mutation(snapshot.withTabs(tabs, snapshot.selectedTabId()), List.of(), false);
+        });
+    }
+
+    /** Pins/unpins a tab; order remains explicit and independently reorderable. */
+    public CompletableFuture<WorkspaceSnapshot> setPinned(UUID tabId, boolean pinned) {
+        return mutate((pinned ? "Pinned " : "Unpinned ") + "workspace tab", "pin", tabId, snapshot -> {
+            WorkspaceTab tab = snapshot.tab(tabId);
+            if (tab == null) throw new IllegalArgumentException("The tab is no longer open");
+            return new Mutation(snapshot.replacing(tab.withPinned(pinned)), List.of(), false);
+        });
+    }
+
+    /** Creates an ordered tab group. */
+    public CompletableFuture<WorkspaceSnapshot> createGroup(WorkspaceGroup group) {
+        Objects.requireNonNull(group, "group");
+        return mutate("Created tab group " + group.name(), "create-group", group.id(), snapshot -> {
+            if (snapshot.group(group.id()) != null) throw new IllegalArgumentException("Workspace group id already exists");
+            List<WorkspaceGroup> groups = new ArrayList<>(snapshot.groups());
+            groups.add(group);
+            return new Mutation(snapshot.withGroups(groups), List.of(), false);
+        });
+    }
+
+    public CompletableFuture<WorkspaceSnapshot> updateGroup(WorkspaceGroup group) {
+        Objects.requireNonNull(group, "group");
+        return mutate("Updated tab group " + group.name(), "update-group", group.id(), snapshot -> {
+            if (snapshot.group(group.id()) == null) throw new IllegalArgumentException("The tab group no longer exists");
+            return new Mutation(snapshot.replacing(group), List.of(), false);
+        });
+    }
+
+    public CompletableFuture<WorkspaceSnapshot> moveGroup(UUID groupId, int requestedIndex) {
+        return mutate("Moved tab group", "move-group", groupId, snapshot -> {
+            WorkspaceGroup moved = snapshot.group(groupId);
+            if (moved == null) throw new IllegalArgumentException("The tab group no longer exists");
+            List<WorkspaceGroup> groups = new ArrayList<>(snapshot.groups());
+            groups.remove(moved);
+            groups.add(Math.max(0, Math.min(requestedIndex, groups.size())), moved);
+            return new Mutation(snapshot.withGroups(groups), List.of(), false);
+        });
+    }
+
+    /** Moves a tab into/out of a group and places it at an explicit global order index. */
+    public CompletableFuture<WorkspaceSnapshot> moveToGroup(UUID tabId, UUID groupId, int requestedIndex) {
+        return mutate("Moved workspace tab between groups", "move-to-group", tabId, snapshot -> {
+            WorkspaceTab moved = snapshot.tab(tabId);
+            if (moved == null) throw new IllegalArgumentException("The tab is no longer open");
+            if (groupId != null && snapshot.group(groupId) == null) {
+                throw new IllegalArgumentException("The destination group no longer exists");
+            }
+            List<WorkspaceTab> tabs = new ArrayList<>(snapshot.tabs());
+            tabs.remove(moved);
+            tabs.add(Math.max(0, Math.min(requestedIndex, tabs.size())), moved.withGroup(groupId));
+            return new Mutation(snapshot.withTabs(tabs, snapshot.selectedTabId()), List.of(), false);
+        });
+    }
+
+    /** Removes a group without deleting its member tabs. */
+    public CompletableFuture<WorkspaceSnapshot> removeGroup(UUID groupId) {
+        return mutate("Removed tab group", "remove-group", groupId, snapshot -> {
+            if (snapshot.group(groupId) == null) throw new IllegalArgumentException("The tab group no longer exists");
+            List<WorkspaceGroup> groups = new ArrayList<>(snapshot.groups());
+            groups.removeIf(group -> group.id().equals(groupId));
+            List<WorkspaceTab> tabs = snapshot.tabs().stream()
+                    .map(tab -> groupId.equals(tab.groupId()) ? tab.withGroup(null) : tab)
+                    .toList();
+            return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs,
+                    snapshot.selectedTabId(), groups), List.of(), false);
         });
     }
 
@@ -98,33 +184,29 @@ public final class GitWorkspaceStore implements AutoCloseable {
     public CompletableFuture<WorkspaceSnapshot> select(UUID tabId) {
         return mutate("Selected workspace tab", "select", tabId, snapshot -> {
             if (snapshot.tab(tabId) == null) throw new IllegalArgumentException("The tab is no longer open");
-            return new Mutation(snapshot.withSelectedTab(tabId), null, false);
+            return new Mutation(snapshot.withSelectedTab(tabId), List.of(), false);
         });
     }
 
     /** Closes a tab while retaining its descriptor and an immutable close event. */
     public CompletableFuture<WorkspaceSnapshot> closeTab(UUID tabId) {
         return mutate("Closed workspace tab", "close", tabId, snapshot -> {
-            WorkspaceTab closed = snapshot.tab(tabId);
-            if (closed == null) throw new IllegalArgumentException("The tab is no longer open");
-            List<WorkspaceTab> tabs = new ArrayList<>(snapshot.tabs());
-            tabs.removeIf(tab -> tab.id().equals(tabId));
-            if (tabs.isEmpty()) {
-                WorkspaceTab downloads = new WorkspaceTab(UUID.randomUUID(), WorkspacePage.DOWNLOADS,
-                        "Downloads", WorkspaceStyle.DEFAULT);
-                tabs.add(downloads);
-                return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs, downloads.id()),
-                        closed, true);
-            }
-            UUID selected = snapshot.selectedTabId().equals(tabId) ? tabs.getFirst().id() : snapshot.selectedTabId();
-            return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs, selected), closed, true);
+            return closeMutation(snapshot, List.of(tabId));
         });
+    }
+
+    /** Closes a reviewed set atomically, preserving closed descriptors and pinned protection at the caller. */
+    public CompletableFuture<WorkspaceSnapshot> closeTabs(Collection<UUID> tabIds) {
+        List<UUID> requested = List.copyOf(Objects.requireNonNull(tabIds, "tabIds"));
+        if (requested.isEmpty()) return load();
+        return mutate("Closed " + requested.size() + " workspace tabs", "bulk-close", null,
+                snapshot -> closeMutation(snapshot, requested));
     }
 
     /** Renames the running application and keeps the setting in the workspace Git history. */
     public CompletableFuture<WorkspaceSnapshot> renameApplication(String name) {
         return mutate("Renamed application", "rename-application", null,
-                snapshot -> new Mutation(snapshot.withApplicationName(name), null, false));
+                snapshot -> new Mutation(snapshot.withApplicationName(name), List.of(), false));
     }
 
     /** Exports a validated portable workspace snapshot, not the Git history. */
@@ -146,13 +228,22 @@ public final class GitWorkspaceStore implements AutoCloseable {
             if (Files.size(input) > MAX_IMPORT_BYTES) throw new IOException("Workspace import file is too large");
             Properties properties = readProperties(input);
             WorkspaceSnapshot imported = parseSnapshot(properties, false);
+            Map<UUID, UUID> groupIds = new HashMap<>();
+            List<WorkspaceGroup> freshGroups = new ArrayList<>();
+            for (WorkspaceGroup group : imported.groups()) {
+                UUID freshId = UUID.randomUUID();
+                groupIds.put(group.id(), freshId);
+                freshGroups.add(new WorkspaceGroup(freshId, group.name(), group.color(), group.icon(), group.badge(),
+                        group.collapsed(), group.pinned()));
+            }
             List<WorkspaceTab> freshTabs = new ArrayList<>();
             for (WorkspaceTab tab : imported.tabs()) {
-                freshTabs.add(new WorkspaceTab(UUID.randomUUID(), tab.page(), tab.title(), tab.style()));
+                freshTabs.add(new WorkspaceTab(UUID.randomUUID(), tab.page(), tab.title(), tab.style(), tab.pinned(),
+                        groupIds.get(tab.groupId())));
             }
             WorkspaceSnapshot replacement = new WorkspaceSnapshot(imported.applicationName(), freshTabs,
-                    freshTabs.isEmpty() ? null : freshTabs.getFirst().id());
-            persist("Imported workspace", "import", null, replacement, null, false);
+                    freshTabs.isEmpty() ? null : freshTabs.getFirst().id(), freshGroups);
+            persist("Imported workspace", "import", null, replacement, List.of(), false);
             current = replacement;
             return current;
         });
@@ -209,10 +300,26 @@ public final class GitWorkspaceStore implements AutoCloseable {
         return submit(() -> {
             ensureInitialized();
             Mutation mutation = mutator.apply(current);
-            persist(summary, action, tabId, mutation.snapshot(), mutation.closedDescriptor(), mutation.closed());
+            if (mutation.snapshot().equals(current)) return current;
+            persist(summary, action, tabId, mutation.snapshot(), mutation.closedDescriptors(), mutation.closed());
             current = mutation.snapshot();
             return current;
         });
+    }
+
+    private static Mutation closeMutation(WorkspaceSnapshot snapshot, Collection<UUID> requestedIds) {
+        List<UUID> ids = requestedIds.stream().distinct().toList();
+        List<WorkspaceTab> closed = snapshot.tabs().stream().filter(tab -> ids.contains(tab.id())).toList();
+        if (closed.size() != ids.size()) throw new IllegalArgumentException("One or more tabs are no longer open");
+        List<WorkspaceTab> tabs = new ArrayList<>(snapshot.tabs());
+        tabs.removeIf(tab -> ids.contains(tab.id()));
+        if (tabs.isEmpty()) {
+            tabs.add(new WorkspaceTab(UUID.randomUUID(), WorkspacePage.DOWNLOADS,
+                    "Downloads", WorkspaceStyle.DEFAULT));
+        }
+        UUID selected = ids.contains(snapshot.selectedTabId()) ? tabs.getFirst().id() : snapshot.selectedTabId();
+        return new Mutation(new WorkspaceSnapshot(snapshot.applicationName(), tabs, selected, snapshot.groups()),
+                closed, true);
     }
 
     private void ensureInitialized() throws Exception {
@@ -225,27 +332,27 @@ public final class GitWorkspaceStore implements AutoCloseable {
                 nextSequence = highestEventSequence() + 1;
             } else {
                 current = WorkspaceSnapshot.fresh();
-                persistWithGit(git, "Seed workspace", "seed", null, current, null, false);
+                persistWithGit(git, "Seed workspace", "seed", null, current, List.of(), false);
             }
             initialized = true;
         }
     }
 
     private void persist(String summary, String action, UUID tabId, WorkspaceSnapshot snapshot,
-                         WorkspaceTab closedDescriptor, boolean closed)
+                         List<WorkspaceTab> closedDescriptors, boolean closed)
             throws Exception {
         try (Git git = openOrCreate()) {
-            persistWithGit(git, summary, action, tabId, snapshot, closedDescriptor, closed);
+            persistWithGit(git, summary, action, tabId, snapshot, closedDescriptors, closed);
         }
     }
 
     private void persistWithGit(Git git, String summary, String action, UUID tabId, WorkspaceSnapshot snapshot,
-                                WorkspaceTab closedDescriptor, boolean closed)
+                                 List<WorkspaceTab> closedDescriptors, boolean closed)
             throws Exception {
         List<String> changed = new ArrayList<>();
         writePropertiesAtomically(root.resolve(WORKSPACE_FILE), snapshotProperties(snapshot));
         changed.add(WORKSPACE_FILE);
-        if (closed && closedDescriptor != null) {
+        for (WorkspaceTab closedDescriptor : closedDescriptors) {
             writePropertiesAtomically(tabPath(closedDescriptor.id()), tabProperties(closedDescriptor, false));
             changed.add(relative(tabPath(closedDescriptor.id())));
         }
@@ -259,7 +366,8 @@ public final class GitWorkspaceStore implements AutoCloseable {
         long sequence = nextSequence++;
         Path eventPath = root.resolve(EVENTS_DIRECTORY).resolve(String.format("%020d-%s.properties", sequence,
                 UUID.randomUUID()));
-        writePropertiesAtomically(eventPath, eventProperties(sequence, action, summary, tabId, snapshot, closed));
+        writePropertiesAtomically(eventPath, eventProperties(sequence, action, summary, tabId, snapshot,
+                closedDescriptors.size(), closed));
         changed.add(relative(eventPath));
         for (String path : changed) git.add().addFilepattern(path).call();
         git.commit().setMessage(summary).setAuthor(person()).setCommitter(person()).call();
@@ -287,6 +395,20 @@ public final class GitWorkspaceStore implements AutoCloseable {
             properties.setProperty(prefix + "bold", Boolean.toString(tab.style().bold()));
             properties.setProperty(prefix + "italic", Boolean.toString(tab.style().italic()));
             properties.setProperty(prefix + "color", tab.style().color());
+            properties.setProperty(prefix + "pinned", Boolean.toString(tab.pinned()));
+            properties.setProperty(prefix + "groupId", tab.groupId() == null ? "" : tab.groupId().toString());
+        }
+        properties.setProperty("groupCount", Integer.toString(snapshot.groups().size()));
+        for (int index = 0; index < snapshot.groups().size(); index++) {
+            WorkspaceGroup group = snapshot.groups().get(index);
+            String prefix = "group." + index + ".";
+            properties.setProperty(prefix + "id", group.id().toString());
+            properties.setProperty(prefix + "name", group.name());
+            properties.setProperty(prefix + "color", group.color());
+            properties.setProperty(prefix + "icon", group.icon());
+            properties.setProperty(prefix + "badge", group.badge());
+            properties.setProperty(prefix + "collapsed", Boolean.toString(group.collapsed()));
+            properties.setProperty(prefix + "pinned", Boolean.toString(group.pinned()));
         }
         return properties;
     }
@@ -302,12 +424,14 @@ public final class GitWorkspaceStore implements AutoCloseable {
         properties.setProperty("bold", Boolean.toString(tab.style().bold()));
         properties.setProperty("italic", Boolean.toString(tab.style().italic()));
         properties.setProperty("color", tab.style().color());
+        properties.setProperty("pinned", Boolean.toString(tab.pinned()));
+        properties.setProperty("groupId", tab.groupId() == null ? "" : tab.groupId().toString());
         properties.setProperty("open", Boolean.toString(open));
         return properties;
     }
 
     private static Properties eventProperties(long sequence, String action, String summary, UUID tabId,
-                                              WorkspaceSnapshot snapshot, boolean closed) {
+                                               WorkspaceSnapshot snapshot, int closedCount, boolean closed) {
         Properties properties = new Properties();
         properties.setProperty("schema", SCHEMA);
         properties.setProperty("sequence", Long.toString(sequence));
@@ -318,11 +442,29 @@ public final class GitWorkspaceStore implements AutoCloseable {
         properties.setProperty("selectedTabId", snapshot.selectedTabId() == null ? "" : snapshot.selectedTabId().toString());
         properties.setProperty("applicationName", snapshot.applicationName());
         properties.setProperty("closed", Boolean.toString(closed));
+        properties.setProperty("closedCount", Integer.toString(closedCount));
         return properties;
     }
 
     private WorkspaceSnapshot parseSnapshot(Properties properties, boolean loadDescriptorFiles) throws IOException {
-        if (!SCHEMA.equals(properties.getProperty("schema"))) throw new IOException("Unsupported workspace snapshot");
+        String schema = properties.getProperty("schema");
+        if (!SCHEMA.equals(schema) && !LEGACY_SCHEMA.equals(schema)) {
+            throw new IOException("Unsupported workspace snapshot");
+        }
+        List<WorkspaceGroup> groups = new ArrayList<>();
+        if (SCHEMA.equals(schema)) {
+            int groupCount = boundedInt(properties.getProperty("groupCount"), 0, 32);
+            for (int index = 0; index < groupCount; index++) {
+                String prefix = "group." + index + ".";
+                groups.add(new WorkspaceGroup(parseUuid(required(properties, prefix + "id"), "group id"),
+                        properties.getProperty(prefix + "name", "Group"),
+                        properties.getProperty(prefix + "color", WorkspaceGroup.DEFAULT_COLOR),
+                        properties.getProperty(prefix + "icon", "folder"),
+                        properties.getProperty(prefix + "badge", ""),
+                        Boolean.parseBoolean(properties.getProperty(prefix + "collapsed", "false")),
+                        Boolean.parseBoolean(properties.getProperty(prefix + "pinned", "false"))));
+            }
+        }
         int count = boundedInt(properties.getProperty("tabCount"), 0, 64);
         List<WorkspaceTab> tabs = new ArrayList<>();
         for (int index = 0; index < count; index++) {
@@ -331,15 +473,17 @@ public final class GitWorkspaceStore implements AutoCloseable {
             UUID id = parseUuid(idValue, "tab id");
             Path tabFile = tabPath(id);
             Properties tab = loadDescriptorFiles && Files.isRegularFile(tabFile) ? readProperties(tabFile) : properties;
-            tabs.add(parseTab(tab, id, index));
+            tabs.add(parseTab(tab, id, index, SCHEMA.equals(schema)));
         }
         UUID selected = null;
         String selectedValue = properties.getProperty("selectedTabId", "").trim();
         if (!selectedValue.isEmpty()) selected = parseUuid(selectedValue, "selected tab id");
-        return new WorkspaceSnapshot(properties.getProperty("applicationName", "JDownloader Material"), tabs, selected);
+        return new WorkspaceSnapshot(properties.getProperty("applicationName", "JDownloader Material"),
+                tabs, selected, groups);
     }
 
-    private static WorkspaceTab parseTab(Properties properties, UUID expectedId, int fallbackIndex) throws IOException {
+    private static WorkspaceTab parseTab(Properties properties, UUID expectedId, int fallbackIndex,
+                                         boolean schemaTwo) throws IOException {
         String prefix = properties.containsKey("page") ? "" : "tab." + fallbackIndex + ".";
         UUID id = expectedId;
         String explicit = properties.getProperty(prefix + "id");
@@ -351,7 +495,11 @@ public final class GitWorkspaceStore implements AutoCloseable {
                     Boolean.parseBoolean(properties.getProperty(prefix + "bold", "false")),
                     Boolean.parseBoolean(properties.getProperty(prefix + "italic", "false")),
                     properties.getProperty(prefix + "color", "#1D1B20"));
-            return new WorkspaceTab(id, page, properties.getProperty(prefix + "title", page.name()), style);
+            UUID groupId = null;
+            String groupValue = properties.getProperty(prefix + "groupId", "").trim();
+            if (schemaTwo && !groupValue.isEmpty()) groupId = parseUuid(groupValue, "group id");
+            return new WorkspaceTab(id, page, properties.getProperty(prefix + "title", page.name()), style,
+                    schemaTwo && Boolean.parseBoolean(properties.getProperty(prefix + "pinned", "false")), groupId);
         } catch (IllegalArgumentException invalid) {
             throw new IOException("Workspace tab is invalid", invalid);
         }
@@ -482,6 +630,9 @@ public final class GitWorkspaceStore implements AutoCloseable {
         Mutation apply(WorkspaceSnapshot snapshot) throws Exception;
     }
 
-    private record Mutation(WorkspaceSnapshot snapshot, WorkspaceTab closedDescriptor, boolean closed) {
+    private record Mutation(WorkspaceSnapshot snapshot, List<WorkspaceTab> closedDescriptors, boolean closed) {
+        private Mutation {
+            closedDescriptors = List.copyOf(closedDescriptors == null ? List.of() : closedDescriptors);
+        }
     }
 }

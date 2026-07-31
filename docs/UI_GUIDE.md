@@ -1,10 +1,11 @@
 # UI guide
 
-JDownloader Material is a compact Material 3 desktop interface for direct HTTP(S) downloads. The
-mint-teal rewrite keeps global transfer controls, page navigation, search, and telemetry in stable
-positions while network and storage work continues in the background. A runnable approximation of
-the shell is also available in the
-[interactive GitHub Pages demo](https://codingmachineedge.github.io/jdownloader-material/).
+JDownloader Material is a compact Material 3 Windows desktop interface for direct HTTP(S) downloads
+and optional loopback control of an installed JDownloader instance. The mint/deep-teal interface
+keeps transfer controls, browser-style navigation, bounded search and telemetry in stable positions
+while network and storage work continue in the background. A runnable approximation of the shell is
+also available in the
+[interactive GitHub Pages demo](https://ding-ding-projects.github.io/jdownloader-material/).
 
 ## Application shell
 
@@ -13,8 +14,8 @@ The borderless JavaFX window is divided into four persistent regions.
 | Region | Geometry and role |
 | --- | --- |
 | Global toolbar | Fixed at 52 px. Contains the project mark, Add Links, Start, Pause/Resume, Stop, contextual search, aggregate throughput trace/value, theme, clipboard monitoring, and minimize/maximize/close controls. |
-| Primary navigation | 208 px expanded rail for Downloads, LinkGrabber, History, and Settings. It collapses to a 72 px icon rail below 980 px. |
-| Page content | A 62 px heading above a bordered, 16 px-radius work panel. Tables and settings use compact desktop spacing rather than card-heavy mobile layouts. |
+| Navigation/workspace | 208/72 px rail opens or focuses pages in pinned and grouped browser-style tab strips with overflow. |
+| Page content | One selected workspace page above a bordered, 16 px-radius work panel. Tables and settings use compact desktop spacing rather than card-heavy mobile layouts. |
 | Status bar | Fixed at 30 px. Shows global speed, running count, remaining bytes, scheduled retry state, and the latest fixed activity message. |
 
 Drag unused toolbar space to move the window and double-click it to maximize or restore it. The
@@ -27,17 +28,43 @@ Start, Pause/Resume, and Stop always target the direct-download scheduler, so tr
 not move when the active page changes. Add Links always opens the drawer over the current page.
 The theme and clipboard-monitoring buttons also remain global.
 
-Search follows the active destination:
+The global plain-first/regex search follows the active workspace page:
 
 - **Downloads** matches package names and file names/hosts, then combines that text query with the
   All / Running / Finished state filter.
 - **LinkGrabber** matches staged package names and link names/hosts, then combines it with the
   availability filter.
 - **History** matches operation, summary, scope, status, entry identifier, and related entry.
-- **Settings** disables search because its own section rail is the navigation model.
+- **Settings** composes the global query with a dedicated all-settings field and an independent
+  field inside every settings section.
+- **Notifications, Changelog, Downloads properties and installed-JDownloader pages** expose their
+  own independent fields where the content has a separate result set.
+
+Every search field has an adjacent tune button that opens a non-modal builder anchored to that
+field. The builder switches deliberately between plain text and RE2/J regex, supports case-
+insensitive/multiline/dotall flags, guided fragments, bounded sample text, syntax feedback, live
+matches/captures and copy/export. An invalid expression stays editable and runs no search.
 
 The top throughput component exposes its formatted value as accessible text. The bottom status bar
 remains visible on every page and reports long-running work without covering content.
+
+## Workspace tabs and groups
+
+The rail opens or focuses Downloads, LinkGrabber, History and Settings; New Tab also offers Add
+Links, Notifications, Changelog and installed-JDownloader feature pages. Pinned tabs occupy a
+stable icon region and retain accessible full names. Regular tabs scroll horizontally and remain
+reachable from the overflow menu.
+
+Drag a tab or use its context/keyboard commands to reorder it, pin/unpin, close it or move it into a
+group. Group menus create/rename/color/reorder/pin/collapse/remove groups. The current-strip,
+per-group, group-name and master searches are independent and all have full builders. Bulk Close
+offers containing and inverse predicates, current/selected/all-group scope, title preview and an
+explicit include-pinned option; unsaved pages are skipped.
+
+Normal right-click preserves management commands and adds **Edit tab/group appearance…**.
+Shift+right-click opens that anchored editor directly, as does
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> for the focused element. Workspace structure and
+appearance overrides persist separately in private local storage.
 
 ## Dense panels and tables
 
@@ -120,11 +147,15 @@ selects a scroll-managed detail page on the right. General, Connection, Recovery
 Appearance, Backup, and About use concise 62 px rows: a title and supporting sentence on the left,
 with one direct control on the right.
 
-- **General** controls the default folder, simultaneous downloads, and file-collision behavior.
-- **Connection** controls the global speed cap and per-host connection limit.
+- **General** controls the default folder, simultaneous downloads, file-collision behavior, dim-sum
+  opt-out, quiet hours, notification history and external editor.
+- **Connection** controls the global speed cap, per-host connection limit and installed-JDownloader
+  loopback base URL.
 - **Recovery** controls bounded retry for transient network, 408, 429, and 5xx failures.
 - **LinkGrabber** controls clipboard monitoring, auto-confirm, auto-start, and add-at-top.
-- **Appearance** controls light/dark theme, title-bar speed, and language.
+- **Appearance** controls light/dark theme, title-bar speed, language, independent English/Cantonese
+  funny levels, disclosure and reduced motion. Per-element editing adds density, seed/accent colors,
+  fonts, geometry, spacing, states, presets and import/export.
 - **Backup** exports or imports encrypted settings on background workers.
 - **About** identifies the build and the project's direct-download scope.
 
@@ -171,9 +202,44 @@ English / Hong Kong Cantonese. Bilingual mode combines compact labels with a sep
 longer supporting copy where needed. The selected Settings section and any open Add Links draft are
 retained while translated controls rebuild; the transfer engine keeps running.
 
-| Hong Kong Cantonese | Bilingual English / Hong Kong Cantonese |
-| --- | --- |
-| ![Downloads in playful Hong Kong Cantonese](screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](screenshots/downloads-bilingual.png) |
+The independent English and Cantonese funny sliders run from 1 (fully serious) to 5 (maximum
+playfulness). The first-use notice and Settings disclosure state that voice applies to all copy,
+including errors and warnings. Version numbers, paths, actions, consequences and recovery facts do
+not change with the level. Both sliders default to professional level 1; playfulness is an explicit
+opt-in.
+
+| Hong Kong Cantonese | Bilingual English / Hong Kong Cantonese | Bilingual compact width |
+| --- | --- | --- |
+| ![Downloads in playful Hong Kong Cantonese](screenshots/downloads-cantonese.png) | ![Downloads in bilingual English and Hong Kong Cantonese](screenshots/downloads-bilingual.png) | ![Downloads at 880 by 560 pixels in bilingual mode](screenshots/downloads-bilingual-narrow.png) |
+
+## Notifications, changelog and dim sum
+
+Routine app-wide information appears as a bottom-right stack. Information and success auto-dismiss;
+warnings and errors remain until dismissed. The Notification Center keeps bounded searchable local
+history. The Changelog page composes plain/regex search with typed/calendar date ranges and presets,
+then copies or exports exactly the filtered Markdown view.
+
+After first run, exactly one policy evaluation per eligible launch has a 1% chance to show one local
+dim-sum dish at bottom-left for eight seconds. It does not take focus or block startup, respects the
+persisted opt-out, quiet/reduced-motion settings and uses a factual bilingual dish name.
+
+| Changelog | Notification history | Dim-sum surprise |
+| --- | --- | --- |
+| ![Searchable changelog with date filters, copy, and export](screenshots/changelog-light.png) | ![Searchable notification history in bilingual mode](screenshots/notifications-bilingual.png) | ![Non-blocking shrimp-dumpling startup card over Downloads](screenshots/dim-sum-light.png) |
+
+## Installed JDownloader and external editor
+
+Stock JDownloader feature pages use only the configured strict-loopback API URL (default
+`http://127.0.0.1:3128`). Their Operations, Response and Connection tabs keep work cancellable and
+bounded. Destructive or unknown operations ask for an explicit decision; passwords are transient
+and never persisted. If no compatible local instance is listening, a persistent notification
+reports the sanitized failure and the rest of the app remains usable.
+
+General Settings detects supported Windows editors or accepts a structured command template. Owned
+folders and selected files open through direct process arguments, never a command shell. A missing
+or moved executable reports a non-blocking failure and leaves the configured value editable.
+
+![Strict-loopback installed-JDownloader plugins bridge](screenshots/plugins-bridge-light.png)
 
 ## Accessibility and keyboard behavior
 
@@ -190,7 +256,7 @@ traversal and activation remain available. The visual system adds:
 - a named dialog role, automatic focus transfer to the first Add Links field, and Escape dismissal;
 - two-line wrapping for bilingual state chips, while dense Details cells retain their full copy in an
   accessible tooltip; and
-- fixed inline status and activity copy instead of time-limited overlays.
+- fixed inline status plus named, focusable corner notifications with severity-appropriate timeouts.
 
 The current implementation does not claim complete shortcut coverage or screen-reader
 announcements for every dynamic queue mutation.
@@ -214,7 +280,7 @@ undo/restore without versioning downloaded file contents.
 
 ## Regenerating the gallery
 
-Documentation capture opts into `SimulatedEngine`, seeds deterministic rows, renders the 21 scenes
+Documentation capture opts into `SimulatedEngine`, seeds deterministic rows, defines 26 scenes
 used above, and exits. Ordinary launches continue to use `DirectHttpEngine`.
 
 From PowerShell with JDK 25 available:
@@ -224,9 +290,10 @@ $env:JD_SCREENSHOT_DIR = (Resolve-Path "docs/screenshots").Path
 .\mvnw.cmd javafx:run
 ~~~
 
-The command refreshes Downloads light/dark/status/properties/Cantonese/bilingual; LinkGrabber
-light/dark/Cantonese; History light/dark/bilingual; Settings general light/dark and Appearance
-light/dark/bilingual; and Add Links light/dark/bilingual.
+The command refreshes Downloads light/dark/status/properties/Cantonese/bilingual/narrow;
+LinkGrabber light/dark/Cantonese; History light/dark/bilingual; Settings general light/dark and
+Appearance light/dark/bilingual; Add Links light/dark/bilingual; Changelog, installed-JDownloader
+Plugins, Notifications and Dim Sum.
 
 Review the key compact and bilingual scenes before replacing the checked-in assets. The current
 [UI smoke handoff](UI_SMOKE.md) records the route, accessibility, and clipping checks that accompany

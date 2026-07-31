@@ -1,8 +1,9 @@
 # History Manager
 
 The History Manager keeps a local, append-only timeline for the data that shapes direct-download
-work: Downloads, LinkGrabber, and non-secret settings. It makes everyday list/settings changes
-reversible without interrupting active navigation.
+work: Downloads, LinkGrabber and non-secret Settings. A separate append-only workspace repository
+records tabs and groups. Together they make everyday model/settings/navigation changes reversible
+without interrupting active work.
 
 ## Interface
 
@@ -22,8 +23,9 @@ History lives below `~/.jdownloader-material/history/` in separate private Git r
 
 - **Download lists** holds Downloads and LinkGrabber together, so moving a link from staging into
   the queue is one coherent historical operation.
-- **Settings** holds non-secret preferences such as destinations, connection limits, appearance,
-  language, retry behavior, and LinkGrabber flow.
+- **Settings** holds non-secret preferences such as destinations, connection limits, language, both
+  funny levels, disclosure, reduced motion, dim-sum/quiet/notification controls, external-editor
+  command, installed-JDownloader loopback URL, retry behavior and LinkGrabber flow.
 - **Manifest** is a local coordinator. It first commits a durable prepare record with canonical
   copies of every snapshot file, then records completion after matching Download lists and Settings
   commits exist. On the next launch it can finish a prepared-but-interrupted change.
@@ -34,11 +36,21 @@ app's lists and settings, not user files. Direct-link URLs remain exactly as ent
 list remains useful, including signed or authenticated URLs. Treat the history directory as private
 device data.
 
+`~/.jdownloader-material/workspace/` is another private JGit repository. It records the complete
+current tab/group snapshot—page identities, titles, order, pinning, selected tab, group names/order/
+membership/collapse/pinning/decorations and application name—after each structural action. The
+appearance profile and notification records use bounded atomic files rather than Git; their
+Settings switches still participate in the Settings timeline.
+
 ## Timeline, undo, redo, and restore
 
 Each settled, user-meaningful operation creates a new entry. Entries cover link submission,
 resolved LinkGrabber metadata, confirmation, removal, queued-item name/destination changes, package
 ordering, terminal transfer outcomes, and settings changes.
+
+Workspace commits cover open, close, select, move, pin, group create/update/remove, import and bulk
+close. An unchanged structural snapshot writes no commit. Workspace import/export carries the
+validated current structure, not the private Git object database.
 
 Undo, Redo, and Restore apply a snapshot and append a new event. Earlier entries remain intact, so
 an undo can itself be undone and a restored point stays visible alongside the newer path. Restore
@@ -62,5 +74,6 @@ already accepted local revision.
 
 Append-only history is a local convenience and recovery layer. It consumes disk space as entries
 accumulate and relies on the device's ordinary storage/backup care. Keep separate backups of
-important downloaded files and use encrypted Settings backup for portable configuration. The app
-retains its timeline records; ensure the device has adequate storage and a suitable backup policy.
+important downloaded files and use encrypted Settings backup plus workspace export for portable
+configuration. The app retains its timeline records; ensure the device has adequate storage and a
+suitable backup policy.

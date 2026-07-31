@@ -61,7 +61,8 @@ public final class SimulatedEngine implements DownloadEngine {
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
     private final Settings settings = new Settings();
-    private final I18n i18n = new I18n(settings.languageProperty());
+    private final I18n i18n = new I18n(settings.languageProperty(),
+            settings.englishFunnyLevelProperty(), settings.cantoneseFunnyLevelProperty());
     private final HistoryService history;
 
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);

@@ -173,7 +173,7 @@ function settingsBody() {
       <div class="setting-row"><div><strong>Export encrypted settings</strong><small>Create an AES-256-GCM protected backup.</small></div><button class="app-action" type="button" data-settings-action="export">Export</button></div>
       <div class="setting-row"><div><strong>Import encrypted settings</strong><small>Validate and restore a settings backup.</small></div><button class="app-action" type="button" data-settings-action="import">Import</button></div>`,
     about: `<h2>About</h2><p class="settings-lede">JDownloader Material interactive browser preview.</p>
-      <div class="setting-row"><div><strong>Project</strong><small>Independent direct HTTP(S) download workspace.</small></div><a class="app-action" href="https://github.com/codingmachineedge/jdownloader-material" target="_top">Repository</a></div>
+      <div class="setting-row"><div><strong>Project</strong><small>Independent direct HTTP(S) download workspace.</small></div><a class="app-action" href="https://github.com/Ding-Ding-Projects/jdownloader-material" target="_top">Repository</a></div>
       <div class="setting-row"><div><strong>Preview data</strong><small>No network transfers run in this browser demo.</small></div><span class="number-cell">Sample only</span></div>`
   };
   return sections[settingsSection];

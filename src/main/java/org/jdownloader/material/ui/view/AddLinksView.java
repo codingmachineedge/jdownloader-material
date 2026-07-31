@@ -10,6 +10,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.i18n.I18n;
@@ -87,10 +88,13 @@ public final class AddLinksView extends VBox {
         destinationRow.setMaxWidth(Double.MAX_VALUE);
 
         addButton = Mat.outlined(i18n.text("addlinks.queue"), null);
+        addButton.setMinWidth(Region.USE_PREF_SIZE);
         addButton.setOnAction(e -> submit(false));
         addStartButton = Mat.filled(i18n.text("addlinks.queue_start"), null);
+        addStartButton.setMinWidth(Region.USE_PREF_SIZE);
         addStartButton.setOnAction(e -> submit(true));
         var cancel = Mat.text(i18n.text("addlinks.cancel"), null);
+        cancel.setMinWidth(Region.USE_PREF_SIZE);
         cancel.setOnAction(e -> closeDrawer.run());
         HBox actions = new HBox(8, Mat.hSpacer(), cancel, addButton, addStartButton);
         actions.setAlignment(Pos.CENTER_RIGHT);

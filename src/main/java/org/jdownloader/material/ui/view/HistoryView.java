@@ -38,7 +38,10 @@ import javafx.util.StringConverter;
 import org.jdownloader.material.engine.history.HistoryEntry;
 import org.jdownloader.material.engine.history.HistoryService;
 import org.jdownloader.material.i18n.I18n;
+import org.jdownloader.material.search.SafeSearchEvaluator;
+import org.jdownloader.material.search.SearchSpec;
 import org.jdownloader.material.ui.component.Mat;
+import org.jdownloader.material.ui.component.M3Dialogs;
 import org.jdownloader.material.util.Formats;
 
 /**
@@ -61,6 +64,8 @@ public final class HistoryView extends BorderPane {
     private final StringProperty operationNotice = new SimpleStringProperty(this, "operationNotice", "");
     private final TextField search = new TextField();
     private final ComboBox<ScopeFilter> scopeFilter = new ComboBox<>();
+    private final SafeSearchEvaluator searchEvaluator = new SafeSearchEvaluator();
+    private SearchSpec searchSpec = SearchSpec.empty();
 
     private final Label previewTitle = Mat.label("", "title");
     private final Label previewSummary = Mat.label("", "body");
@@ -172,8 +177,16 @@ public final class HistoryView extends BorderPane {
 
     /** Applies the search field hosted by the global application toolbar. */
     public void setFilter(String value) {
-        String next = value == null ? "" : value;
-        if (!Objects.equals(search.getText(), next)) search.setText(next);
+        setSearchSpec(SearchSpec.plain(value == null ? "" : value));
+    }
+
+    public void setSearchSpec(SearchSpec value) {
+        SearchSpec next = value == null ? SearchSpec.empty() : value;
+        if (next.equals(searchSpec)) return;
+        searchSpec = next;
+        String expression = next.expression();
+        if (!Objects.equals(search.getText(), expression)) search.setText(expression);
+        refreshFilter();
     }
 
     private Node buildPreview() {
@@ -200,7 +213,11 @@ public final class HistoryView extends BorderPane {
                 () -> !isRestorable(selectedEntry.get()), selectedEntry)));
         restore.setOnAction(event -> {
             HistoryEntry entry = selectedEntry.get();
-            if (entry != null) perform(() -> history.restore(entry.id()));
+            if (entry != null && M3Dialogs.confirm(this, t("history.restore_title"),
+                    t("history.restore"), t("history.restore_hint"),
+                    t("stock.remote.confirm_cancel"), t("history.restore"))) {
+                perform(() -> history.restore(entry.id()));
+            }
         });
         Label restoreHint = Mat.label(t("history.restore_hint"), "row-desc");
         restoreHint.setWrapText(true);
@@ -241,10 +258,9 @@ public final class HistoryView extends BorderPane {
     }
 
     private void refreshFilter() {
-        String needle = search.getText() == null ? "" : search.getText().trim().toLowerCase(Locale.ROOT);
         ScopeFilter requestedScope = scopeFilter.getValue() == null ? ScopeFilter.ALL : scopeFilter.getValue();
         filteredEntries.setAll(history.entries().stream()
-                .filter(entry -> matches(entry, needle, requestedScope))
+                .filter(entry -> matches(entry, searchSpec, requestedScope))
                 .toList());
         HistoryEntry selected = selectedEntry.get();
         if (filteredEntries.isEmpty()) {
@@ -254,15 +270,15 @@ public final class HistoryView extends BorderPane {
         }
     }
 
-    private boolean matches(HistoryEntry entry, String needle, ScopeFilter requestedScope) {
+    private boolean matches(HistoryEntry entry, SearchSpec spec, ScopeFilter requestedScope) {
         if (entry == null || !requestedScope.matches(entry.scope())) return false;
-        if (needle.isEmpty()) return true;
-        return searchable(entry.operation()).contains(needle)
-                || searchable(entry.summary()).contains(needle)
-                || searchable(entry.scope()).contains(needle)
-                || searchable(entry.status()).contains(needle)
-                || searchable(entry.id()).contains(needle)
-                || searchable(entry.targetId()).contains(needle);
+        if (spec.expression().isEmpty()) return true;
+        return searchEvaluator.matches(spec, String.valueOf(entry.operation()))
+                || searchEvaluator.matches(spec, entry.summary())
+                || searchEvaluator.matches(spec, String.valueOf(entry.scope()))
+                || searchEvaluator.matches(spec, String.valueOf(entry.status()))
+                || searchEvaluator.matches(spec, entry.id())
+                || searchEvaluator.matches(spec, entry.targetId());
     }
 
     private static String searchable(Object value) {

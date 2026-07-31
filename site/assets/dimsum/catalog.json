@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Original images generated for this project with OpenAI's built-in image generation tool on 2026-07-30.",
+  "assets": [
+    {
+      "id": "har-gow",
+      "englishName": "Shrimp dumpling",
+      "cantoneseName": "蝦餃",
+      "altTextEnglish": "Four shrimp dumplings in a bamboo steamer",
+      "altTextCantonese": "竹蒸籠入面有四粒蝦餃",
+      "resource": "har-gow.png"
+    },
+    {
+      "id": "siu-mai",
+      "englishName": "Siu mai",
+      "cantoneseName": "燒賣",
+      "altTextEnglish": "Four siu mai in a bamboo steamer",
+      "altTextCantonese": "竹蒸籠入面有四粒燒賣",
+      "resource": "siu-mai.png"
+    },
+    {
+      "id": "char-siu-bao",
+      "englishName": "Char siu bao",
+      "cantoneseName": "叉燒包",
+      "altTextEnglish": "Three char siu bao in a bamboo steamer",
+      "altTextCantonese": "竹蒸籠入面有三個叉燒包",
+      "resource": "char-siu-bao.png"
+    },
+    {
+      "id": "egg-tart",
+      "englishName": "Egg tart",
+      "cantoneseName": "蛋撻",
+      "altTextEnglish": "Three Hong Kong-style egg tarts on a ceramic plate",
+      "altTextCantonese": "陶瓷碟上面有三個港式蛋撻",
+      "resource": "egg-tart.png"
+    }
+  ]
+}

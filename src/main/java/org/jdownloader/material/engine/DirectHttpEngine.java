@@ -101,7 +101,8 @@ public final class DirectHttpEngine implements DownloadEngine {
     private final ObservableList<DownloadPackage> downloads = FXCollections.observableArrayList();
     private final ObservableList<CrawledPackage> crawled = FXCollections.observableArrayList();
     private final Settings settings = new Settings();
-    private final I18n i18n = new I18n(settings.languageProperty());
+    private final I18n i18n = new I18n(settings.languageProperty(),
+            settings.englishFunnyLevelProperty(), settings.cantoneseFunnyLevelProperty());
 
     private final ReadOnlyBooleanWrapper running = new ReadOnlyBooleanWrapper(false);
     private final ReadOnlyBooleanWrapper paused = new ReadOnlyBooleanWrapper(false);
@@ -137,7 +138,7 @@ public final class DirectHttpEngine implements DownloadEngine {
     private final PauseTransition stateSaveDelay = new PauseTransition(javafx.util.Duration.millis(650));
     private final PauseTransition historySettingsDelay = new PauseTransition(javafx.util.Duration.millis(420));
     private final InvalidationListener stateDirty = observable -> scheduleStateSave();
-    private final InvalidationListener historySettingsDirty = observable -> scheduleSettingsHistory();
+    private final java.util.LinkedHashSet<String> pendingSettingNames = new java.util.LinkedHashSet<>();
     private final AnimationTimer scheduler;
 
     private volatile boolean pauseRequested;
@@ -163,8 +164,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         observeDownloads();
         observeCrawled();
         stateSaveDelay.setOnFinished(event -> queueStateWrite());
-        historySettingsDelay.setOnFinished(event ->
-                recordHistory(HistoryScope.SETTINGS, i18n.text("history.summary.settings_changed")));
+        historySettingsDelay.setOnFinished(event -> recordHistory(HistoryScope.SETTINGS, settingsHistorySummary()));
         scheduler = new AnimationTimer() {
             @Override public void handle(long now) {
                 long millis = now / 1_000_000L;
@@ -1131,43 +1131,49 @@ public final class DirectHttpEngine implements DownloadEngine {
     }
 
     private void observeSettings() {
-        settings.downloadFolderProperty().addListener(stateDirty);
-        settings.downloadFolderProperty().addListener(historySettingsDirty);
-        settings.maxSimultaneousDownloadsProperty().addListener(stateDirty);
-        settings.maxSimultaneousDownloadsProperty().addListener(historySettingsDirty);
-        settings.ifFileExistsProperty().addListener(stateDirty);
-        settings.ifFileExistsProperty().addListener(historySettingsDirty);
-        settings.clipboardMonitoringProperty().addListener(stateDirty);
-        settings.clipboardMonitoringProperty().addListener(historySettingsDirty);
-        settings.autoConfirmProperty().addListener(stateDirty);
-        settings.autoConfirmProperty().addListener(historySettingsDirty);
-        settings.autoStartProperty().addListener(stateDirty);
-        settings.autoStartProperty().addListener(historySettingsDirty);
-        settings.addAtTopProperty().addListener(stateDirty);
-        settings.addAtTopProperty().addListener(historySettingsDirty);
+        observeSetting(settings.downloadFolderProperty(), "settings.default_folder");
+        observeSetting(settings.maxSimultaneousDownloadsProperty(), "settings.simultaneous");
+        observeSetting(settings.ifFileExistsProperty(), "settings.if_exists");
+        observeSetting(settings.clipboardMonitoringProperty(), "settings.clipboard_monitoring");
+        observeSetting(settings.autoConfirmProperty(), "settings.auto_confirm");
+        observeSetting(settings.autoStartProperty(), "settings.auto_start");
+        observeSetting(settings.addAtTopProperty(), "settings.add_at_top");
         settings.speedLimitEnabledProperty().addListener((o, was, is) -> {
             refreshRateLimit();
             scheduleStateSave();
-            scheduleSettingsHistory();
+            scheduleSettingsHistory("settings.speed_limit_enable");
         });
         settings.speedLimitKbpsProperty().addListener((o, was, is) -> {
             refreshRateLimit();
             scheduleStateSave();
-            scheduleSettingsHistory();
+            scheduleSettingsHistory("settings.speed_limit");
         });
-        settings.maxConnectionsPerHostProperty().addListener(stateDirty);
-        settings.maxConnectionsPerHostProperty().addListener(historySettingsDirty);
+        observeSetting(settings.maxConnectionsPerHostProperty(), "settings.host_connections");
         settings.autoReconnectProperty().addListener((o, wasEnabled, enabled) -> {
             if (!enabled) cancelPendingRetries();
             scheduleStateSave();
-            scheduleSettingsHistory();
+            scheduleSettingsHistory("settings.retry_transient");
         });
-        settings.darkThemeProperty().addListener(stateDirty);
-        settings.darkThemeProperty().addListener(historySettingsDirty);
-        settings.speedInTitleProperty().addListener(stateDirty);
-        settings.speedInTitleProperty().addListener(historySettingsDirty);
-        settings.languageProperty().addListener(stateDirty);
-        settings.languageProperty().addListener(historySettingsDirty);
+        observeSetting(settings.darkThemeProperty(), "settings.dark_theme");
+        observeSetting(settings.speedInTitleProperty(), "settings.speed_in_title");
+        observeSetting(settings.languageProperty(), "settings.language");
+        observeSetting(settings.englishFunnyLevelProperty(), "settings.english_funny");
+        observeSetting(settings.cantoneseFunnyLevelProperty(), "settings.cantonese_funny");
+        observeSetting(settings.funnyLevelDisclosedProperty(), "settings.funny_disclosure");
+        observeSetting(settings.dimSumSurpriseEnabledProperty(), "settings.dim_sum");
+        observeSetting(settings.firstRunCompletedProperty(), "settings.first_run");
+        observeSetting(settings.reducedMotionProperty(), "settings.reduced_motion");
+        observeSetting(settings.quietHoursProperty(), "settings.quiet_hours");
+        observeSetting(settings.notificationHistoryEnabledProperty(), "settings.notification_history");
+        observeSetting(settings.appearanceProfilePayloadProperty(), "settings.appearance_profile");
+        observeSetting(settings.externalEditorSelectionProperty(), "settings.external_editor_choice");
+        observeSetting(settings.externalEditorCommandProperty(), "settings.external_editor");
+        observeSetting(settings.remoteApiBaseUrlProperty(), "settings.remote_api");
+    }
+
+    private void observeSetting(javafx.beans.Observable property, String labelKey) {
+        property.addListener(stateDirty);
+        property.addListener(observable -> scheduleSettingsHistory(labelKey));
     }
 
     private void observeDownloads() {
@@ -1300,9 +1306,17 @@ public final class DirectHttpEngine implements DownloadEngine {
     }
 
     /** Coalesces text input and slider movement into one semantic Settings revision. */
-    private void scheduleSettingsHistory() {
+    private void scheduleSettingsHistory(String labelKey) {
         if (shutdown.get() || !historyReady || restoringState) return;
+        if (labelKey != null && !labelKey.isBlank()) pendingSettingNames.add(i18n.text(labelKey));
         historySettingsDelay.playFromStart();
+    }
+
+    private String settingsHistorySummary() {
+        if (pendingSettingNames.isEmpty()) return i18n.text("history.summary.settings_changed");
+        String names = String.join(", ", pendingSettingNames);
+        pendingSettingNames.clear();
+        return i18n.text("history.summary.settings_named", names);
     }
 
     @Override
@@ -1730,7 +1744,7 @@ public final class DirectHttpEngine implements DownloadEngine {
         if (!shutdown.get() && historyReady && !restoringState
                 && historySettingsDelay.getStatus() == javafx.animation.Animation.Status.RUNNING) {
             historySettingsDelay.stop();
-            recordHistory(HistoryScope.SETTINGS, i18n.text("history.summary.settings_changed"));
+            recordHistory(HistoryScope.SETTINGS, settingsHistorySummary());
         }
         if (!shutdown.compareAndSet(false, true)) return;
         modelEpoch.incrementAndGet();

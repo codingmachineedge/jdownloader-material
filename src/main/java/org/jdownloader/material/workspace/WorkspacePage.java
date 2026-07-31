@@ -6,5 +6,16 @@ public enum WorkspacePage {
     LINKGRABBER,
     HISTORY,
     SETTINGS,
-    ADD_LINKS
+    ADD_LINKS,
+    ACCOUNTS,
+    PLUGINS,
+    CAPTCHA,
+    EXTRACTION,
+    SCHEDULER,
+    CONNECTIONS,
+    REMOTE_CONTROL,
+    AUTOMATION,
+    LOGS,
+    NOTIFICATIONS,
+    CHANGELOG
 }

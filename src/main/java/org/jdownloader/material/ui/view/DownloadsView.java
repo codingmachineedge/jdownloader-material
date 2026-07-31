@@ -32,9 +32,14 @@ import org.jdownloader.material.model.DownloadPackage;
 import org.jdownloader.material.model.DownloadPriority;
 import org.jdownloader.material.model.DownloadState;
 import org.jdownloader.material.i18n.I18n;
+import org.jdownloader.material.integration.ExternalEditorActions;
+import org.jdownloader.material.search.SafeSearchEvaluator;
+import org.jdownloader.material.search.SearchSpec;
+import org.jdownloader.material.ui.search.SearchField;
 import org.jdownloader.material.ui.component.CompletedFileActions;
 import org.jdownloader.material.ui.component.DownloadCells;
 import org.jdownloader.material.ui.component.Mat;
+import org.jdownloader.material.ui.component.M3Dialogs;
 import org.jdownloader.material.ui.component.ActivityStatus;
 
 import java.util.ArrayList;
@@ -52,6 +57,7 @@ public final class DownloadsView extends BorderPane {
     private final DownloadEngine engine;
     private final ActivityStatus activity;
     private final I18n i18n;
+    private final ExternalEditorActions externalEditors;
     private final TreeTableView<DownloadItem> tree = new TreeTableView<>();
     private final TreeItem<DownloadItem> root = new TreeItem<>(null);
     private final ListChangeListener<DownloadPackage> downloadPackagesListener = c -> {
@@ -76,6 +82,8 @@ public final class DownloadsView extends BorderPane {
     private final TextField editDestination = new TextField();
     private final ButtonBase applyProperties = Mat.tonal("Apply changes", "check");
     private final javafx.scene.control.Label propertiesHint;
+    private SearchField propertiesSearch;
+    private VBox propertiesDetails;
     {
         propertiesHint = new javafx.scene.control.Label();
         propertiesHint.getStyleClass().add("row-desc");
@@ -86,12 +94,19 @@ public final class DownloadsView extends BorderPane {
     private DownloadItem propertiesItem;
     private DownloadItem observedPropertiesItem;
     private volatile boolean disposed;
-    private String filter = "";
+    private final SafeSearchEvaluator searchEvaluator = new SafeSearchEvaluator();
+    private SearchSpec searchSpec = SearchSpec.empty();
 
     public DownloadsView(DownloadEngine engine, ActivityStatus activity, I18n i18n) {
+        this(engine, activity, i18n, null);
+    }
+
+    public DownloadsView(DownloadEngine engine, ActivityStatus activity, I18n i18n,
+                         ExternalEditorActions externalEditors) {
         this.engine = engine;
         this.activity = activity;
         this.i18n = i18n;
+        this.externalEditors = externalEditors;
         getStyleClass().addAll("content-area", "page-view");
         TreeTableView<DownloadItem> table = buildTree();
         setTop(buildPageHeader(table));
@@ -106,11 +121,31 @@ public final class DownloadsView extends BorderPane {
     // --------------------------------------------------------------- Toolbar
     private HBox buildPageHeader(TreeTableView<DownloadItem> table) {
         var title = Mat.label(i18n.text("downloads.title"), "headline", "page-title");
+        MenuButton externalEditor = externalEditorMenu();
         MenuButton columns = columnMenu(table);
-        HBox header = new HBox(12, title, Mat.hSpacer(), columns);
+        HBox header = new HBox(12, title, Mat.hSpacer(), externalEditor, columns);
         header.getStyleClass().addAll("view-header", "page-head");
         header.setAlignment(Pos.CENTER_LEFT);
         return header;
+    }
+
+    private MenuButton externalEditorMenu() {
+        MenuItem folder = new MenuItem(i18n.text("external_editor.open_folder"),
+                org.jdownloader.material.ui.Icons.of("folder", 16));
+        folder.setOnAction(event -> {
+            if (externalEditors != null) externalEditors.openDownloadFolder();
+        });
+        MenuItem selected = new MenuItem(i18n.text("external_editor.open_selected"),
+                org.jdownloader.material.ui.Icons.of("download", 16));
+        selected.setOnAction(event -> openSelectedInExternalEditor());
+        MenuButton menu = new MenuButton(i18n.text("external_editor.menu"),
+                org.jdownloader.material.ui.Icons.of("folder", 16), folder, selected);
+        menu.getStyleClass().add("page-actions");
+        menu.setAccessibleText(i18n.text("external_editor.menu"));
+        menu.setAccessibleHelp(i18n.text("external_editor.menu_help"));
+        menu.setDisable(externalEditors == null);
+        menu.setOnShowing(event -> selected.setDisable(firstCompletedLink().isEmpty()));
+        return menu;
     }
 
     private MenuButton columnMenu(TreeTableView<DownloadItem> table) {
@@ -179,30 +214,37 @@ public final class DownloadsView extends BorderPane {
         tree.setRoot(root);
         tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         tree.getSelectionModel().getSelectedItems().addListener(selectionListener);
-        tree.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        // Preserve readable bilingual headers and status chips at the 880px
+        // supported width. Narrow windows scroll horizontally instead of
+        // squeezing factual labels into ellipses.
+        tree.setColumnResizePolicy(TreeTableView.UNCONSTRAINED_RESIZE_POLICY);
         tree.setPlaceholder(Mat.label(i18n.text("empty.downloads"), "empty-table-hint"));
 
         TreeTableColumn<DownloadItem, String> name = new TreeTableColumn<>(i18n.text("column.name"));
         name.setCellValueFactory(p -> p.getValue().getValue().nameProperty());
         name.setCellFactory(DownloadCells.name());
-        name.setPrefWidth(340);
+        name.setMinWidth(300);
+        name.setPrefWidth(300);
         name.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> size = new TreeTableColumn<>(i18n.text("column.size"));
         size.setCellValueFactory(p -> p.getValue().getValue().bytesTotalProperty());
         size.setCellFactory(DownloadCells.bytes());
+        size.setMinWidth(80);
         size.setPrefWidth(80);
         size.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, String> host = new TreeTableColumn<>(i18n.text("column.host"));
         host.setCellValueFactory(p -> p.getValue().getValue().hostProperty());
         host.setCellFactory(DownloadCells.host(i18n));
+        host.setMinWidth(140);
         host.setPrefWidth(140);
         host.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, DownloadState> status = new TreeTableColumn<>(i18n.text("column.status"));
         status.setCellValueFactory(p -> p.getValue().getValue().stateProperty());
         status.setCellFactory(DownloadCells.status(i18n));
+        status.setMinWidth(120);
         status.setPrefWidth(120);
         status.setMaxWidth(Double.MAX_VALUE);
 
@@ -212,25 +254,29 @@ public final class DownloadsView extends BorderPane {
             return item instanceof DownloadLink link ? link.detailProperty() : new ReadOnlyStringWrapper("");
         });
         details.setCellFactory(DownloadCells.textWithTooltip());
-        details.setPrefWidth(160);
+        details.setMinWidth(260);
+        details.setPrefWidth(260);
         details.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> progress = new TreeTableColumn<>(i18n.text("column.progress"));
         progress.setCellValueFactory(p -> p.getValue().getValue().progressProperty());
         progress.setCellFactory(DownloadCells.progress());
-        progress.setPrefWidth(200);
+        progress.setMinWidth(180);
+        progress.setPrefWidth(180);
         progress.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> speed = new TreeTableColumn<>(i18n.text("column.speed"));
         speed.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         speed.setCellFactory(DownloadCells.speed());
-        speed.setPrefWidth(100);
+        speed.setMinWidth(90);
+        speed.setPrefWidth(90);
         speed.setMaxWidth(Double.MAX_VALUE);
 
         TreeTableColumn<DownloadItem, Number> eta = new TreeTableColumn<>(i18n.text("column.eta"));
         eta.setCellValueFactory(p -> p.getValue().getValue().speedProperty());
         eta.setCellFactory(DownloadCells.eta());
-        eta.setPrefWidth(85);
+        eta.setMinWidth(75);
+        eta.setPrefWidth(75);
         eta.setMaxWidth(Double.MAX_VALUE);
 
         tree.getColumns().setAll(List.of(name, size, host, status, details, progress, speed, eta));
@@ -246,6 +292,8 @@ public final class DownloadsView extends BorderPane {
      */
     private VBox buildProperties() {
         var title = Mat.label(i18n.text("properties.selected"), "label-md");
+        propertiesSearch = new SearchField(i18n, "properties.search");
+        propertiesSearch.searchSpecProperty().addListener((observable, previous, current) -> refreshPropertiesSearch());
         editName.setPromptText(i18n.text("properties.name"));
         editDestination.setPromptText(i18n.text("properties.destination"));
         applyProperties.setText(i18n.text("properties.apply"));
@@ -260,12 +308,25 @@ public final class DownloadsView extends BorderPane {
         editName.setOnAction(e -> applyProperties());
         editDestination.setOnAction(e -> applyProperties());
 
-        properties.getChildren().setAll(title, fields, propertiesHint);
+        propertiesDetails = new VBox(8, title, fields, propertiesHint);
+        properties.getChildren().setAll(propertiesSearch, propertiesDetails);
         properties.setPadding(new Insets(12, 28, 16, 28));
         properties.getStyleClass().add("inline-properties");
         properties.setVisible(false);
         properties.setManaged(false);
         return properties;
+    }
+
+    private void refreshPropertiesSearch() {
+        if (propertiesSearch == null || propertiesDetails == null) return;
+        SearchSpec spec = propertiesSearch.searchSpec();
+        String text = String.join(" ", i18n.text("properties.selected"), i18n.text("properties.name"),
+                i18n.text("properties.destination"), propertiesHint.getText(), editName.getText(),
+                editDestination.getText());
+        boolean visible = spec.expression().isBlank()
+                || (propertiesSearch.validation().valid() && propertiesSearch.evaluator().matches(spec, text));
+        propertiesDetails.setVisible(visible);
+        propertiesDetails.setManaged(visible);
     }
 
     private void refreshProperties() {
@@ -297,6 +358,7 @@ public final class DownloadsView extends BorderPane {
                 : i18n.text("properties.hint.locked"));
         properties.setManaged(true);
         properties.setVisible(true);
+        refreshPropertiesSearch();
     }
 
     private void observePropertiesItem(DownloadItem next) {
@@ -369,12 +431,14 @@ public final class DownloadsView extends BorderPane {
         open.setOnAction(e -> firstCompletedLink().ifPresent(link -> CompletedFileActions.openFile(link, i18n)));
         MenuItem folder = new MenuItem(i18n.text("context.show_folder"));
         folder.setOnAction(e -> firstCompletedLink().ifPresent(link -> CompletedFileActions.showInFolder(link, i18n)));
+        MenuItem externalEditor = new MenuItem(i18n.text("external_editor.open_selected"));
+        externalEditor.setOnAction(event -> openSelectedInExternalEditor());
         MenuItem expand = new MenuItem(i18n.text("context.expand"));
         expand.setOnAction(e -> toggleExpandSelected());
         MenuItem remove = new MenuItem(i18n.text("context.remove"));
         remove.setOnAction(e -> removeSelected());
         ContextMenu menu = new ContextMenu(start, force, stop, new SeparatorMenuItem(), enable, disable, priority,
-                new SeparatorMenuItem(), open, folder, new SeparatorMenuItem(), expand,
+                new SeparatorMenuItem(), open, folder, externalEditor, new SeparatorMenuItem(), expand,
                 new SeparatorMenuItem(), remove);
         menu.setOnShowing(e -> {
             List<DownloadLink> links = selectedLinks();
@@ -390,6 +454,7 @@ public final class DownloadsView extends BorderPane {
             boolean hasCompletedFile = firstCompletedLink().isPresent();
             open.setDisable(!hasCompletedFile);
             folder.setDisable(!hasCompletedFile);
+            externalEditor.setDisable(externalEditors == null || !hasCompletedFile);
 
             priorityGroup.selectToggle(null);
             DownloadPriority shared = sharedPriority(links);
@@ -438,8 +503,8 @@ public final class DownloadsView extends BorderPane {
         var selectedBefore = selectedItems();
         root.getChildren().clear();
         for (DownloadPackage pkg : engine.downloadPackages()) {
-            boolean packageTextMatch = filter.isEmpty()
-                    || pkg.nameProp().get().toLowerCase().contains(filter);
+            boolean packageTextMatch = searchSpec.expression().isEmpty()
+                    || searchEvaluator.matches(searchSpec, pkg.nameProp().get());
             TreeItem<DownloadItem> pi = new TreeItem<>(pkg);
             pi.setExpanded(pkg.expandedProperty().get());
             pi.expandedProperty().addListener((o, a, b) -> pkg.expandedProperty().set(b));
@@ -474,6 +539,7 @@ public final class DownloadsView extends BorderPane {
         packageLinkListeners.clear();
         tree.getSelectionModel().getSelectedItems().removeListener(selectionListener);
         observePropertiesItem(null);
+        if (propertiesSearch != null) propertiesSearch.dispose();
     }
 
     private void restoreSelection(TreeItem<DownloadItem> item, List<DownloadItem> selectedBefore) {
@@ -511,15 +577,21 @@ public final class DownloadsView extends BorderPane {
 
     /** Applies the global shell search without rebuilding the view. */
     public void setFilter(String value) {
-        String next = value == null ? "" : value.trim().toLowerCase();
-        if (next.equals(filter)) return;
-        filter = next;
+        setSearchSpec(SearchSpec.plain(value == null ? "" : value.trim()));
+    }
+
+    /** Applies the synchronized plain/RE2 search state from the originating field. */
+    public void setSearchSpec(SearchSpec value) {
+        SearchSpec next = value == null ? SearchSpec.empty() : value;
+        if (next.equals(searchSpec)) return;
+        searchSpec = next;
         rebuild();
     }
 
     private boolean matchesText(DownloadLink l) {
-        return l.nameProperty().getValue().toLowerCase().contains(filter)
-                || l.hostProperty().getValue().toLowerCase().contains(filter);
+        return searchSpec.expression().isEmpty()
+                || searchEvaluator.matches(searchSpec, l.nameProperty().getValue())
+                || searchEvaluator.matches(searchSpec, l.hostProperty().getValue());
     }
 
     private boolean matchesState(DownloadLink link) {
@@ -536,6 +608,10 @@ public final class DownloadsView extends BorderPane {
         List<DownloadItem> selection = selectedItems();
         if (selection.isEmpty()) return;
         int n = selection.size();
+        if (!M3Dialogs.confirm(this, i18n.text("downloads.remove_confirm_title"),
+                i18n.text("downloads.remove_confirm_header", n),
+                i18n.text("downloads.remove_confirm_body"),
+                i18n.text("stock.remote.confirm_cancel"), i18n.text("downloads.remove_confirm_action"))) return;
         engine.removeDownloads(selection);
         activity.info(i18n.text(n == 1 ? "activity.removed.one" : "activity.removed.many", n));
     }
@@ -562,6 +638,11 @@ public final class DownloadsView extends BorderPane {
                 .filter(link -> link.state() == DownloadState.FINISHED)
                 .filter(link -> !link.outputPathProperty().get().isBlank())
                 .findFirst();
+    }
+
+    private void openSelectedInExternalEditor() {
+        if (externalEditors == null) return;
+        firstCompletedLink().ifPresent(link -> externalEditors.openPath(link.outputPathProperty().get()));
     }
 
     private static DownloadPriority sharedPriority(List<DownloadLink> links) {

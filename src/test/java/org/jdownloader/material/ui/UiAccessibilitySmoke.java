@@ -1,5 +1,8 @@
 package org.jdownloader.material.ui;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +47,7 @@ public final class UiAccessibilitySmoke {
                 engine.seedDemoData();
                 Stage stage = new Stage(StageStyle.UNDECORATED);
                 ThemeManager theme = new ThemeManager();
-                MainWindow window = new MainWindow(engine, theme, stage);
+                MainWindow window = new MainWindow(engine, theme, stage, temporaryWorkspace());
                 Scene scene = new Scene(window, 1440, 900);
                 theme.install(scene);
                 stage.setScene(scene);
@@ -70,7 +73,9 @@ public final class UiAccessibilitySmoke {
             onFx(() -> {
                 assertNamedIcons(scene);
                 assertNamedNavigation(scene);
-                I18n i18n = new I18n(engine.settings().languageProperty());
+                I18n i18n = new I18n(engine.settings().languageProperty(),
+                        engine.settings().englishFunnyLevelProperty(),
+                        engine.settings().cantoneseFunnyLevelProperty());
                 assertRoutes(window, scene, i18n);
                 window.showSettings();
                 layout(scene);
@@ -100,7 +105,8 @@ public final class UiAccessibilitySmoke {
                 require(!blank(drawer.getAccessibleText()), "Add Links dialog has no accessible name");
 
                 TextArea urls = only(drawer, ".links-area", TextArea.class);
-                require(scene.getFocusOwner() == urls, "Add Links drawer did not move initial focus to URLs");
+                require(scene.getFocusOwner() == urls, "Add Links drawer did not move initial focus to URLs; focus was "
+                        + describe(scene.getFocusOwner()));
                 Label status = only(drawer, ".row-desc", Label.class);
                 require(status.isWrapText(), "Add Links status does not wrap bilingual feedback");
                 require(status.getText().contains("\n"), "Bilingual Add Links status did not retain both languages");
@@ -200,6 +206,19 @@ public final class UiAccessibilitySmoke {
 
     private static boolean blank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static String describe(Node node) {
+        if (node == null) return "<none>";
+        return node.getClass().getSimpleName() + "#" + node.getId() + " " + node.getStyleClass();
+    }
+
+    private static Path temporaryWorkspace() {
+        try {
+            return Files.createTempDirectory("jdm-ui-smoke-").resolve("workspace");
+        } catch (IOException error) {
+            throw new IllegalStateException("Could not create an isolated UI-smoke workspace", error);
+        }
     }
 
     private static <T> T onFx(Callable<T> action) throws Exception {

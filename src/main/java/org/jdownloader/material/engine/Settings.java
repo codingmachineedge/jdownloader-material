@@ -17,6 +17,8 @@ import javafx.beans.property.StringProperty;
  */
 public final class Settings {
 
+    public static final int MAX_APPEARANCE_PROFILE_CHARS = 4 * 1024 * 1024;
+
     /** What to do when a target file already exists. */
     public enum IfExists {
         ASK("Auto-rename (no prompt)"), SKIP("Skip file"), OVERWRITE("Overwrite"), RENAME("Auto-rename");
@@ -54,6 +56,23 @@ public final class Settings {
     private final BooleanProperty speedInTitle = new SimpleBooleanProperty(this, "speedInTitle", true);
     private final ObjectProperty<LanguageMode> language =
             new SimpleObjectProperty<>(this, "language", LanguageMode.ENGLISH);
+    // Start fully professional. Playfulness is an explicit, disclosed opt-in;
+    // this also keeps first-run and bilingual chrome compact at narrow widths.
+    private final IntegerProperty englishFunnyLevel = new SimpleIntegerProperty(this, "englishFunnyLevel", 1);
+    private final IntegerProperty cantoneseFunnyLevel = new SimpleIntegerProperty(this, "cantoneseFunnyLevel", 1);
+    private final BooleanProperty funnyLevelDisclosed = new SimpleBooleanProperty(this, "funnyLevelDisclosed", false);
+    private final BooleanProperty dimSumSurpriseEnabled = new SimpleBooleanProperty(this, "dimSumSurpriseEnabled", true);
+    private final BooleanProperty firstRunCompleted = new SimpleBooleanProperty(this, "firstRunCompleted", false);
+    private final BooleanProperty reducedMotion = new SimpleBooleanProperty(this, "reducedMotion", false);
+    private final BooleanProperty quietHours = new SimpleBooleanProperty(this, "quietHours", false);
+    private final BooleanProperty notificationHistoryEnabled = new SimpleBooleanProperty(this, "notificationHistoryEnabled", true);
+    /** Deterministic non-secret appearance payload captured by encrypted backups and local Git history. */
+    private final StringProperty appearanceProfilePayload =
+            new SimpleStringProperty(this, "appearanceProfilePayload", "");
+    private final StringProperty externalEditorSelection = new SimpleStringProperty(this, "externalEditorSelection", "auto");
+    private final StringProperty externalEditorCommand = new SimpleStringProperty(this, "externalEditorCommand", "");
+    private final StringProperty remoteApiBaseUrl = new SimpleStringProperty(this, "remoteApiBaseUrl",
+            "http://127.0.0.1:3128");
 
     public StringProperty downloadFolderProperty() { return downloadFolder; }
     public IntegerProperty maxSimultaneousDownloadsProperty() { return maxSimultaneousDownloads; }
@@ -69,4 +88,23 @@ public final class Settings {
     public BooleanProperty darkThemeProperty() { return darkTheme; }
     public BooleanProperty speedInTitleProperty() { return speedInTitle; }
     public ObjectProperty<LanguageMode> languageProperty() { return language; }
+    public IntegerProperty englishFunnyLevelProperty() { return englishFunnyLevel; }
+    public IntegerProperty cantoneseFunnyLevelProperty() { return cantoneseFunnyLevel; }
+    public BooleanProperty funnyLevelDisclosedProperty() { return funnyLevelDisclosed; }
+    public BooleanProperty dimSumSurpriseEnabledProperty() { return dimSumSurpriseEnabled; }
+    public BooleanProperty firstRunCompletedProperty() { return firstRunCompleted; }
+    public BooleanProperty reducedMotionProperty() { return reducedMotion; }
+    public BooleanProperty quietHoursProperty() { return quietHours; }
+    public BooleanProperty notificationHistoryEnabledProperty() { return notificationHistoryEnabled; }
+    public StringProperty appearanceProfilePayloadProperty() { return appearanceProfilePayload; }
+    public void setAppearanceProfilePayload(String value) {
+        String payload = value == null ? "" : value;
+        if (payload.length() > MAX_APPEARANCE_PROFILE_CHARS) {
+            throw new IllegalArgumentException("Appearance profile payload exceeds the 4 MiB character limit");
+        }
+        appearanceProfilePayload.set(payload);
+    }
+    public StringProperty externalEditorSelectionProperty() { return externalEditorSelection; }
+    public StringProperty externalEditorCommandProperty() { return externalEditorCommand; }
+    public StringProperty remoteApiBaseUrlProperty() { return remoteApiBaseUrl; }
 }

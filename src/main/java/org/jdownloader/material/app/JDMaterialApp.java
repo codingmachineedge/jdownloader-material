@@ -9,6 +9,7 @@ import javax.imageio.ImageIO;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotResult;
 import javafx.scene.image.Image;
@@ -21,8 +22,14 @@ import org.jdownloader.material.engine.DirectHttpEngine;
 import org.jdownloader.material.engine.DownloadEngine;
 import org.jdownloader.material.engine.LanguageMode;
 import org.jdownloader.material.engine.SimulatedEngine;
+import org.jdownloader.material.appearance.AppearanceProfile;
+import org.jdownloader.material.appearance.AppearanceProfileStore;
+import org.jdownloader.material.appearance.ThemeMode;
+import org.jdownloader.material.i18n.I18n;
 import org.jdownloader.material.ui.MainWindow;
 import org.jdownloader.material.ui.ThemeManager;
+import org.jdownloader.material.ui.appearance.AppearanceService;
+import org.jdownloader.material.ui.appearance.AppearanceSettingsBridge;
 import org.jdownloader.material.util.Formats;
 
 /** JavaFX application entry point for JDownloader Material. */
@@ -30,6 +37,10 @@ public class JDMaterialApp extends Application {
 
     private DownloadEngine engine;
     private boolean engineShutdown;
+    private AppearanceService appearance;
+    private AppearanceSettingsBridge appearanceSettingsBridge;
+    private ChangeListener<Boolean> appearanceThemeListener;
+    private boolean syncingAppearanceTheme;
 
     @Override
     public void start(Stage stage) {
@@ -66,6 +77,7 @@ public class JDMaterialApp extends Application {
         Scene scene = new Scene(window, documentationCapture ? 1440 : 1280,
                 documentationCapture ? 900 : 800);
         theme.install(scene);
+        installAppearance(scene, window, theme, appearanceStore(documentationCapture));
 
         stage.setScene(scene);
         stage.setMinWidth(880);
@@ -82,15 +94,20 @@ public class JDMaterialApp extends Application {
         }, window.applicationNameProperty(), engine.globalSpeedProperty(), engine.settings().speedInTitleProperty()));
 
         stage.setOnCloseRequest(e -> {
+            closeAppearance(theme);
             window.dispose();
             shutdownEngine();
         });
         stage.show();
 
         if (screenshotDir != null && !screenshotDir.isBlank()) {
-            captureDocumentation(scene, window, theme, Path.of(screenshotDir));
+            captureDocumentation(stage, scene, window, theme, Path.of(screenshotDir));
             return;
         }
+
+        // First-run disclosure and the opt-in 1% local dim-sum delight never
+        // delay or take focus from the usable stage.
+        javafx.application.Platform.runLater(window::showStartupSurprise);
 
         // Optional demo hook for opening a content page without a modal or
         // overlay. Documentation capture uses its own deterministic path.
@@ -114,7 +131,8 @@ public class JDMaterialApp extends Application {
      * Renders a repeatable documentation gallery when JD_SCREENSHOT_DIR is set.
      * This mode is intentionally opt-in so normal launches retain their interactive behavior.
      */
-    private void captureDocumentation(Scene scene, MainWindow window, ThemeManager theme, Path directory) {
+    private void captureDocumentation(Stage stage, Scene scene, MainWindow window,
+                                      ThemeManager theme, Path directory) {
         try {
             Files.createDirectories(directory);
         } catch (IOException e) {
@@ -135,6 +153,8 @@ public class JDMaterialApp extends Application {
                 new ScreenshotStep("history-light.png", window::showHistory),
                 new ScreenshotStep("settings-light.png", window::showSettingsGeneralForCapture),
                 new ScreenshotStep("settings-appearance-light.png", window::showSettingsAppearanceForCapture),
+                new ScreenshotStep("changelog-light.png", window::showChangelogForCapture),
+                new ScreenshotStep("plugins-bridge-light.png", window::showPluginsForCapture),
                 new ScreenshotStep("add-links-light.png", window::showAddLinksForCapture),
                 new ScreenshotStep("downloads-dark.png", () -> {
                     if (!theme.isDark()) theme.toggle();
@@ -158,12 +178,25 @@ public class JDMaterialApp extends Application {
                 }),
                 new ScreenshotStep("history-bilingual.png", window::showHistory),
                 new ScreenshotStep("add-links-bilingual.png", window::showAddLinksForCapture),
-                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture));
+                new ScreenshotStep("settings-appearance-bilingual.png", window::showSettingsAppearanceForCapture),
+                new ScreenshotStep("notifications-bilingual.png", window::showNotificationsForCapture),
+                new ScreenshotStep("downloads-bilingual-narrow.png", () -> {
+                    stage.setWidth(880);
+                    stage.setHeight(560);
+                    window.showDownloadsForCapture();
+                }),
+                new ScreenshotStep("dim-sum-light.png", () -> {
+                    stage.setWidth(1440);
+                    stage.setHeight(900);
+                    engine.settings().languageProperty().set(LanguageMode.ENGLISH);
+                    window.showDimSumForCapture();
+                }));
         captureStep(scene, window, steps, directory, 0);
     }
 
     private void captureStep(Scene scene, MainWindow window, List<ScreenshotStep> steps, Path directory, int index) {
         ScreenshotStep step = steps.get(index);
+        window.prepareDocumentationCapture();
         window.clearActivityStatus();
         step.prepare().run();
         window.clearTransientFocus();
@@ -172,8 +205,16 @@ public class JDMaterialApp extends Application {
         // snapshots never catch a partially repainted custom app bar.
         scene.getRoot().applyCss();
         scene.getRoot().layout();
-        PauseTransition delay = new PauseTransition(Duration.millis(350));
-        delay.setOnFinished(event -> scene.snapshot(result -> {
+        PauseTransition delay = new PauseTransition(Duration.millis(650));
+        delay.setOnFinished(event -> {
+            // Language changes rebuild the workspace asynchronously and may
+            // produce fresh setup toasts after the initial reset. The
+            // Notifications scene captures durable history rows, not a live
+            // toast stack obscuring those rows, so every scene is purged.
+            window.clearNotificationsForCapture();
+            scene.getRoot().applyCss();
+            scene.getRoot().layout();
+            scene.snapshot(result -> {
             try {
                 writePng(result, directory.resolve(step.fileName()));
                 if (index + 1 < steps.size()) {
@@ -188,7 +229,8 @@ public class JDMaterialApp extends Application {
                 throw new IllegalStateException("Could not write documentation screenshot", e);
             }
             return null;
-        }, null));
+            }, null);
+        });
         delay.play();
     }
 
@@ -216,7 +258,69 @@ public class JDMaterialApp extends Application {
 
     @Override
     public void stop() {
+        // The close-request hook does not run for every programmatic JavaFX exit.
+        closeAppearance(null);
         shutdownEngine();
+    }
+
+    private AppearanceProfileStore appearanceStore(boolean documentationCapture) {
+        if (!documentationCapture) return AppearanceProfileStore.defaultStore();
+        try {
+            return new AppearanceProfileStore(Files.createTempDirectory("jdm-appearance-capture-")
+                    .resolve("appearance.properties"));
+        } catch (IOException error) {
+            throw new IllegalStateException("Could not create an isolated capture appearance profile", error);
+        }
+    }
+
+    private void installAppearance(Scene scene, MainWindow window, ThemeManager theme,
+                                   AppearanceProfileStore profileStore) {
+        I18n copy = new I18n(engine.settings().languageProperty(),
+                engine.settings().englishFunnyLevelProperty(), engine.settings().cantoneseFunnyLevelProperty());
+        AppearanceProfile initialProfile;
+        try {
+            boolean savedProfileExists = Files.isRegularFile(profileStore.file());
+            initialProfile = profileStore.load();
+            // Before the dedicated profile exists, preserve the app's already-persisted theme choice.
+            if (!savedProfileExists) initialProfile.setTheme(theme.isDark() ? ThemeMode.DARK : ThemeMode.LIGHT);
+        } catch (IOException invalidProfile) {
+            window.notificationService().error(copy.text("appearance.load_failed"), safeMessage(invalidProfile));
+            initialProfile = new AppearanceProfile();
+            initialProfile.setTheme(theme.isDark() ? ThemeMode.DARK : ThemeMode.LIGHT);
+        }
+        appearance = new AppearanceService(profileStore, initialProfile);
+        appearance.setPersistenceFailureHandler(error -> javafx.application.Platform.runLater(() ->
+                window.notificationService().error(copy.text("appearance.persistence_failed"), safeMessage(error))));
+        appearance.setGlobalChangeHandler(profile -> {
+            syncingAppearanceTheme = true;
+            try { theme.darkProperty().set(profile.theme() == ThemeMode.DARK); }
+            finally { syncingAppearanceTheme = false; }
+        });
+        appearanceSettingsBridge = new AppearanceSettingsBridge(appearance, engine.settings(), error ->
+                javafx.application.Platform.runLater(() -> window.notificationService().error(
+                        copy.text("appearance.persistence_failed"), safeMessage(error))));
+        appearance.install(scene, copy::text);
+        appearanceThemeListener = (observable, previous, dark) -> {
+            if (syncingAppearanceTheme || appearance == null) return;
+            appearance.updateGlobal(profile -> profile.setTheme(dark ? ThemeMode.DARK : ThemeMode.LIGHT));
+        };
+        theme.darkProperty().addListener(appearanceThemeListener);
+    }
+
+    private void closeAppearance(ThemeManager theme) {
+        if (theme != null && appearanceThemeListener != null) {
+            theme.darkProperty().removeListener(appearanceThemeListener);
+        }
+        appearanceThemeListener = null;
+        if (appearanceSettingsBridge != null) appearanceSettingsBridge.close();
+        appearanceSettingsBridge = null;
+        if (appearance != null) appearance.close();
+        appearance = null;
+    }
+
+    private static String safeMessage(Throwable error) {
+        String message = error == null ? null : error.getMessage();
+        return message == null || message.isBlank() ? "Appearance profile operation failed." : message;
     }
 
     private void shutdownEngine() {

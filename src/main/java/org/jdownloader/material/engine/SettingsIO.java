@@ -69,6 +69,21 @@ public final class SettingsIO {
         p.setProperty("darkTheme", Boolean.toString(s.darkThemeProperty().get()));
         p.setProperty("speedInTitle", Boolean.toString(s.speedInTitleProperty().get()));
         p.setProperty("language", s.languageProperty().get().name());
+        p.setProperty("englishFunnyLevel", Integer.toString(s.englishFunnyLevelProperty().get()));
+        p.setProperty("cantoneseFunnyLevel", Integer.toString(s.cantoneseFunnyLevelProperty().get()));
+        p.setProperty("funnyLevelDisclosed", Boolean.toString(s.funnyLevelDisclosedProperty().get()));
+        p.setProperty("dimSumSurpriseEnabled", Boolean.toString(s.dimSumSurpriseEnabledProperty().get()));
+        p.setProperty("firstRunCompleted", Boolean.toString(s.firstRunCompletedProperty().get()));
+        p.setProperty("reducedMotion", Boolean.toString(s.reducedMotionProperty().get()));
+        p.setProperty("quietHours", Boolean.toString(s.quietHoursProperty().get()));
+        p.setProperty("notificationHistoryEnabled", Boolean.toString(s.notificationHistoryEnabledProperty().get()));
+        String appearance = s.appearanceProfilePayloadProperty().get();
+        if (appearance != null && appearance.length() <= Settings.MAX_APPEARANCE_PROFILE_CHARS) {
+            p.setProperty("appearanceProfilePayload", appearance);
+        }
+        p.setProperty("externalEditorSelection", s.externalEditorSelectionProperty().get());
+        p.setProperty("externalEditorCommand", s.externalEditorCommandProperty().get());
+        p.setProperty("remoteApiBaseUrl", s.remoteApiBaseUrlProperty().get());
         return p;
     }
 
@@ -161,6 +176,18 @@ public final class SettingsIO {
         applyBool(p, "darkTheme", v -> s.darkThemeProperty().set(v));
         applyBool(p, "speedInTitle", v -> s.speedInTitleProperty().set(v));
         apply(p, "language", v -> s.languageProperty().set(LanguageMode.valueOf(v)));
+        applyInt(p, "englishFunnyLevel", v -> s.englishFunnyLevelProperty().set(clamp(v, 1, 5)));
+        applyInt(p, "cantoneseFunnyLevel", v -> s.cantoneseFunnyLevelProperty().set(clamp(v, 1, 5)));
+        applyBool(p, "funnyLevelDisclosed", v -> s.funnyLevelDisclosedProperty().set(v));
+        applyBool(p, "dimSumSurpriseEnabled", v -> s.dimSumSurpriseEnabledProperty().set(v));
+        applyBool(p, "firstRunCompleted", v -> s.firstRunCompletedProperty().set(v));
+        applyBool(p, "reducedMotion", v -> s.reducedMotionProperty().set(v));
+        applyBool(p, "quietHours", v -> s.quietHoursProperty().set(v));
+        applyBool(p, "notificationHistoryEnabled", v -> s.notificationHistoryEnabledProperty().set(v));
+        apply(p, "appearanceProfilePayload", s::setAppearanceProfilePayload);
+        apply(p, "externalEditorSelection", v -> s.externalEditorSelectionProperty().set(v));
+        apply(p, "externalEditorCommand", v -> s.externalEditorCommandProperty().set(v));
+        apply(p, "remoteApiBaseUrl", v -> s.remoteApiBaseUrlProperty().set(v));
         // Older encrypted backups may include retired settings. Unknown entries
         // are deliberately ignored so
         // importing an existing backup still restores every supported setting.

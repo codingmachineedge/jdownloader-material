@@ -1,9 +1,9 @@
 # Architecture
 
-JDownloader Material separates direct HTTP(S) transfer work, persistent local state, append-only
-history, localization/theme state, and JavaFX presentation. Normal launches select
-`DirectHttpEngine`; deterministic documentation capture selects `SimulatedEngine` so the gallery
-does not depend on live network traffic.
+JDownloader Material separates direct HTTP(S) transfer work, strict-loopback installed-JDownloader
+requests, persistent local state, append-only histories, bounded search, appearance/localization and
+JavaFX presentation. Normal direct downloads select `DirectHttpEngine`; deterministic documentation
+capture selects `SimulatedEngine` so the gallery does not depend on live network traffic.
 
 ~~~text
 app
@@ -16,14 +16,14 @@ ui
     52 px global toolbar
       Add Links / Start / Pause / Stop
       contextual search / throughput / theme / clipboard / window controls
-    208 or 72 px primary navigation
-      DownloadsView
-      LinkGrabberView
-      HistoryView
-      SettingsView
+    208 or 72 px primary navigation -----> WorkspacePane
+      pinned strip / grouped regular strip / overflow
+      four tab searches / guarded bulk close
+      Downloads / LinkGrabber / History / Settings
+      Notifications / Changelog / installed-JDownloader pages
     AddLinksView -------------------------> right drawer + scrim
-    StatusBar / ActivityStatus
-    I18n / ThemeManager
+    StatusBar / ActivityStatus / NotificationOverlay / DimSumSurpriseOverlay
+    I18n / ThemeManager / AppearanceService
           |
           +------------------------------> DownloadEngine
                                              |
@@ -31,9 +31,15 @@ ui
                                              +--> GitHistoryService (embedded JGit)
                                              |      settings / download-lists / manifest
                                              +--> model
-                                                    DownloadPackage -> DownloadLink
-                                                    CrawledPackage -> CrawledLink
-                                                    DownloadState / LinkAvailability
+                                                     DownloadPackage -> DownloadLink
+                                                     CrawledPackage -> CrawledLink
+                                                     DownloadState / LinkAvailability
+
+  SearchField -> SafeSearchEvaluator (RE2/J, bounded, local)
+  WorkspacePane -> GitWorkspaceStore (private append-only JGit)
+  AppearanceRegistry -> AppearanceProfileStore (atomic local profile)
+  StockFeatureView -> JDownloaderRemoteClient -> strict loopback only
+  NotificationOverlay/Center -> NotificationService (bounded local history)
 ~~~
 
 Views consume observable packages, links, settings, history, and global statistics through
@@ -44,24 +50,61 @@ continues running; the selected Settings section and current Add Links draft are
 
 ## Shell and view composition
 
-`MainWindow` owns one active primary destination selected from Downloads, LinkGrabber, History, and
-Settings. A toggle group in the persistent rail swaps the corresponding view into `contentHost`.
-The width listener applies the compact state below 980 px: navigation changes from 208 to 72 px,
-labels are removed from layout, and the global search/throughput components hide.
+`MainWindow` owns one `WorkspacePane`. A rail action opens or focuses its page, while the New Tab
+menu can create another supported page. The workspace owns a stable pinned region, scrolling
+regular/group region, overflow list, structural persistence and active content. The width listener
+applies compact state below 980 px: navigation changes from 208 to 72 px, labels are removed from
+layout, and the global search/throughput components hide.
 
-The toolbar owns scheduler-wide Start, Pause/Resume, and Stop controls. Its search field delegates
-to `DownloadsView.setFilter`, `LinkGrabberView.setFilter`, or `HistoryView.setFilter` according to
-the active destination. Settings disables the field. The `ThroughputMeter` listens to the engine's
-global speed property and publishes both a visual trace and an accessible text value.
+The toolbar owns scheduler-wide Start, Pause/Resume and Stop controls. Its independent `SearchField`
+delegates one `SearchSpec` to the active workspace content; Settings then composes it with global and
+per-section fields. The `ThroughputMeter` listens to the engine's global speed property and
+publishes both a visual trace and an accessible text value.
 
 `AddLinksView` is composed as a 440 px right drawer above the shell. A managed scrim intercepts
 outside clicks. Interruption-safe fade/translate transitions reveal or hide the drawer; focus moves
 to the URLs field when opening, and Escape dismisses it. The drawer is not a modal window, so its
 submission hands asynchronous work to the engine and then routes to LinkGrabber or closes.
 
-The bottom `StatusBar` binds global speed, running count, remaining bytes, and scheduled retry.
-`ActivityStatus` contributes the latest validation, clipboard, or removal message. These nodes stay
-in the layout instead of creating a blocking notification.
+The bottom `StatusBar` binds global speed, running count, remaining bytes and scheduled retry.
+`ActivityStatus` retains page-local feedback. `NotificationOverlay` renders routine app-wide
+information/success/errors in a bottom-right stack backed by searchable bounded history;
+`DimSumSurpriseOverlay` independently owns the eligible startup delight at bottom-left. Neither
+blocks content or requests an acknowledgement.
+
+## Workspace and search
+
+`GitWorkspaceStore` keeps the complete tab/group snapshot below
+`~/.jdownloader-material/workspace/`. Each open, close, select, move, pin, group, rename, import or
+bulk-close operation commits the resulting snapshot; no-op state writes no commit. Layout load/save
+runs on a dedicated executor and failures return through persistent notifications.
+
+Every `SearchField` owns expression, plain/regex mode, flags and validation. Its adjacent
+`RegexBuilderPopover` binds bidirectionally to that exact field and tracks the anchor. The shared
+`SafeSearchEvaluator` uses RE2/J with hard pattern/input/match/capture/result budgets and never falls
+back to a backtracking engine. Pattern/sample data remains local and sample text is not persisted.
+
+## Appearance and experience services
+
+`AppearanceRegistry` registers the scene graph with stable target ids, installs right-click,
+Shift+right-click and focused-node keyboard access, observes pseudo-state changes and drives one
+anchored `AppearanceEditorPopover`. `AppearanceService` applies live global/per-state overrides and
+persists them atomically through `AppearanceProfileStore`. Picker/editor nodes register themselves,
+so customization also reaches the customization chrome.
+
+`I18n` observes language plus two funny-level properties; factual resource strings are selected
+before voice suffixes are applied. `NotificationService`, `ChangelogService` and
+`DimSumSurpriseService` remain separate from views so their persistence, limits and selection policy
+can be tested without a running external service.
+
+## Installed-JDownloader bridge
+
+`JDownloaderRemoteClient` is an outbound client for an installed local JDownloader Remote API. Base
+URL validation permits only `http`/`https` on `localhost`, `127.0.0.0/8` or `::1`, refuses redirects,
+credentials/query/fragment/traversal aliases and caps both request and streamed response bytes.
+`StockFeatureView` provides typed operations and a bounded Advanced surface on background tasks.
+Unknown/mutating/destructive requests require a short-lived, endpoint-scoped, one-use confirmation
+token. Password arrays are cleared after request assembly and are never Settings.
 
 ## Direct-download path
 
@@ -112,6 +155,10 @@ prepare record before completing its cross-repository record, allowing startup t
 interrupted save coherently. Undo, redo, and restore load an immutable snapshot into the JavaFX
 model and append a corresponding history event; earlier records remain intact.
 
+The separate workspace JGit repository records tab/group structure. Appearance and notification
+history use atomic bounded files; their enablement/configuration remains part of the normal Settings
+snapshot so the setting itself is reversible.
+
 History rejects credential fields before any Git object is created. Direct-link URLs remain so a
 restored list continues to work, making the local history folder private device data. Completed
 files and `.part` contents do not enter history. Active telemetry such as progress ticks, speed,
@@ -148,5 +195,6 @@ The dense views keep their models separate from presentation filtering:
 ## Documentation capture
 
 `SimulatedEngine` seeds stable package/link/history rows and progress only when the screenshot
-environment is enabled. The capture path applies the same shell, themes, localization, and views,
-writes the 21-scene gallery, and exits. Normal direct-download behavior is unchanged.
+environment is enabled. The capture path applies the same shell, workspace, themes, localization
+and views, defines 26 scenes including notifications, changelog, the loopback-bridge UI, narrow
+bilingual layout and dim sum, then exits. Normal direct-download behavior is unchanged.

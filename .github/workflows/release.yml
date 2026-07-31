@@ -1,9 +1,11 @@
-name: Release installers
+name: Release Windows installer
 
 on:
   push:
+    # Branches are explicit so PAT-created release tag pushes cannot start a release loop.
     branches:
-      - main
+      - "**"
+  workflow_dispatch:
 
 env:
   APP_NAME: JDownloader Material
@@ -13,82 +15,263 @@ env:
   REF_NAME: ${{ github.ref_name }}
 
 jobs:
+  verify:
+    name: Verify desktop and release inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install virtual display support
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends xauth xvfb
+
+      - name: Compile and run every desktop smoke check
+        shell: pwsh
+        env:
+          JAVA_TOOL_OPTIONS: -Dprism.order=sw -Djava.awt.headless=false
+        run: |
+          $maven = "./mvnw"
+          & $maven --batch-mode --no-transfer-progress test-compile
+          if ($LASTEXITCODE -ne 0) {
+            throw "Desktop smoke compilation failed with exit code $LASTEXITCODE."
+          }
+
+          $required = @(
+            "org.jdownloader.material.DesktopCompletenessSmoke",
+            "org.jdownloader.material.appearance.AppearanceFoundationSmoke",
+            "org.jdownloader.material.appearance.AppearanceHistoryBridgeSmoke",
+            "org.jdownloader.material.ui.appearance.AppearanceUiSmoke",
+            "org.jdownloader.material.search.SafeSearchSmoke",
+            "org.jdownloader.material.integration.jdownloader.JDownloaderRemoteClientSmoke",
+            "org.jdownloader.material.i18n.LocalizationSmoke",
+            "org.jdownloader.material.workspace.GitWorkspaceStoreSmoke",
+            "org.jdownloader.material.engine.history.GitHistoryServiceSmoke",
+            "org.jdownloader.material.engine.DirectHistorySmoke",
+            "org.jdownloader.material.engine.DirectHttpEngineSmoke",
+            "org.jdownloader.material.ui.UiAccessibilitySmoke"
+          )
+          $testRoot = (Resolve-Path "src/test/java").Path
+          $smokes = @(
+            Get-ChildItem -LiteralPath $testRoot -Recurse -File -Filter "*Smoke.java" |
+              Where-Object { $_.FullName -notmatch "[\\/]tui[\\/]" } |
+              ForEach-Object {
+                [IO.Path]::GetRelativePath($testRoot, $_.FullName) `
+                  -replace "\.java$", "" -replace "[\\/]", "."
+              } |
+              Sort-Object -Unique
+          )
+          if ($smokes.Count -eq 0) {
+            throw "No desktop *Smoke.java checks were discovered."
+          }
+          $missing = @($required | Where-Object { $_ -notin $smokes })
+          if ($missing.Count -gt 0) {
+            throw "Required desktop smoke checks are missing: $($missing -join ', ')."
+          }
+
+          foreach ($smoke in $smokes) {
+            Write-Host "Running $smoke under Xvfb"
+            & xvfb-run -a $maven --batch-mode --no-transfer-progress `
+              org.codehaus.mojo:exec-maven-plugin:3.5.0:java `
+              "-Dexec.mainClass=$smoke" "-Dexec.classpathScope=test"
+            if ($LASTEXITCODE -ne 0) {
+              throw "$smoke failed with exit code $LASTEXITCODE."
+            }
+          }
+
+      - name: Run static Pages checks
+        shell: pwsh
+        run: |
+          & node site/smoke-check.mjs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Static Pages checks failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Validate bundled dim-sum catalogs and images
+        shell: pwsh
+        run: |
+          $runtimeRoot = (Resolve-Path "src/main/resources/dimsum").Path
+          $releaseRoot = (Resolve-Path "release-assets/dimsum").Path
+          $runtimeCatalog = Get-Content -Raw -LiteralPath (Join-Path $runtimeRoot "catalog.json") | ConvertFrom-Json
+          $releaseCatalog = Get-Content -Raw -LiteralPath (Join-Path $releaseRoot "catalog.json") | ConvertFrom-Json
+          if ($runtimeCatalog.schemaVersion -ne 1 -or $releaseCatalog.schemaVersion -ne 1) {
+            throw "Unsupported dim-sum catalog schema."
+          }
+          if ($runtimeCatalog.assets.Count -lt 4 -or $releaseCatalog.assets.Count -ne $runtimeCatalog.assets.Count) {
+            throw "The runtime and release catalogs must contain the same set of at least four dishes."
+          }
+
+          $runtimeIds = @($runtimeCatalog.assets | ForEach-Object { $_.id })
+          $releaseIds = @($releaseCatalog.assets | ForEach-Object { $_.id })
+          if (@($runtimeIds | Sort-Object -Unique).Count -ne $runtimeIds.Count) {
+            throw "Dim-sum catalog ids must be unique."
+          }
+          if (Compare-Object $runtimeIds $releaseIds) {
+            throw "Runtime and release dim-sum catalogs do not describe the same dishes."
+          }
+
+          $releaseImages = @()
+          foreach ($asset in $releaseCatalog.assets) {
+            if ($asset.id -notmatch "^[a-z0-9-]+$" -or $asset.resource -notmatch "^[a-z0-9-]+\.png$") {
+              throw "Unsafe dim-sum id or filename in catalog: $($asset.id) / $($asset.resource)."
+            }
+            if ([string]::IsNullOrWhiteSpace($asset.englishName) -or
+                [string]::IsNullOrWhiteSpace($asset.cantoneseName) -or
+                [string]::IsNullOrWhiteSpace($asset.altTextEnglish) -or
+                [string]::IsNullOrWhiteSpace($asset.altTextCantonese)) {
+              throw "Every dim-sum entry needs bilingual names and alt text."
+            }
+            $runtimeImage = Join-Path $runtimeRoot $asset.resource
+            $releaseImage = Join-Path $releaseRoot $asset.resource
+            if (-not (Test-Path -LiteralPath $runtimeImage -PathType Leaf) -or
+                -not (Test-Path -LiteralPath $releaseImage -PathType Leaf)) {
+              throw "Missing runtime or release image for $($asset.id)."
+            }
+            if ((Get-FileHash -Algorithm SHA256 -LiteralPath $runtimeImage).Hash -ne
+                (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseImage).Hash) {
+              throw "Runtime and release image copies differ for $($asset.id)."
+            }
+            $releaseImages += $releaseImage
+          }
+
+          $validator = Join-Path $env:RUNNER_TEMP "ValidatePng.java"
+          @'
+          import java.io.File;
+          import javax.imageio.ImageIO;
+
+          public class ValidatePng {
+              public static void main(String[] args) throws Exception {
+                  if (args.length < 4) throw new IllegalStateException("Expected at least four PNG paths.");
+                  for (String path : args) {
+                      var image = ImageIO.read(new File(path));
+                      if (image == null) throw new IllegalStateException("ImageIO could not decode " + path);
+                      if (image.getWidth() < 1024 || image.getHeight() < 1024) {
+                          throw new IllegalStateException("Image is below 1024x1024: " + path + " (" + image.getWidth() + "x" + image.getHeight() + ")");
+                      }
+                      System.out.println(path + " -> " + image.getWidth() + "x" + image.getHeight());
+                  }
+              }
+          }
+          '@ | Set-Content -LiteralPath $validator -Encoding utf8
+          & java $validator @releaseImages
+          if ($LASTEXITCODE -ne 0) {
+            throw "Dim-sum image decode validation failed with exit code $LASTEXITCODE."
+          }
+
   prepare-release:
     name: Create staged release
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.release_meta.outputs.tag }}
+      photo_asset: ${{ steps.release_meta.outputs.photo_asset }}
+      dish_english: ${{ steps.release_meta.outputs.dish_english }}
+      dish_cantonese: ${{ steps.release_meta.outputs.dish_cantonese }}
 
     steps:
-      - name: Create or refresh the draft release
+      - name: Check out release assets
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Create immutable staged release with dim-sum photo
+        id: release_meta
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          tag="v${APP_VERSION}"
-          short_sha="${GITHUB_SHA::12}"
-          title="JDownloader Material ${APP_VERSION} (${short_sha})"
-          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-
-          cat > release-notes.md <<EOF
-          Automated installer release for commit [\`${short_sha}\`](${commit_url}) on \`${REF_NAME}\`.
-
-          The installers are self-contained and include the Java runtime. Windows and macOS
-          packages are currently unsigned, so the operating system may display a security warning.
-          EOF
-
-          expected=(
-            "JDownloader-Material-linux-x64.deb"
-            "JDownloader-Material-macos-arm64.dmg"
-            "JDownloader-Material-macos-x64.dmg"
-            "JDownloader-Material-windows-x64.exe"
-          )
-
+          tag="v${APP_VERSION}-run.${GITHUB_RUN_ATTEMPT}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # Reruns replace expected installers and remove any hand-added assets.
-            while IFS= read -r asset; do
-              keep=false
-              for expected_asset in "${expected[@]}"; do
-                if [[ "$asset" == "$expected_asset" ]]; then keep=true; break; fi
-              done
-              if [[ "$keep" != true ]]; then
-                gh release delete-asset "$tag" "$asset" --repo "$GITHUB_REPOSITORY" --yes
-              fi
-            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "$title" \
-              --notes-file release-notes.md --draft=true
-          else
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "$title" --notes-file release-notes.md --draft
+            echo "Refusing to reuse existing release tag $tag." >&2
+            exit 1
           fi
 
+          catalog="release-assets/dimsum/catalog.json"
+          count="$(jq '.assets | length' "$catalog")"
+          if [[ "$count" -lt 4 ]]; then
+            echo "The release catalog must contain at least four dim-sum photos." >&2
+            exit 1
+          fi
+          index=$(( (GITHUB_RUN_NUMBER - 1) % count ))
+          entry="$(jq -c --argjson index "$index" '.assets[$index]' "$catalog")"
+          id="$(jq -r '.id' <<<"$entry")"
+          dish_english="$(jq -r '.englishName' <<<"$entry")"
+          dish_cantonese="$(jq -r '.cantoneseName' <<<"$entry")"
+          source_name="$(jq -r '.resource' <<<"$entry")"
+          if [[ ! "$id" =~ ^[a-z0-9-]+$ || ! "$source_name" =~ ^[a-z0-9-]+\.png$ ]]; then
+            echo "Unsafe dim-sum catalog id or filename." >&2
+            exit 1
+          fi
+          source_path="release-assets/dimsum/${source_name}"
+          if [[ ! -f "$source_path" ]]; then
+            echo "Missing selected dim-sum photo: $source_path" >&2
+            exit 1
+          fi
+          photo_asset="JDownloader-Material-dim-sum-${id}.png"
+          mkdir -p target/release
+          cp "$source_path" "target/release/${photo_asset}"
+
+          short_sha="${GITHUB_SHA::12}"
+          code_name="Steam Basket ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT} · ${dish_english} · ${dish_cantonese}"
+          title="JDownloader Material ${APP_VERSION} · ${code_name} (${short_sha})"
+          commit_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          cat > release-notes.md <<EOF
+          Automated installer release for commit [\`${short_sha}\`](${commit_url}) on \`${REF_NAME}\` after the desktop smoke and Pages gates passed.
+
+          The Windows x64 installer is self-contained and includes the Java runtime. It is currently
+          unsigned, so Windows SmartScreen may display its normal security warning.
+
+          Release code name: **${code_name}**
+
+          ## Dim-sum photo · 點心相
+
+          - Dish: **${dish_english} · ${dish_cantonese}**
+          - Asset: \`${photo_asset}\`
+          - Source: original project-bundled image selected from \`release-assets/dimsum/catalog.json\`
+
+          Verification run: [GitHub Actions ${GITHUB_RUN_ID}](${run_url}).
+          EOF
+
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$title" --notes-file release-notes.md --draft
+          gh release upload "$tag" "target/release/${photo_asset}" --repo "$GITHUB_REPOSITORY"
+
+          {
+            echo "tag=$tag"
+            echo "photo_asset=$photo_asset"
+            echo "dish_english=$dish_english"
+            echo "dish_cantonese=$dish_cantonese"
+          } >> "$GITHUB_OUTPUT"
+
   build-installer:
-    name: Build ${{ matrix.platform }} installer
+    name: Build Windows x64 installer
     needs: prepare-release
-    runs-on: ${{ matrix.runner }}
+    runs-on: windows-latest
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            platform: windows-x64
-            package-type: exe
-            extension: exe
-          - runner: ubuntu-latest
-            platform: linux-x64
-            package-type: deb
-            extension: deb
-          - runner: macos-15
-            platform: macos-arm64
-            package-type: dmg
-            extension: dmg
-          - runner: macos-15-intel
-            platform: macos-x64
-            package-type: dmg
-            extension: dmg
 
     steps:
       - name: Check out source
@@ -105,7 +288,7 @@ jobs:
       - name: Build and stage runtime files
         shell: pwsh
         run: |
-          $maven = if ($IsWindows) { ".\mvnw.cmd" } else { "./mvnw" }
+          $maven = ".\mvnw.cmd"
           $inputDir = Join-Path $PWD "target/package-input"
 
           & $maven --batch-mode --no-transfer-progress clean package `
@@ -130,13 +313,22 @@ jobs:
       - name: Create native installer
         shell: pwsh
         env:
-          PACKAGE_TYPE: ${{ matrix.package-type }}
-          PLATFORM: ${{ matrix.platform }}
-          EXTENSION: ${{ matrix.extension }}
+          PACKAGE_TYPE: exe
+          PLATFORM: windows-x64
+          EXTENSION: exe
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
         run: |
           $inputDir = Join-Path $PWD "target/package-input"
           $installerDir = Join-Path $PWD "target/installer"
           $releaseDir = Join-Path $PWD "target/release"
+          $packageIcon = Join-Path $PWD "src/main/resources/icons/app.ico"
+          if (-not (Test-Path -LiteralPath $packageIcon -PathType Leaf)) {
+            throw "The Windows package icon is missing: $packageIcon"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:RELEASE_TAG)) {
+            throw "The immutable release tag was not propagated to the Windows build."
+          }
+          $releaseDate = [DateTime]::UtcNow.ToString("yyyy-MM-dd", [Globalization.CultureInfo]::InvariantCulture)
           New-Item -ItemType Directory -Force -Path $installerDir, $releaseDir | Out-Null
 
           $arguments = @(
@@ -147,41 +339,20 @@ jobs:
             "--app-version", $env:PACKAGE_VERSION,
             "--main-jar", $env:MAIN_JAR,
             "--main-class", $env:MAIN_CLASS,
-            "--java-options", "-Djdownloader.material.version=$env:APP_VERSION",
-            "--vendor", "codingmachineedge",
-            "--description", "A Material Design front end for JDownloader",
+            "--java-options", "-Djdownloader.material.version=$env:RELEASE_TAG",
+            "--java-options", "-Djdownloader.material.releaseDate=$releaseDate",
+            "--java-options", "-Djdownloader.material.commit=$env:GITHUB_SHA",
+            "--vendor", "Ding-Ding-Projects",
+            "--description", "A Material Design direct-download desktop app",
+            "--icon", $packageIcon,
+            "--win-per-user-install",
+            "--win-dir-chooser",
+            "--win-menu",
+            "--win-menu-group", $env:APP_NAME,
+            "--win-shortcut",
+            "--win-upgrade-uuid", "a360c34f-9039-402e-9b5f-bb97667c9f27",
             "--verbose"
           )
-
-          switch ($env:RUNNER_OS) {
-            "Windows" {
-              $arguments += @(
-                "--win-per-user-install",
-                "--win-dir-chooser",
-                "--win-menu",
-                "--win-menu-group", $env:APP_NAME,
-                "--win-shortcut",
-                "--win-upgrade-uuid", "a360c34f-9039-402e-9b5f-bb97667c9f27"
-              )
-            }
-            "Linux" {
-              $arguments += @(
-                "--linux-package-name", "jdownloader-material",
-                "--linux-deb-maintainer", "codingmachineedge@users.noreply.github.com",
-                "--linux-menu-group", "Network",
-                "--linux-shortcut"
-              )
-            }
-            "macOS" {
-              $arguments += @(
-                "--mac-package-identifier", "io.github.codingmachineedge.jdownloader-material",
-                "--mac-package-name", "JDMaterial"
-              )
-            }
-            default {
-              throw "Unsupported runner OS: $env:RUNNER_OS"
-            }
-          }
 
           & jpackage @arguments
           if ($LASTEXITCODE -ne 0) {
@@ -206,14 +377,14 @@ jobs:
       - name: Upload installer directly to the draft release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
         run: |
           $assets = @(Get-ChildItem -LiteralPath (Join-Path $PWD "target/release") -File)
           if ($assets.Count -ne 1) {
             throw "Expected exactly one installer to upload, found $($assets.Count)."
           }
-          & gh release upload "v$env:APP_VERSION" $assets[0].FullName `
-            --repo $env:GITHUB_REPOSITORY --clobber
+          & gh release upload $env:RELEASE_TAG $assets[0].FullName --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) {
             throw "Direct release upload failed with exit code $LASTEXITCODE."
           }
@@ -221,7 +392,7 @@ jobs:
   release:
     name: Validate and publish release
     if: always()
-    needs: [prepare-release, build-installer]
+    needs: [verify, prepare-release, build-installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -230,43 +401,77 @@ jobs:
       - name: Validate, publish, or remove the draft release
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
           PREPARE_RESULT: ${{ needs.prepare-release.result }}
           BUILD_RESULT: ${{ needs.build-installer.result }}
+          PHOTO_ASSET: ${{ needs.prepare-release.outputs.photo_asset }}
         run: |
           set -euo pipefail
-          tag="v${APP_VERSION}"
+          tag="v${APP_VERSION}-run.${GITHUB_RUN_ATTEMPT}"
 
-          remove_incomplete_release() {
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+          remove_incomplete_draft() {
+            if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              return
             fi
+            draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [[ "$draft" != "true" ]]; then
+              echo "Refusing to mutate already-published release $tag." >&2
+              exit 1
+            fi
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
           }
 
-          if [[ "$PREPARE_RESULT" != "success" || "$BUILD_RESULT" != "success" ]]; then
-            remove_incomplete_release
-            echo "Installer build did not complete; removed the incomplete release." >&2
+          if [[ "$VERIFY_RESULT" != "success" || "$PREPARE_RESULT" != "success" || "$BUILD_RESULT" != "success" ]]; then
+            remove_incomplete_draft
+            echo "Verification or installer build failed; no release was published." >&2
+            exit 1
+          fi
+
+          if [[ -z "$PHOTO_ASSET" ]]; then
+            remove_incomplete_draft
+            echo "The selected dim-sum asset name was not propagated." >&2
+            exit 1
+          fi
+          draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          if [[ "$draft" != "true" ]]; then
+            echo "Refusing to mutate already-published release $tag." >&2
             exit 1
           fi
 
           expected=(
-            "JDownloader-Material-linux-x64.deb"
-            "JDownloader-Material-macos-arm64.dmg"
-            "JDownloader-Material-macos-x64.dmg"
             "JDownloader-Material-windows-x64.exe"
+            "$PHOTO_ASSET"
           )
           mapfile -t published < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
             --json assets --jq '.assets[].name' | sort)
           if [[ ${#published[@]} -ne ${#expected[@]} ]]; then
-            remove_incomplete_release
+            remove_incomplete_draft
             printf 'Release has unexpected asset count: %s\n' "${#published[@]}" >&2
             exit 1
           fi
           for asset in "${expected[@]}"; do
             printf '%s\n' "${published[@]}" | grep -Fx -- "$asset" >/dev/null || {
-              remove_incomplete_release
-              echo "Release is missing expected installer asset: $asset" >&2
+              remove_incomplete_draft
+              echo "Release is missing expected asset: $asset" >&2
               exit 1
             }
           done
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+
+          while IFS=$'\t' read -r name size state; do
+            if [[ "$state" != "uploaded" ]]; then
+              remove_incomplete_draft
+              echo "Release asset did not finish uploading: $name ($state)" >&2
+              exit 1
+            fi
+            minimum=1048576
+            if [[ "$name" == "$PHOTO_ASSET" ]]; then minimum=102400; fi
+            if (( size < minimum )); then
+              remove_incomplete_draft
+              echo "Release asset is unexpectedly small: $name ($size bytes)" >&2
+              exit 1
+            fi
+          done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | [.name, (.size | tostring), .state] | @tsv')
+
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest

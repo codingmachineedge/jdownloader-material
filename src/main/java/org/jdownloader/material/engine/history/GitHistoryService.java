@@ -430,9 +430,6 @@ public final class GitHistoryService extends AbstractHistoryService {
                 .setMessage(message)
                 .setAuthor(author)
                 .setCommitter(author)
-                // A revision represents a user-visible action even when its
-                // canonical content is byte-identical to the preceding state.
-                .setAllowEmpty(true)
                 .call()
                 .getName();
     }
