@@ -95,7 +95,7 @@ public final class UiAccessibilitySmoke {
             });
 
             // The drawer deliberately waits for its slide transition before moving focus.
-            Thread.sleep(500);
+            Thread.sleep(1000);
             onFx(() -> {
                 layout(scene);
                 StackPane drawer = only(scene.getRoot(), ".add-links-drawer", StackPane.class);

@@ -191,7 +191,11 @@ public final class SimulatedEngine implements DownloadEngine {
         int active = 0;
         for (DownloadLink l : all) {
             if (l.state() == DownloadState.RUNNING) { spd += l.speedProp().get(); active++; }
-            if (l.state() != DownloadState.FINISHED) remaining += Math.max(0, l.total() - l.loadedProp().get());
+            if (l.state() != DownloadState.FINISHED
+                    && l.state() != DownloadState.ERROR
+                    && l.state() != DownloadState.DISABLED) {
+                remaining += Math.max(0, l.total() - l.loadedProp().get());
+            }
         }
         globalSpeed.set(spd);
         runningCount.set(active);
