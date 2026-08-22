@@ -792,6 +792,7 @@ public final class SettingsView extends BorderPane {
         ChangeListener<Number> propertyListener = (o, a, b) -> {
             slider.setValue(b.intValue());
             value.setText(String.valueOf(b.intValue()));
+            slider.setAccessibleText(value.getText());
         };
         slider.valueProperty().addListener(sliderListener);
         prop.addListener(propertyListener);
